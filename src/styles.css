@@ -6,7 +6,7 @@ button, input, select { font: inherit; }
 button { min-height: 44px; border: 0; cursor: pointer; touch-action: manipulation; }
 button:disabled { cursor: not-allowed; opacity: .4; }
 
-.menu-screen { min-height: 100dvh; padding: max(22px, env(safe-area-inset-top)) max(28px, env(safe-area-inset-right)) max(22px, env(safe-area-inset-bottom)) max(28px, env(safe-area-inset-left)); display: flex; flex-direction: column; justify-content: center; max-width: 980px; margin: auto; }
+.menu-screen { min-height: 100dvh; padding: max(22px, env(safe-area-inset-top)) max(28px, env(safe-area-inset-right)) max(22px, env(safe-area-inset-bottom)) max(28px, env(safe-area-inset-left)); display: flex; flex-direction: column; justify-content: center; max-width: 980px; margin: auto; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
 .start-screen { align-items: center; text-align: center; background-image: linear-gradient(90deg, transparent 49.7%, rgba(207,174,89,.13) 50%, transparent 50.3%); }
 .title-mark { width: 74px; height: 74px; display: grid; place-items: center; border: 3px solid #d1ae55; transform: rotate(45deg); color: #d1ae55; font: 900 30px Impact, sans-serif; margin-bottom: 26px; }
 .title-mark::first-line { transform: rotate(-45deg); }
@@ -25,12 +25,12 @@ button:disabled { cursor: not-allowed; opacity: .4; }
 .card { background: rgba(30,25,43,.88); border: 1px solid #51445e; padding: 16px; box-shadow: inset 0 0 30px #100d18; }
 .card h2, .commands h2, .log-box h2 { margin: 0 0 12px; color: #d4b45f; font: 14px monospace; letter-spacing: .08em; }
 .character-form { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }.character-form h2 { grid-column: 1 / -1; }
-label { color: #a9a1b5; font-size: 12px; }input, select { display: block; width: 100%; min-height: 42px; margin-top: 4px; padding: 8px; color: #eee8d8; border: 1px solid #594b65; background: #17131f; }
+label { color: #a9a1b5; font-size: 12px; }input, select { display: block; width: 100%; min-height: 42px; margin-top: 4px; padding: 8px; color: #eee8d8; border: 1px solid #594b65; background: #17131f; user-select: auto; -webkit-user-select: auto; }
 .party-preview { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }.party-preview h2 { grid-column: 1 / -1; }
 .party-row { display: grid; grid-template-columns: auto 1fr auto; gap: 4px 10px; align-items: center; border-left: 3px solid #9c7d3b; background: #17131f; padding: 9px; }.party-row .slot { color: #8c8298; font: 10px monospace; }.party-row small { grid-column: 1 / -1; color: #777182; font: 10px monospace; }
 .quest-button { align-self: flex-end; min-width: 250px; }
 
-.game-shell { width: 100vw; height: 100dvh; padding: max(4px, env(safe-area-inset-top)) max(4px, env(safe-area-inset-right)) max(4px, env(safe-area-inset-bottom)) max(4px, env(safe-area-inset-left)); display: grid; grid-template-columns: minmax(0, 640px) minmax(240px, 320px); justify-content: center; align-items: center; gap: 8px; overflow: hidden; user-select: none; -webkit-touch-callout: none; touch-action: manipulation; }
+.game-shell { width: 100vw; height: 100dvh; padding: max(4px, env(safe-area-inset-top)) max(4px, env(safe-area-inset-right)) max(4px, env(safe-area-inset-bottom)) max(4px, env(safe-area-inset-left)); display: grid; grid-template-columns: minmax(0, 640px) minmax(240px, 320px); justify-content: center; align-items: center; gap: 8px; overflow: hidden; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; touch-action: manipulation; }
 .game-stage { width: 100%; aspect-ratio: 16 / 9; min-height: 0; background: #08070d; border: 2px solid #493c55; }.phaser-host, .phaser-host canvas { width: 100% !important; height: 100% !important; display: block; image-rendering: pixelated; }
 .hud-panel { height: min(100%, 360px); min-height: 0; display: flex; flex-direction: column; background: #17131f; border: 1px solid #493c55; }
 .hud-header { display: flex; justify-content: space-between; padding: 9px; color: #d4b45f; background: #241d30; font: 11px monospace; }

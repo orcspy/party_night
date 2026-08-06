@@ -49,3 +49,115 @@
 - 호환성·의존성 변경: React 19, Phaser 3.90, Vite 6.4.3, TypeScript 5.7, Vitest 3.2.7을 등록하고 `package-lock.json`으로 고정했다. 보안 취약 버전이었던 초기 Vite/Vitest 잠금값을 같은 메이저의 수정 버전으로 교체했으며 `npm audit` 결과 취약점 0건이다.
 - 검증 결과: `npm run typecheck` 성공. `npm test -- --run src/tests/combat.test.ts`에서 1개 파일·8개 테스트 성공. `npm audit` 취약점 0건. 최초 타입 검사에서 `.ts` 파일의 JSX 구문 오류를 확인해 `React.createElement`로 수정한 뒤 재검증했다.
 - 실패·미확정 사항: 1단계 범위에 따라 전체 테스트, production build, 애플리케이션 실제 실행, 모바일 실기기 및 수동 플레이 시나리오는 실행하지 않았다. 임시 콘텐츠 수치·도형 그래픽과 장기 기능은 설계대로 미확정 또는 제외 상태다.
+
+## 2026-08-06 22:31:04 +09:00 | Coder | 사용자 기본 플레이 검증 결과 기록 및 후속 단계 정리
+
+- 작업 루트·모드: `E:\Work\20260806\party_night` | 원본 직접 작업
+- 사용자 작업 지시 원문: `기본 테스트는 진행 했어. 플레이어 설정후 입장 던전 탐사와 전투, 출구진입 후 결산 단계까지 확인. \n이제 이후의 남은 진행 단계를 정리해서 출력해줘.`
+- 사용한 설계문서: `implements.md`, `AGENTS.md`
+- 조사 범위: 사용자 수동 검증 결과와 `implements.md`의 구현 단계·완료 기준 비교
+- 검증 단계: 사용자 수행 수동 기본 플레이 검증 결과 기록
+- 변경 파일: `changelog.md`
+- 결정 근거 및 결과: 사용자가 플레이어 설정부터 던전 탐사, 전투, 출구 진입, 결산까지 핵심 성공 루프를 확인했다. 남은 항목은 자동 회귀 검증, 패배·저장·리롤 경계 시나리오, production build, 모바일 실기기 검증, 발견 결함 수정과 MVP 완료 판정 순으로 정리한다.
+- 실패·미확정 사항: 패배 흐름, 새로고침 저장 복구, 모바일 iOS/Android 실기기, 전체 테스트·build 결과는 아직 보고되지 않았다.
+
+## 2026-08-06 22:36:26 +09:00 | Coder | 전체 자동 테스트 및 production build 결과 기록
+
+- 작업 루트·모드: `E:\Work\20260806\party_night` | 원본 직접 작업
+- 사용자 작업 지시 원문: `npm run test 완료. npm run build 완료.\n============================\nnpm run build\n\n> party-night@0.1.0 build\n> tsc -b && vite build\n\nvite v6.4.3 building for production...\n✓ 44 modules transformed.\ndist/index.html                     0.50 kB │ gzip:   0.31 kB\ndist/assets/index-Dbz0DAia.css      6.39 kB │ gzip:   2.21 kB\ndist/assets/index-B1RGQ7q5.js   1,698.02 kB │ gzip: 409.12 kB\n\n(!) Some chunks are larger than 500 kB after minification. Consider:\n- Using dynamic import() to code-split the application\n- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks\n- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.\n✓ built in 6.83s\n============================\n빌드 로그 참조.`
+- 사용한 설계문서: `implements.md`, `AGENTS.md`
+- 조사 범위: 사용자가 보고한 전체 자동 테스트 완료 여부와 Vite production build 로그
+- 검증 단계: 사용자 수행 전체 자동 테스트 및 production build
+- 변경 파일: `changelog.md`
+- 결정 근거 및 결과: `npm run test`가 완료되었고 `npm run build`가 44개 모듈을 변환해 6.83초에 성공했다. 생성된 주요 JS 청크는 1,698.02 kB, gzip 409.12 kB이다.
+- 실패·미확정 사항: 빌드 실패는 없다. 500 kB를 초과한 JS 청크 경고가 있으나 MVP 진행을 막는 오류는 아니다. 현재 콘텐츠 규모에서는 즉시 코드 분할을 추가하지 않고 모바일 초기 로딩·메모리 측정에서 실제 문제가 확인될 때 최적화하는 것이 `AGENTS.md`의 조기 최적화 금지 원칙에 부합한다. 패배·저장 경계 시나리오와 모바일 실기기 검증은 아직 미확정이다.
+
+## 2026-08-06 22:38:21 +09:00 | Coder | 모바일 실기기 테스트 절차 안내
+
+- 작업 루트·모드: `E:\Work\20260806\party_night` | 원본 직접 작업
+- 사용자 작업 지시 원문: `현재 상태에서 pc에서 test, build, 실 플레이(npm run dev)는 확인 했지만 모바일 환경에서 테스트는 어떻게 하는가?`
+- 사용한 설계문서: `implements.md`, `AGENTS.md`
+- 조사 범위: Vite 개발·preview 서버의 LAN 접근 방식과 Android Chrome·iOS Safari 수동 검증 항목
+- 검증 단계: 실행 절차 안내; 명령 미실행
+- 변경 파일: `changelog.md`
+- 결정 근거 및 결과: PC와 모바일을 같은 신뢰 가능한 LAN에 연결하고 Vite 서버를 `--host`로 바인딩한 뒤 PC의 사설 IP와 포트로 접속하는 절차를 우선 제시한다. 실제 배포 번들 확인에는 `npm run preview -- --host`를 사용한다.
+- 실패·미확정 사항: 현재 PC의 사설 IP, Windows 방화벽 허용 상태, 사용 가능한 Android/iOS 기기와 브라우저 버전은 확인하지 않았다.
+
+## 2026-08-06 23:00:55 +09:00 | Coder | Android 실기기 검증 결과 및 iOS 접속 원인 분석
+
+- 작업 루트·모드: `E:\Work\20260806\party_night` | 원본 직접 작업
+- 사용자 작업 지시 원문: `android에서는 문제 없이 접속 되고 진행 되었어, iOS Safari에서는 접속 시 "연결된 네트워크가 비공개가 아님" 문제가 발생하고 있음. 아래의 결과는 android 타블렛에서의 테스트 결과임. 원인만 분석 후 iOS는 우선 지원 대상에서 제외.\n가로 화면에서 전체 ui가 표시가 되었어. ( 타블렛 가로 화면 )\n세로 화면에서는 가로 회전 안내 표시됨.\nSafe Area와 브라우저 주소창 변화에 UI가 가려지지 않는지. : 타블렛 화면에서는 가져지지 않음.\n이동 버튼은 정확함.\n빠른 연속 터치로 중복 행동 없음.\n스크롤, 확대는 안되지만 텍스트 부분에 롱터치를 할 경우 텍스트 선택이 발생함.\n전투명령, 대상 선택, 리롤은 정확함.\n백그라운드 후 복구됨\n저장 데이터 새로고침 후 유지됨.\n초기 접속 시 로딩 지연이나 빈 화면 확인 안됨.`
+- 사용한 설계문서: `implements.md`, `AGENTS.md`
+- 조사 범위: 사용자가 보고한 Android 태블릿 수동 검증 결과, Vite LAN HTTP 접속과 iOS Safari 보안 경고의 가능한 원인, 현재 CSS의 텍스트 선택 방지 적용 범위
+- 검증 단계: 사용자 수행 Android 실기기 수동 검증 결과 기록; iOS는 원인 분석만 수행
+- 변경 파일: `changelog.md`
+- 결정 근거 및 결과: Android 태블릿에서 화면 방향, safe area, 이동·연속 입력, 전투·리롤, 백그라운드 복구, 저장 복구 및 초기 로딩을 통과했다. iOS Safari 메시지는 게임 로직보다 로컬 Vite 서버의 HTTP/HTTPS 접속 방식, 사설 IP에 대한 인증서 신뢰 또는 Safari의 HTTPS 우선 연결과 관련될 가능성이 높다. 사용자의 최신 지시에 따라 iOS Safari를 현 우선 지원·완료 판정 대상에서 제외한다.
+- 위험·미확정 사항: 실제 iOS 접속 URL의 scheme, Safari 경고 원문·상세 인증서 정보와 공유기 보안 설정을 확인하지 않았으므로 단일 원인을 확정할 수 없다. 텍스트 롱터치 선택은 `.game-shell`에만 `user-select: none`과 `-webkit-touch-callout: none`이 적용되고 시작·준비·결과의 `.menu-screen`에는 적용되지 않은 범위 누락으로 판단된다. 원인 분석 요청에 따라 코드 수정은 수행하지 않았다.
+
+## 2026-08-06 23:06:44 +09:00 | Planner | 지원 대상 및 검증 기준 변경 설계
+
+- 대상: Party Night MVP의 정식 지원 환경, 완료 기준 및 남은 검증 계획
+- 사용자 작업 지시 원문: `/agent Planner\n정식 지원대상 변경을 해서 문서 작업을 해줘. 퀘스트 성공이후 복귀는 테스트가 완료 되었지만, 현재 상태에서 전투로 인한 전멸 테스트는 불가능해보임.\n전투 발생 칸에서 전진/후진을 반복해도 조우가 다시 일어나진 않음.`
+- 사용한 기준 문서: `AGENTS.md`, `architecture.md`, `implements.md`, 기존 `changelog.md`
+- 조사 범위: 현재 지원 브라우저 규칙, 사용자 PC·Android 검증 결과, `combat.ts`의 전멸 판정, `gameStore.ts`의 패배 전환·승리 후 조우 기록, 전투·탐사 자동 테스트 사양
+- 생성·갱신 문서: `architecture.md`, `implements.md`, `changelog.md`
+- 결정 근거: 사용자의 최신 명시적 지시를 `AGENTS.md`의 기존 iOS Safari 확인 규칙보다 우선했다. 전멸은 코드와 자동 규칙 테스트가 존재하지만 현재 밸런스와 명령 구조로 의도적인 수동 재현이 어려워, production 치트 UI 대신 결정론적 store 통합 테스트로 검증하도록 설계했다.
+- 핵심 결과: MVP 우선 지원 대상을 Android Chrome 가로 화면으로 정식 변경하고 iOS Safari를 현 단계에서 제외했다. 퀘스트 성공 후 복귀와 재조우 방지는 수동 검증 완료로 기록했다. 패배 수동 플레이는 완료 기준에서 제외하되, 패배 결과·무보상·준비 복귀 자동 통합 테스트를 Coder 후속 작업으로 지정했다.
+- 위험·미확정 사항: Android 롱터치 텍스트 선택 결함이 남아 있다. Android 태블릿은 통과했으나 소형 스마트폰 화면은 미확인이다. `AGENTS.md`는 정적 공통 규칙이므로 수정하지 않아 iOS 규칙과 최신 지원 정책의 차이는 `architecture.md`에 명시했다.
+
+## 2026-08-06 23:36:32 +09:00 | Coder | Android 입력 및 패배 통합 검증 후속 작업
+
+- 작업 루트·모드: `E:\Work\20260806\party_night` | 원본 직접 작업
+- 사용자 작업 지시 원문: `/agent Coder\n후속 작업을 진행해줘.`
+- 사용한 설계문서: `implements.md` 제19.2절, `architecture.md`, `AGENTS.md`
+- 조사 범위: `.menu-screen`·`.game-shell`의 텍스트 선택 CSS, `gameStore` 초기화·전투 패배·결과·준비 복귀 흐름, 기존 전투 테스트와 검증 명령
+- 검증 단계: 2단계 빌드 검증에 설계가 지정한 전체 자동 테스트 추가
+- 변경 파일: `src/styles.css`, `src/app/gameStore.ts`, `src/tests/gameStore.test.ts`, `changelog.md`
+- 결정 근거: 시작·준비·결과 화면까지 선택 억제 범위를 확장하되 이름 입력 편집은 유지했다. production 치트 UI 없이 결정론적 패배 상태를 주입할 수 있도록 `createGameStore`에 선택적 초기 상태를 허용하고 public dispatch 경로로 실제 패배를 발생시켰다.
+- 핵심 구현: `.menu-screen`과 `.game-shell`에 `user-select`, `-webkit-user-select`, `-webkit-touch-callout` 억제를 적용하고 input/select에는 선택을 복원했다. 통합 테스트는 마지막 생존 파티원이 적 공격으로 쓰러지는 상태를 구성해 패배 결과, 보상 0, 누적 재화 불변, 준비 복귀 시 세션 제거, 다음 퀘스트 전원 회복을 검증한다.
+- 호환성·의존성 변경: 없음.
+- 검증 결과: `npm run typecheck` 성공. `npm test -- --run src/tests/gameStore.test.ts` 1개 성공. `npm run test` 4개 파일·15개 테스트 성공. `npm run build` 성공(44 modules, 6.98초). 기존 500 kB 초과 번들 경고는 유지되며 빌드 실패가 아니다.
+- 실패·미확정 사항: Android 실기기에서 롱터치 선택이 사라졌는지는 자동 검증할 수 없어 사용자 재확인이 필요하다. 소형 Android 스마트폰 검증은 환경이 없어 실행하지 않았다. 기존 Planner 문서 변경은 그대로 보존했다.
+
+## 2026-08-06 23:39:27 +09:00 | Coder | Android 롱터치 선택 방지 실기기 확인
+
+- 작업 루트·모드: `E:\Work\20260806\party_night` | 원본 직접 작업
+- 사용자 작업 지시 원문: `Android에서 롱터치 선택 확인 완료.`
+- 사용한 설계문서: `implements.md`, `architecture.md`
+- 조사 범위: 직전 Coder 작업의 Android 롱터치 텍스트 선택 방지 변경에 대한 사용자 실기기 검증 결과
+- 검증 단계: 사용자 수행 Android 실기기 수동 검증
+- 변경 파일: `changelog.md`
+- 결정 근거 및 결과: 사용자가 Android에서 롱터치 선택 방지 동작을 확인했다. 이에 따라 해당 후속 결함은 해결 및 수동 검증 완료로 기록한다.
+- 실패·미확정 사항: 소형 Android 스마트폰 가로 화면 검증은 별도 확인되지 않았다. `architecture.md`와 `implements.md`의 검증 상태 갱신은 Planner 문서 작업 대상으로 남는다.
+
+## 2026-08-06 23:40:41 +09:00 | Coder | 소형 Android 스마트폰 검증 제외 기록
+
+- 작업 루트·모드: `E:\Work\20260806\party_night` | 원본 직접 작업
+- 사용자 작업 지시 원문: `현재 소형 android 스마트폰이 없어 해당 검증은 패스해줘.`
+- 사용한 설계문서: `implements.md`, `architecture.md`
+- 조사 범위: 남아 있던 소형 Android 스마트폰 가로 화면 추가 검증 항목
+- 검증 단계: 사용자 지시에 따른 환경 미보유 검증 제외
+- 변경 파일: `changelog.md`
+- 결정 근거 및 결과: 사용 가능한 소형 Android 스마트폰이 없으므로 해당 실기기 검증을 현재 완료 판정에서 제외한다. Android 태블릿 Chrome 검증 결과를 현 모바일 검증 근거로 유지한다.
+- 실패·미확정 사항: 소형 Android 스마트폰의 좁은 가로 화면 호환성은 확인되지 않았으며, 향후 기기 확보 시 선택적으로 재검증할 수 있다. 정식 문서 상태 갱신은 Planner 작업 대상으로 남는다.
+
+## 2026-08-06 23:44:14 +09:00 | Planner | 문서 완료 상태 반영 시도
+
+- 대상: Android 지원·패배 통합 검증·모바일 제외 범위의 최종 문서 상태
+- 사용자 작업 지시 원문: `/agent Planner\n문서 작업 후 커밋해줘.`
+- 사용한 기준 문서: `AGENTS.md`, `architecture.md`, `implements.md`, `changelog.md`; 구현·테스트 결과 `src/app/gameStore.ts`, `src/styles.css`, `src/tests/gameStore.test.ts`
+- 조사 범위: Android 롱터치 수정과 실기기 확인, 패배 결과·무보상·복귀·회복 통합 테스트, 전체 테스트·build 결과, 소형 Android 스마트폰 검증 제외 결정
+- 생성·갱신 문서: `changelog.md`
+- 결정 근거 및 결과: 롱터치 결함과 패배 통합 검증은 완료되었고 소형 Android 스마트폰은 사용자 지시에 따라 완료 판정에서 제외해야 한다. 그러나 현재 실행 권한에서 `architecture.md`와 `implements.md` 편집이 차단되어 정식 문서 반영과 후속 커밋을 완료하지 못했다.
+- 실패·미확정 사항: `architecture.md`와 `implements.md`가 여전히 롱터치 부분 실패 및 Coder 후속 작업 상태를 표시한다. 불일치 상태의 커밋을 피하기 위해 Git commit은 수행하지 않았다.
+
+## 2026-08-06 23:46:18 +09:00 | Planner | 후속 작업 완료 상태 문서화
+
+- 대상: Android 지원·패배 통합 검증·모바일 제외 범위의 최종 문서 상태
+- 사용자 작업 지시 원문: `/agent Planner\n문서 작업 후 커밋해줘.`
+- 사용한 기준 문서: `AGENTS.md`, `architecture.md`, `implements.md`, `changelog.md`; 구현·테스트 결과 `src/app/gameStore.ts`, `src/styles.css`, `src/tests/gameStore.test.ts`
+- 조사 범위: Android 롱터치 수정과 실기기 확인, 패배 결과·무보상·복귀·회복 통합 테스트, 전체 테스트·build 결과, 소형 Android 스마트폰 검증 제외 결정
+- 생성·갱신 문서: `architecture.md`, `implements.md`, `changelog.md`
+- 결정 근거: 롱터치 결함은 Coder 수정과 사용자 실기기 확인으로 해결되었고, 수동 재현이 어려운 전멸 흐름은 결정론적 자동 통합 테스트로 완료 기준을 충족했다. 소형 Android 스마트폰은 기기 미보유와 사용자 명시적 제외 지시에 따라 완료 판정에서 제외한다.
+- 핵심 결과: Android 롱터치 선택 방지와 패배 통합 검증을 완료 상태로 변경했다. 모바일 근거는 Android 태블릿 Chrome이며 iOS Safari·소형 Android 스마트폰·번들 최적화는 현 단계 제외 범위로 정리했다.
+- 위험·미확정 사항: Android Chrome 최소 버전과 소형 스마트폰의 좁은 화면 호환성은 확정되지 않았다. iOS 재지원에는 별도 네트워크 보안 설계가 필요하다.

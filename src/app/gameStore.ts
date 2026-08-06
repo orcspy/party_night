@@ -146,9 +146,9 @@ export interface GameStore {
   subscribe: (listener: Listener) => () => void
 }
 
-export function createGameStore(): GameStore {
-  const saved = readSave()
-  let state: GameState = {
+export function createGameStore(initialState?: GameState): GameStore {
+  const saved = initialState ? null : readSave()
+  let state: GameState = initialState ?? {
     screen: 'start',
     profile: saved ? { mainCharacterConfig: saved.mainCharacterConfig, totalGold: saved.totalGold, totalExperience: saved.totalExperience } : { mainCharacterConfig: DEFAULT_CONFIG, totalGold: 0, totalExperience: 0 },
     hasSave: Boolean(saved), session: null, result: null,
