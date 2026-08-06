@@ -214,3 +214,50 @@
 - 핵심 결과: Android Chrome과 iOS Safari를 v0.1.0 지원 환경으로 반영하고 iOS 전체 화면 조건을 `도구 막대 가리기`로 기록했다. `raw_data_table.md`에 경험치·레벨, 종족·직업, 스킬, 장비 슬롯, 1차 장비/소비 아이템 상점, 적, 조우, 퀘스트, 맵, 보상, 동료, 저장 및 에셋 입력표를 생성했다.
 - 검증 결과: `npm run build` 성공(44 modules, 6.71초). 생성된 `dist/index.html`이 `/pn/assets/index-DPlu7iJU.js`와 `/pn/assets/index-CLAjr0hI.css`를 참조함을 확인했다. 기존 500 kB 초과 번들 경고는 유지되며 기준선 차단 사항이 아니다.
 - 위험·미확정 사항: raw data의 `TBD` 값은 사용자 입력 후 별도 설계 승인이 필요하다. iOS Safari 버전, Android Chrome 최소 버전과 소형 Android 스마트폰 화면은 확정되지 않았다. GitHub tag push나 GitHub Release 생성은 별도 지시가 필요하다.
+
+## 2026-08-07 05:21:48 +09:00 | Planner | 기본 능력치 파생 모델 사전 검토
+
+- 대상: 현재 HP·ATK·DEF·AGI를 STR·DEX·INT·CON·AGI·LUCK에서 파생하는 임시 모델
+- 사용자 작업 지시 원문: `/agent Planner\n현재 표시되는 스테이터스 중 hp, atk, def 들에 대해서 케릭터는 기본적으로 str, dex, int, con, agi, luck의 스테이터스를 갖게 하고 직업별로 str, dex, int를 기준으로 atk를 계산하도록 하고 con을 기반으로 hp를 con, str, dex의 조합으로 def를 산출하는 방식을 두려고 한다. (luck은 공격시 크리티컬 확률 등에 영향을 줄 "예정"으로 현 단계에서는 해당 스텟만 우선적으로 적용. ) 현재 표시되는 스테이터스를 케릭터 기본 스테이터스를 기반으로 계산하기 위하여 필요한 스테이터스 항목이 더 있을지 확인하고 바로 사용할 수 있는 직업별 임시 스테이터스(str, dex, int, con, agi, luck)값을 산출해서 표시해줘. 검토 후 적용 할지 기존의 방식으로 갈지 결정 하려 함. 이 작업은 설계 전 검토 작업으로 현재 단계에서 구조 문서에 추가 하지는 않는다.`
+- 사용한 기준 문서: `AGENTS.md`, `architecture.md`, `implements.md`, `raw_data_table.md`; 현재 직업 수치 `src/game/content.ts`
+- 조사 범위: 6개 직업의 현재 HP·ATK·DEF·AGI, 6개 기본 능력치의 책임, 파생 공식에 필요한 클래스 설정·반올림·보정 항목, 동일 포인트 예산의 임시 능력치 배분
+- 생성·갱신 문서: `changelog.md`; 사용자 지시에 따라 `architecture.md`, `implements.md`, `raw_data_table.md`에는 반영하지 않음
+- 결정 근거: 현재 전투 규칙만 유지한다면 STR·DEX·INT·CON·AGI·LUCK 외의 추가 기본 능력치는 필요하지 않다. 다만 `currentHp`, 레벨, 직업별 공격 기준 능력치, 클래스 ATK·DEF 보정, 반올림과 최소값, 장비·상태 보정 단계를 별도 데이터로 구분해야 한다.
+- 핵심 결과: 직업당 기본 능력치 합계 36, 각 값 1~10의 임시 배분과 파생 공식을 구성했다. 계산 결과 전사 30/5/4/2, 도적 22/4/2/6, 궁수 24/5/2/5, 성기사 28/4/5/2, 사제 23/3/3/3, 마법사 18/6/1/4로 현재 HP/ATK/DEF/AGI를 정확히 재현한다. LUCK은 저장·표시만 하고 현재 판정에는 사용하지 않는다.
+- 위험·미확정 사항: 성기사의 높은 DEF와 사제·마법사의 공격 차이를 유지하기 위해 직업별 파생 보정값이 필요하다. WIS, 명중, 회피, 크리티컬 피해, 마법 방어는 해당 규칙이 확정되기 전에는 기본 능력치로 추가하지 않는 것이 적절하다. 본 결과는 적용 전 검토안이며 구현 승인이 아니다.
+
+## 2026-08-07 06:06:32 +09:00 | Planner | 기본 능력치 파생 모델 정식 문서 반영
+
+- 대상: STR·DEX·INT·CON·AGI·LUCK 원본 능력치와 HP·ATK·DEF·전투 AGI 파생 구조
+- 사용자 작업 지시 원문: `현 검토안으로 문서에도 작업을 해줘.`
+- 사용한 기준 문서: `AGENTS.md`, `architecture.md`, `implements.md`, `raw_data_table.md`; 직전 기본 능력치 사전 검토 결과
+- 조사 범위: 원본·파생·런타임 상태 경계, 직업별 임시 능력치·공격 기준·보정값, 현재 수치 호환성, UI·저장·테스트·금지 범위
+- 생성·갱신 문서: `architecture.md`, `implements.md`, `raw_data_table.md`, `changelog.md`
+- 결정 근거: 6개 기본 능력치와 직업 파생 설정으로 v0.1.0의 모든 직업별 HP·ATK·DEF·AGI를 정확히 재현할 수 있고, 현재 저장 구조를 변경하지 않으면서 향후 성장·장비의 원본 데이터 기반을 제공한다.
+- 핵심 결과: 기본 능력치 책임, 파생 공식, 직업별 합계 36의 임시값, ATK/DEF 보정, 데이터 흐름과 위험을 `architecture.md`에 기록했다. `implements.md`에는 타입·파일·함수·UI·저장 호환성·자동 테스트·완료 기준을 실행 사양으로 추가했다. `raw_data_table.md`에는 해당 값을 `approved` 상태로 입력했다.
+- 위험·미확정 사항: 코드에는 아직 적용되지 않았다. LUCK은 표시·저장만 하고 판정에 사용하지 않는다. 성장·장비·크리티컬·WIS·명중·회피·마법 방어는 별도 설계 전까지 범위 밖이다.
+
+## 2026-08-07 06:13:35 +09:00 | Coder | 기본 능력치 파생 모델 구현
+
+- 작업 루트·모드: `E:\Work\20260806\party_night` | 원본 직접 작업
+- 사용자 작업 지시 원문: `/agent Coder\n위의 신규 스테이터스를 기반으로 하도록 설계사양을 확인해서 작업 해줘`
+- 사용한 설계문서: `implements.md` 제21절 최우선, `architecture.md` 제12절, `raw_data_table.md`, `AGENTS.md`
+- 조사 범위: Actor·직업 콘텐츠·파티 생성·전투 행동 순서·준비 화면·기존 자동 테스트와 저장 호환성
+- 검증 단계: 2단계 빌드 검증에 설계가 지정한 전체 자동 테스트 추가
+- 변경 파일: `src/game/types.ts`, `src/game/content.ts`, `src/ui/SetupScreen.tsx`, `src/tests/attributes.test.ts`, `changelog.md`
+- 결정 근거: 파티 캐릭터에만 기본 능력치가 필요하므로 적 Actor와의 기존 호환성을 위해 `attributes`를 선택 필드로 추가했다. 기본 능력치와 직업 파생 설정을 `CLASS_DATA`의 원본으로 두고 순수 `deriveCombatStats`에서만 HP·ATK·DEF·전투 AGI를 계산했다.
+- 핵심 구현: `BaseAttributes`, `AttackBasis`, `ClassDerivation`, `DerivedCombatStats` 타입과 6개 직업의 합계 36 능력치를 추가했다. 파티 생성은 파생 수치로 Actor를 생성하며, 준비 화면은 STR·DEX·INT·CON·AGI·LUCK과 HP·ATK·DEF·전투 AGI를 구분해 표시한다. LUCK은 `현재 효과 없음`으로 표시하고 판정에서는 읽지 않는다.
+- 호환성·의존성 변경: 신규 패키지와 저장 스키마 변경 없음. 기존 직업별 HP·ATK·DEF·AGI와 v0.1.0 저장 데이터 생성 흐름을 유지한다. 기본 능력치는 1 이상의 유한한 정수만 허용한다.
+- 검증 결과: `npm run typecheck` 성공. 신규 능력치 테스트 6개 성공. `npm run test` 전체 5개 파일·21개 테스트 성공. `npm run build` 성공(44 modules, 7.45초). 기존 500 kB 초과 번들 경고는 유지되며 빌드 실패가 아니다.
+- 실패·미확정 사항: 실제 PC·Android·iOS 화면에서 늘어난 준비 화면 정보 배치는 수동 확인하지 않았다. 성장·장비·크리티컬과 LUCK 효과는 설계대로 미구현이다. Planner가 작성한 문서 변경은 그대로 보존했다.
+
+## 2026-08-07 07:08:14 +09:00 | Coder | 신규 능력치 UI 수동 확인 및 Git 반영
+
+- 작업 루트·모드: `E:\Work\20260806\party_night` | 원본 직접 작업
+- 사용자 작업 지시 원문: `PC와 iOS safari 에서 확인 완료.\n현재 까지 작업된 내용을 커밋&푸시 해줘.`
+- 사용한 설계문서: `architecture.md`, `implements.md`, `raw_data_table.md`
+- 조사 범위: 신규 기본 능력치와 파생 수치가 표시된 준비 화면의 사용자 PC·iOS Safari 확인 결과, 현재 전체 변경 파일과 Git 상태
+- 검증 단계: 사용자 수행 PC·iOS Safari 수동 검증과 직전 전체 자동 테스트·production build 결과 사용
+- 변경 파일: `changelog.md`; 커밋 대상은 현재 작업 단위의 설계문서·원시 데이터표·능력치 구현·테스트 전체
+- 결정 근거 및 결과: 사용자가 PC와 iOS Safari에서 신규 능력치 UI를 확인했으므로 미확정이었던 준비 화면 정보 배치 검증을 완료로 기록하고 현재 변경 전체를 커밋·푸시 대상으로 확정한다.
+- 실패·미확정 사항: Android에서 변경된 준비 화면의 재확인은 보고되지 않았다. 성장·장비·크리티컬 및 LUCK 효과는 범위 밖이다.

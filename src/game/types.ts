@@ -25,6 +25,30 @@ export interface Stats {
   agi: number
 }
 
+export interface BaseAttributes {
+  str: number
+  dex: number
+  int: number
+  con: number
+  agi: number
+  luck: number
+}
+
+export type AttackBasis = 'str' | 'dex' | 'int' | 'max_str_int'
+
+export interface ClassDerivation {
+  attackBasis: AttackBasis
+  attackModifier: number
+  defenseModifier: number
+}
+
+export interface DerivedCombatStats {
+  maxHp: number
+  atk: number
+  def: number
+  agi: number
+}
+
 export interface Actor extends Stats {
   id: string
   contentId: string
@@ -32,6 +56,7 @@ export interface Actor extends Stats {
   side: Side
   classId?: ClassId
   row?: 'front' | 'back'
+  attributes?: BaseAttributes
   skillIds: string[]
 }
 

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { CLASS_DATA, RACES } from '../game/content'
+import { CLASS_DATA, deriveCombatStats, RACES } from '../game/content'
 import type { ClassId, GameCommand, GameState, MainCharacterConfig, RaceId } from '../game/types'
 
 interface Props {
@@ -54,6 +54,14 @@ export function SetupScreen({ state, dispatch }: Props) {
 }
 
 function PartyRow({ slot, name, classId }: { slot: string; name: string; classId: ClassId }) {
-  const stats = CLASS_DATA[classId]
-  return <div className="party-row"><span className="slot">{slot}</span><strong>{name}</strong><span>{stats.name}</span><small>HP {stats.hp} · ATK {stats.atk} · DEF {stats.def} · AGI {stats.agi}</small></div>
+  const classData = CLASS_DATA[classId]
+  const attributes = classData.attributes
+  const stats = deriveCombatStats(attributes, classData.derivation)
+  return (
+    <div className="party-row">
+      <span className="slot">{slot}</span><strong>{name}</strong><span>{classData.name}</span>
+      <small>STR {attributes.str} · DEX {attributes.dex} · INT {attributes.int} · CON {attributes.con} · AGI {attributes.agi} · LUCK {attributes.luck} (현재 효과 없음)</small>
+      <small>HP {stats.maxHp} · ATK {stats.atk} · DEF {stats.def} · 전투 AGI {stats.agi}</small>
+    </div>
+  )
 }

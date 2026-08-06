@@ -108,14 +108,40 @@ v0.1.0에서는 종족이 수치에 영향을 주지 않는다. 확장에서 보
 
 ## 6. 직업 기본 데이터
 
-| class_id | 표시 이름 | 시작 HP | 시작 ATK | 시작 DEF | 시작 AGI | 권장 열 | 역할 설명 | 기본 skill_id | 상태 |
+### 6.1 기본 능력치와 파생 설정
+
+| class_id | STR | DEX | INT | CON | AGI | LUCK | attackBasis | ATK 보정 | DEF 보정 | 상태 |
+|---|---:|---:|---:|---:|---:|---:|---|---:|---:|---|
+| `warrior` | 10 | 5 | 3 | 9 | 3 | 6 | str | 0 | 1 | approved |
+| `rogue` | 4 | 9 | 4 | 5 | 10 | 4 | dex | 0 | 0 | approved |
+| `archer` | 5 | 10 | 4 | 6 | 8 | 3 | dex | 0 | 0 | approved |
+| `paladin` | 8 | 4 | 7 | 8 | 3 | 6 | max_str_int | 0 | 3 | approved |
+| `priest` | 4 | 5 | 10 | 6 | 5 | 6 | int | -2 | 1 | approved |
+| `mage` | 3 | 7 | 10 | 3 | 7 | 6 | int | 1 | 0 | approved |
+
+### 6.2 파생 공식
+
+```text
+maxHp = 11 + (CON × 2) + floor((STR + DEX) / 10)
+atk = max(1, floor(attackBasis / 2) + ATK 보정)
+def = max(1, floor(((CON × 2) + STR + DEX) / 10) + DEF 보정)
+battleAgi = max(1, floor((AGI + 2) / 2))
+```
+
+- `max_str_int`는 `max(STR, INT)`다.
+- LUCK은 현 단계에서 파생값과 판정에 영향을 주지 않는다.
+- 직업 초기 능력치 합계는 36이며 각 값은 1~10이다.
+
+### 6.3 계산 결과와 현재 호환값
+
+| class_id | 표시 이름 | 계산 HP | 계산 ATK | 계산 DEF | 계산 전투 AGI | 권장 열 | 역할 설명 | 기본 skill_id | 상태 |
 |---|---|---:|---:|---:|---:|---|---|---|---|
-| `warrior` | 전사 | 30 | 5 | 4 | 2 | 전열 | `TBD` | `power_strike` | current |
-| `rogue` | 도적 | 22 | 4 | 2 | 6 | `TBD` | `TBD` | `quick_stab` | current |
-| `archer` | 궁수 | 24 | 5 | 2 | 5 | 후열 | `TBD` | `aimed_shot` | current |
-| `paladin` | 성기사 | 28 | 4 | 5 | 2 | `TBD` | `TBD` | `holy_strike` | current |
-| `priest` | 사제 | 23 | 3 | 3 | 3 | 후열 | `TBD` | `smite` | current |
-| `mage` | 마법사 | 18 | 6 | 1 | 4 | `TBD` | `TBD` | `arcane_bolt` | current |
+| `warrior` | 전사 | 30 | 5 | 4 | 2 | 전열 | `TBD` | `power_strike` | approved |
+| `rogue` | 도적 | 22 | 4 | 2 | 6 | `TBD` | `TBD` | `quick_stab` | approved |
+| `archer` | 궁수 | 24 | 5 | 2 | 5 | 후열 | `TBD` | `aimed_shot` | approved |
+| `paladin` | 성기사 | 28 | 4 | 5 | 2 | `TBD` | `TBD` | `holy_strike` | approved |
+| `priest` | 사제 | 23 | 3 | 3 | 3 | 후열 | `TBD` | `smite` | approved |
+| `mage` | 마법사 | 18 | 6 | 1 | 4 | `TBD` | `TBD` | `arcane_bolt` | approved |
 
 ## 7. 스킬 데이터
 

@@ -1,13 +1,39 @@
-import type { Actor, ClassId, MainCharacterConfig, Skill } from './types'
+import type { Actor, BaseAttributes, ClassDerivation, ClassId, DerivedCombatStats, MainCharacterConfig, Skill } from './types'
 
 // TODO(MVP): Replace temporary balance, names, and map data when final content is approved.
-export const CLASS_DATA: Record<ClassId, { name: string; hp: number; atk: number; def: number; agi: number; skillId: string }> = {
-  warrior: { name: '전사', hp: 30, atk: 5, def: 4, agi: 2, skillId: 'power_strike' },
-  rogue: { name: '도적', hp: 22, atk: 4, def: 2, agi: 6, skillId: 'quick_stab' },
-  archer: { name: '궁수', hp: 24, atk: 5, def: 2, agi: 5, skillId: 'aimed_shot' },
-  paladin: { name: '성기사', hp: 28, atk: 4, def: 5, agi: 2, skillId: 'holy_strike' },
-  priest: { name: '사제', hp: 23, atk: 3, def: 3, agi: 3, skillId: 'smite' },
-  mage: { name: '마법사', hp: 18, atk: 6, def: 1, agi: 4, skillId: 'arcane_bolt' },
+export interface ClassData {
+  name: string
+  attributes: BaseAttributes
+  derivation: ClassDerivation
+  skillId: string
+}
+
+export const CLASS_DATA: Record<ClassId, ClassData> = {
+  warrior: { name: '전사', attributes: { str: 10, dex: 5, int: 3, con: 9, agi: 3, luck: 6 }, derivation: { attackBasis: 'str', attackModifier: 0, defenseModifier: 1 }, skillId: 'power_strike' },
+  rogue: { name: '도적', attributes: { str: 4, dex: 9, int: 4, con: 5, agi: 10, luck: 4 }, derivation: { attackBasis: 'dex', attackModifier: 0, defenseModifier: 0 }, skillId: 'quick_stab' },
+  archer: { name: '궁수', attributes: { str: 5, dex: 10, int: 4, con: 6, agi: 8, luck: 3 }, derivation: { attackBasis: 'dex', attackModifier: 0, defenseModifier: 0 }, skillId: 'aimed_shot' },
+  paladin: { name: '성기사', attributes: { str: 8, dex: 4, int: 7, con: 8, agi: 3, luck: 6 }, derivation: { attackBasis: 'max_str_int', attackModifier: 0, defenseModifier: 3 }, skillId: 'holy_strike' },
+  priest: { name: '사제', attributes: { str: 4, dex: 5, int: 10, con: 6, agi: 5, luck: 6 }, derivation: { attackBasis: 'int', attackModifier: -2, defenseModifier: 1 }, skillId: 'smite' },
+  mage: { name: '마법사', attributes: { str: 3, dex: 7, int: 10, con: 3, agi: 7, luck: 6 }, derivation: { attackBasis: 'int', attackModifier: 1, defenseModifier: 0 }, skillId: 'arcane_bolt' },
+}
+
+export function deriveCombatStats(attributes: BaseAttributes, derivation: ClassDerivation): DerivedCombatStats {
+  const values = Object.values(attributes)
+  if (values.some((value) => !Number.isFinite(value) || !Number.isInteger(value))) {
+    throw new TypeError('기본 능력치는 유한한 정수여야 한다.')
+  }
+  if (values.some((value) => value < 1)) {
+    throw new RangeError('기본 능력치는 1 이상이어야 한다.')
+  }
+  const attackBasis = derivation.attackBasis === 'max_str_int'
+    ? Math.max(attributes.str, attributes.int)
+    : attributes[derivation.attackBasis]
+  return {
+    maxHp: Math.max(1, 11 + attributes.con * 2 + Math.floor((attributes.str + attributes.dex) / 10)),
+    atk: Math.max(1, Math.floor(attackBasis / 2) + derivation.attackModifier),
+    def: Math.max(1, Math.floor((attributes.con * 2 + attributes.str + attributes.dex) / 10) + derivation.defenseModifier),
+    agi: Math.max(1, Math.floor((attributes.agi + 2) / 2)),
+  }
 }
 
 export const RACES = { human: '인간', elf: '엘프', dwarf: '드워프', halfling: '하플링' } as const
@@ -34,9 +60,12 @@ export const MAP_ROWS = [
 
 function makePartyActor(id: string, name: string, classId: ClassId, row: 'front' | 'back'): Actor {
   const data = CLASS_DATA[classId]
+  const attributes = { ...data.attributes }
+  const stats = deriveCombatStats(attributes, data.derivation)
   return {
     id, contentId: classId, name, side: 'party', classId, row,
-    maxHp: data.hp, currentHp: data.hp, atk: data.atk, def: data.def, agi: data.agi,
+    attributes,
+    maxHp: stats.maxHp, currentHp: stats.maxHp, atk: stats.atk, def: stats.def, agi: stats.agi,
     skillIds: ['basic_attack', data.skillId],
   }
 }

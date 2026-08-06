@@ -557,3 +557,132 @@ damage = max(1, rollTotal + actor.ATK - target.DEF)
 - iOS 조건: `도구 막대 가리기` 활성화.
 - Git 기준: 현재 상태를 `v0.1.0` 태그로 고정한다.
 - 후속 콘텐츠 입력은 `raw_data_table.md`를 기준 자료로 사용하되, 테이블 입력만으로 구현 승인을 대체하지 않는다.
+
+## 21. 기본 능력치 파생 모델 적용 사양
+
+### 21.1 목표와 범위
+
+- 캐릭터에 `STR`, `DEX`, `INT`, `CON`, `AGI`, `LUCK` 원본 능력치를 추가한다.
+- HP·ATK·DEF·전투 AGI를 단일 파생 함수로 계산한다.
+- 기존 직업별 전투 수치와 실제 플레이 밸런스를 유지한다.
+- 준비 화면에서 기본 능력치와 계산된 전투 수치를 구분해 표시한다.
+- 성장, 장비, 크리티컬과 LUCK 효과는 이번 적용 범위에서 제외한다.
+
+### 21.2 대상 파일
+
+| 파일 | 변경 사양 |
+|---|---|
+| `src/game/types.ts` | `BaseAttributes`, 직업 파생 설정 타입, Actor의 원본 능력치 필드 추가 |
+| `src/game/content.ts` | 직업별 6능력치·공격 기준·ATK/DEF 보정 데이터 등록 |
+| `src/game/combat.ts` 또는 `src/game/content.ts` | UI와 무관한 순수 `deriveCombatStats` 함수 배치 |
+| `src/ui/SetupScreen.tsx` | 파티 미리보기에서 기본 능력치와 파생 수치 표시 |
+| `src/ui/GameHud.tsx` | 필요 시 전투 AGI 표기명을 구분하고 HP 표시는 유지 |
+| `src/tests/combat.test.ts` 또는 신규 최소 테스트 | 공식·직업별 결과·최소값·호환성 검증 |
+
+- 파생 함수가 커지지 않으면 신규 파일을 만들지 않는다.
+- React와 Phaser에서 공식을 다시 계산하지 않는다.
+
+### 21.3 타입 사양
+
+```text
+BaseAttributes
+├─ str: number
+├─ dex: number
+├─ int: number
+├─ con: number
+├─ agi: number
+└─ luck: number
+
+ClassDerivation
+├─ attackBasis: str | dex | int | max_str_int
+├─ attackModifier: number
+└─ defenseModifier: number
+```
+
+- Actor에는 `attributes: BaseAttributes`를 원본으로 둔다.
+- 기존 Actor의 `maxHp`, `atk`, `def`, `agi`는 전투에서 즉시 사용하는 파생 스냅샷으로 유지한다.
+- `attributes.agi`는 기본 AGI, Actor의 `agi`는 전투 행동 순서용 AGI다.
+- LUCK은 Actor에 포함하지만 현재 판정 함수에서 읽지 않는다.
+
+### 21.4 파생 함수 계약
+
+```text
+deriveCombatStats(
+  attributes: BaseAttributes,
+  derivation: ClassDerivation
+) -> { maxHp, atk, def, agi }
+```
+
+```text
+maxHp = 11 + (CON × 2) + floor((STR + DEX) / 10)
+atk = max(1, floor(attackBasis / 2) + attackModifier)
+def = max(1, floor(((CON × 2) + STR + DEX) / 10) + defenseModifier)
+agi = max(1, floor((AGI + 2) / 2))
+```
+
+- `max_str_int`는 `max(STR, INT)`다.
+- 함수는 입력을 변경하지 않는 순수 함수다.
+- 기본 능력치는 유한한 정수인지 검증한다. 직업 초기값은 1~10이며 합계 36이어야 한다.
+- 파생값은 모두 1 이상의 정수다.
+
+### 21.5 직업 임시 데이터
+
+| class_id | STR | DEX | INT | CON | AGI | LUCK | attackBasis | ATK 보정 | DEF 보정 |
+|---|---:|---:|---:|---:|---:|---:|---|---:|---:|
+| `warrior` | 10 | 5 | 3 | 9 | 3 | 6 | str | 0 | 1 |
+| `rogue` | 4 | 9 | 4 | 5 | 10 | 4 | dex | 0 | 0 |
+| `archer` | 5 | 10 | 4 | 6 | 8 | 3 | dex | 0 | 0 |
+| `paladin` | 8 | 4 | 7 | 8 | 3 | 6 | max_str_int | 0 | 3 |
+| `priest` | 4 | 5 | 10 | 6 | 5 | 6 | int | -2 | 1 |
+| `mage` | 3 | 7 | 10 | 3 | 7 | 6 | int | 1 | 0 |
+
+### 21.6 생성 및 상태 흐름
+
+1. 메인 캐릭터와 고정 동료의 직업을 선택한다.
+2. 직업 콘텐츠에서 기본 능력치와 파생 설정을 읽는다.
+3. `deriveCombatStats`로 전투 수치를 계산한다.
+4. `currentHp = maxHp`로 Actor를 생성한다.
+5. 전투 시작 시 계산된 Actor 스냅샷을 참가자로 복사한다.
+6. 준비 화면 복귀와 새 퀘스트 시작 시 현재 기본 능력치에서 다시 계산한다.
+
+### 21.7 UI 표시
+
+- 준비 화면 파티 행에 `STR/DEX/INT/CON/AGI/LUCK`를 표시한다.
+- 같은 행 또는 상세 영역에 `HP/ATK/DEF/전투 AGI`를 파생 수치로 표시한다.
+- 기본 AGI는 `AGI`, 파생값은 `행동 AGI` 또는 `전투 AGI`로 표시해 구분한다.
+- LUCK에는 `현재 효과 없음` 또는 동등한 안내를 제공한다.
+- 모바일 가로 화면에서 정보가 넘치면 기본 능력치와 전투 수치를 두 줄로 나누며 신규 상세 화면은 만들지 않는다.
+
+### 21.8 저장 호환성
+
+- v0.1.0 저장 데이터는 메인 캐릭터 설정과 누적 골드·경험치만 저장하고 파티 능력치는 퀘스트 시작 시 재생성한다.
+- 따라서 직업 기본 능력치 적용만으로는 save version을 변경하지 않는다.
+- 향후 성장된 개별 능력치를 저장할 때 save version을 올리고 마이그레이션을 설계한다.
+
+### 21.9 자동 테스트
+
+- 모든 직업 기본 능력치 합계가 36인지 확인한다.
+- 모든 초기 능력치가 1~10 정수인지 확인한다.
+- 6개 직업의 파생 HP·ATK·DEF·AGI가 v0.1.0 값과 정확히 일치하는지 확인한다.
+- CON 1 증가가 HP를 2 이상 증가시키는지 확인한다.
+- STR·DEX·CON 변화가 공식에 따라 DEF에 반영되는지 확인한다.
+- 직업별 attackBasis만 ATK 기본값에 영향을 주는지 확인한다.
+- ATK·DEF·전투 AGI가 최소 1 미만으로 내려가지 않는지 확인한다.
+- LUCK 값만 변경했을 때 현재 파생 수치가 바뀌지 않는지 확인한다.
+- 동일 직업과 기본 능력치에서 동일 Actor 수치가 생성되는지 확인한다.
+
+### 21.10 완료 기준
+
+- 파생 공식이 순수 TypeScript에 한 번만 구현되어 있다.
+- 기존 전체 자동 테스트가 유지되고 신규 능력치 테스트가 통과한다.
+- `npm run typecheck`, `npm run test`, `npm run build`가 성공한다.
+- 기존 6개 직업의 HP·ATK·DEF·AGI가 변경되지 않는다.
+- 준비 화면에서 6개 기본 능력치와 파생 수치를 구분해 확인할 수 있다.
+- LUCK이 현재 게임 판정에 영향을 주지 않는다.
+- 기존 v0.1.0 저장 데이터를 초기화하지 않고 사용할 수 있다.
+
+### 21.11 금지 범위
+
+- 본 작업과 함께 레벨업, 장비, 크리티컬, 명중, 회피, WIS 또는 마법 방어를 구현하지 않는다.
+- 파생 공식을 React 컴포넌트나 Phaser Scene에 중복 구현하지 않는다.
+- 현재 수치 재현을 벗어나는 밸런스 변경을 하지 않는다.
