@@ -161,3 +161,56 @@
 - 결정 근거: 롱터치 결함은 Coder 수정과 사용자 실기기 확인으로 해결되었고, 수동 재현이 어려운 전멸 흐름은 결정론적 자동 통합 테스트로 완료 기준을 충족했다. 소형 Android 스마트폰은 기기 미보유와 사용자 명시적 제외 지시에 따라 완료 판정에서 제외한다.
 - 핵심 결과: Android 롱터치 선택 방지와 패배 통합 검증을 완료 상태로 변경했다. 모바일 근거는 Android 태블릿 Chrome이며 iOS Safari·소형 Android 스마트폰·번들 최적화는 현 단계 제외 범위로 정리했다.
 - 위험·미확정 사항: Android Chrome 최소 버전과 소형 스마트폰의 좁은 화면 호환성은 확정되지 않았다. iOS 재지원에는 별도 네트워크 보안 설계가 필요하다.
+
+## 2026-08-06 23:56:33 +09:00 | Planner | MVP 이후 진행 단계 정리
+
+- 대상: Party Night MVP 완료 이후 안정화·배포·게임 확장 순서
+- 사용자 작업 지시 원문: `다음 단계 진행 사항을 정리해서 출력해줘.`
+- 사용한 기준 문서: `AGENTS.md`, `architecture.md`, `implements.md`, `changelog.md`
+- 조사 범위: 완료된 MVP 기능·자동 테스트·PC/Android 검증·GitHub 반영 상태, 현 제외 범위, 장기 목표와 MVP 비목표
+- 생성·갱신 문서: `changelog.md`
+- 결정 근거: 현재 MVP는 전체 테스트·build·PC 성공 루프·Android 태블릿 성공 루프·패배 통합 테스트를 통과했다. 다음 작업은 기존 루프를 유지하면서 배포 기준선을 확보한 뒤 보상을 실제 성장에 사용하는 가장 작은 기능 단위부터 확장하는 것이 우선 원칙에 부합한다.
+- 핵심 결과: 다음 순서를 MVP 기준선 확정 및 배포, 저장·보상 회귀 테스트 보강, 최소 성장 사용처 설계, 콘텐츠 1개 단위 확장, 장비·스킬 준비 확장, 파티 관리 확장, 성능·지원 환경 재평가로 정리했다.
+- 위험·미확정 사항: 배포 대상, 다음 기능의 우선순위, 성장 수치와 콘텐츠 범위는 사용자 결정이 필요하다. iOS Safari·소형 Android 스마트폰·번들 최적화는 현 단계 제외 상태를 유지한다.
+
+## 2026-08-07 04:13:15 +09:00 | Planner | MVP HTTPS 배포 기준 질의 분석
+
+- 대상: Party Night MVP의 production 배포 완료 기준
+- 사용자 작업 지시 원문: `MVP 배포 기준선은 공인 인증을 받은 인증서를 적용한 https service(apache2 혹은 nginx)환경에서 동작할 수 있으면 되는 것인가?`
+- 사용한 기준 문서: `AGENTS.md`, `architecture.md`, `implements.md`, `README.md`
+- 조사 범위: Vite 정적 산출물의 Apache2/Nginx HTTPS 서비스 조건, 공인 인증서·도메인·정적 파일·저장·모바일 검증 기준
+- 생성·갱신 문서: `changelog.md`
+- 결정 근거 및 결과: 공인 CA 인증서가 적용된 실제 도메인의 Apache2 또는 Nginx에서 `dist` 정적 산출물을 HTTPS로 서비스하고 Android Chrome에서 전체 루프를 통과하면 MVP 배포 기준선으로 인정할 수 있다. Vite 개발 서버나 Node 런타임은 production에 필요하지 않다.
+- 위험·미확정 사항: 인증서만 설치해서는 충분하지 않다. 전체 인증서 체인, 도메인 일치, HTTP→HTTPS 전환, 정적 파일 MIME·캐시, 새로고침, localStorage origin 변경, 방화벽과 Android 실접속을 함께 확인해야 한다. 실제 도메인·서버·웹서버 종류는 미확정이다.
+
+## 2026-08-07 04:21:36 +09:00 | Planner | HTTPS 배포 포트 기준 분석
+
+- 대상: Apache2/Nginx production URL과 포트 구성
+- 사용자 작업 지시 원문: `공인 인증서가 적용된 HTTPS 도메인의 Apache2 또는 Nginx에서 dist를 서비스 할때 기존 npm run에서 진행 할때와 같이 url(https)+port조합으로 실행을 해야 하는가?`
+- 사용한 기준 문서: `README.md`, `implements.md`
+- 조사 범위: Vite 개발 서버 포트와 표준 HTTPS 정적 서비스 포트의 차이
+- 생성·갱신 문서: `changelog.md`
+- 결정 근거 및 결과: production에서는 Vite 개발 포트가 필요하지 않으며 Apache2/Nginx가 표준 HTTPS 443 포트에서 `dist`를 직접 서비스하면 `https://도메인`으로 접속한다. 비표준 포트를 사용할 때만 URL에 포트를 명시한다.
+- 위험·미확정 사항: 실제 서버의 443 포트 사용 가능 여부, 기존 서비스와의 virtual host 구성, 방화벽·NAT 및 배포 경로는 미확정이다.
+
+## 2026-08-07 04:26:08 +09:00 | Planner | Production 에셋 404 원인 분석
+
+- 대상: build 산출물의 Apache2/Nginx HTTPS 정적 배포 경로
+- 사용자 작업 지시 원문: `실제 build후 index.html + asset폴더를 업로드 하였으나, pc 브라우저 환경에서도 url을 통해서 접속시 정상적으로 로드 되지 않는 현상이 발생 하였다.\npc chrome dev console log는 다음과 같다.\n=================================\n Failed to load resource: the server responded with a status of 404 ()\t\tindex-CLAjr0hI.css:1 \n Failed to load resource: the server responded with a status of 404 ()\t\tindex-DPlu7iJU.js:1 \n Failed to load resource: the server responded with a status of 404 ()\t\tindex-CLAjr0hI.css:1\n=================================`
+- 사용한 기준 문서: `architecture.md`, `implements.md`; 실제 설정 `vite.config.ts`, 산출물 `dist/index.html`
+- 조사 범위: Vite base 기본값, build된 CSS·JS 참조 경로, 보고된 HTTP 404 상태
+- 생성·갱신 문서: `architecture.md`, `changelog.md`
+- 결정 근거 및 결과: 현재 build된 `index.html`은 `/assets/...` 절대 경로를 사용한다. index는 열리지만 CSS·JS만 404이므로 게임 코드보다 서버 DocumentRoot·하위 배포 경로·`assets` 디렉터리명 중 하나와 Vite base의 불일치가 우선 원인이다.
+- 위험·미확정 사항: 실제 URL, 웹서버 root/alias, 업로드 디렉터리명과 파일 존재 여부가 제공되지 않아 루트 배포 오류와 하위 경로 배포 오류 중 하나로 확정할 수 없다. 해당 정보를 확인하기 전에는 `vite.config.ts`를 변경하지 않는다.
+
+## 2026-08-07 04:48:56 +09:00 | Planner | v0.1.0 기준선 및 콘텐츠 원시 입력표 설계
+
+- 대상: Party Night v0.1.0 HTTPS 배포 기준선과 후속 콘텐츠 확장 입력 자료
+- 사용자 작업 지시 원문: `Vite의 base 설정 변경을 수동으로 했어.\n==========================\nexport default defineConfig({\n  base: '/pn/',\n==========================\n이후 작업 시 참고 할 것.\niOS의 sapari에서도 동작을 확인 했어. 가로 모드에서 "도구 막대 가리기"옵션을 활성화 할 경우 화면 전체를 확인 할 수 있었음. 현재 상태를 v0.1.0으로 관리 해줘.\n추가로 이후의 컨텐츠 확장에 필요한 설정값 항목들에 대해서 리스트업 해서 사용자가 값들을 입력 해둘 수 있는 raw_data_table.md파일을 작성해줘. ( 경험치 테이블, 직업별 스킬 목록, 1차 상점 장비 목록  등 )`
+- 사용한 기준 문서: `AGENTS.md`, `architecture.md`, `implements.md`, `README.md`, `package.json`; 실제 사용자 변경 `vite.config.ts`
+- 조사 범위: Vite `/pn/` base, package version 0.1.0, HTTPS 하위 경로 배포, Android·iOS 검증 상태, 성장·직업·스킬·장비·상점·적·퀘스트·맵·보상·저장 확장 입력 항목
+- 생성·갱신 문서: `architecture.md`, `implements.md`, `raw_data_table.md`, `changelog.md`
+- 결정 근거: `/pn/` base 적용으로 하위 경로 에셋 404 원인이 해소되었고, 공인 HTTPS 배포본이 iOS Safari에서도 동작했다. package version이 이미 0.1.0이므로 현재 코드·설정·문서·검증 상태를 Git `v0.1.0` 기준선으로 관리한다.
+- 핵심 결과: Android Chrome과 iOS Safari를 v0.1.0 지원 환경으로 반영하고 iOS 전체 화면 조건을 `도구 막대 가리기`로 기록했다. `raw_data_table.md`에 경험치·레벨, 종족·직업, 스킬, 장비 슬롯, 1차 장비/소비 아이템 상점, 적, 조우, 퀘스트, 맵, 보상, 동료, 저장 및 에셋 입력표를 생성했다.
+- 검증 결과: `npm run build` 성공(44 modules, 6.71초). 생성된 `dist/index.html`이 `/pn/assets/index-DPlu7iJU.js`와 `/pn/assets/index-CLAjr0hI.css`를 참조함을 확인했다. 기존 500 kB 초과 번들 경고는 유지되며 기준선 차단 사항이 아니다.
+- 위험·미확정 사항: raw data의 `TBD` 값은 사용자 입력 후 별도 설계 승인이 필요하다. iOS Safari 버전, Android Chrome 최소 버전과 소형 Android 스마트폰 화면은 확정되지 않았다. GitHub tag push나 GitHub Release 생성은 별도 지시가 필요하다.
