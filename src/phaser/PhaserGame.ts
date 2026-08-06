@@ -1,0 +1,31 @@
+import Phaser from 'phaser'
+import { createElement, useEffect, useRef } from 'react'
+import type { Screen } from '../game/types'
+import type { GameStore } from '../app/gameStore'
+import { BattleScene } from './BattleScene'
+import { ExplorationScene } from './ExplorationScene'
+
+export interface SceneBridge {
+  store: GameStore
+}
+
+export function PhaserGame({ screen, store }: { screen: Screen; store: GameStore }) {
+  const host = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!host.current) return
+    const scene = screen === 'battle' ? new BattleScene({ store }) : new ExplorationScene({ store })
+    const game = new Phaser.Game({
+      type: Phaser.AUTO,
+      parent: host.current,
+      width: 640,
+      height: 360,
+      backgroundColor: '#0d0c14',
+      pixelArt: true,
+      antialias: false,
+      scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
+      scene,
+    })
+    return () => game.destroy(true)
+  }, [screen, store])
+  return createElement('div', { className: 'phaser-host', ref: host })
+}
