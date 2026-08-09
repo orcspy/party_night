@@ -261,3 +261,368 @@
 - 변경 파일: `changelog.md`; 커밋 대상은 현재 작업 단위의 설계문서·원시 데이터표·능력치 구현·테스트 전체
 - 결정 근거 및 결과: 사용자가 PC와 iOS Safari에서 신규 능력치 UI를 확인했으므로 미확정이었던 준비 화면 정보 배치 검증을 완료로 기록하고 현재 변경 전체를 커밋·푸시 대상으로 확정한다.
 - 실패·미확정 사항: Android에서 변경된 준비 화면의 재확인은 보고되지 않았다. 성장·장비·크리티컬 및 LUCK 효과는 범위 밖이다.
+
+## 2026-08-08 20:59:40 +09:00 | Coder | Phaser 시각 에셋 작업본 병합
+
+- 작업 루트·모드: `E:\Work\20260806\party_night` | 원본 직접 작업
+- 사용자 작업 지시 원문: `Continue if you have next steps, or stop and ask for clarification if you are unsure how to proceed.`
+- 선행 작업 맥락: 현재 세션에 원문이 보존되지 않은 선행 병합 지시에 따라 `E:\Work\20260806\assets_pn`의 테스트 완료된 최신 에셋 작업을 현재 프로젝트에 적용했다.
+- 사용한 설계문서: `implements.md` 최우선, `architecture.md`, 루트 `AGENTS.md`; 병합 원본의 `asset-plan.md`, `asset-catalog.md`, `changelog-assets.md`; 원본 커밋 `05725ef`
+- 조사 범위: 양쪽 Git 상태·이력, Phaser Scene, Actor·파티 콘텐츠 타입, Vite 에셋 로딩 경로, 에셋 registry, 생성 스크립트, README·에셋 문서, 자동 테스트·production build
+- 검증 단계: 2단계 빌드 검증에 프로젝트 전체 기존 자동 테스트를 추가 수행
+- 변경 파일: `.gitignore`, `README.md`, `src/game/{types,content}.ts`, `src/phaser/{BattleScene,ExplorationScene}.ts`, `src/phaser/assets/{characterAssets,enemyAssets,terrainAssets}.ts`, `src/vite-env.d.ts`, `src/assets/characters/` 288개, `src/assets/enemies/` 2개, `src/assets/terrain/` 6개, `assets-source/` 생성 스크립트, `asset-plan.md`, `asset-catalog.md`, `changelog-assets.md`, `changelog.md`
+- 결정 근거: 원본과 대상 저장소의 이력이 서로 달라 cherry-pick 대신 검증된 파일을 선택 복사했다. 대상의 신규 6개 기본 능력치 파생 모델과 Vite `/pn/` base 설정을 보존하고, 파티 Actor에 에셋 선택용 `raceId`·`gender`만 연결했다. 원본의 에셋 전용 `AGENTS.md`는 현재 프로젝트 규칙과 충돌하므로 복사하지 않고 이관 문서에 역사적 참조 안내를 추가했다.
+- 핵심 구현: 탐사 Scene에 지형 텍스처·조우/출구 마커·방향별 원근 렌더링과 도형 fallback을 적용했다. 전투 Scene에는 적 2종 및 종족·직업·성별·파티 슬롯 조합 캐릭터 스프라이트의 지연 로딩과 fallback을 적용했다. 총 296개 런타임 에셋과 에셋 registry·재생성 스크립트·카탈로그를 통합했다.
+- 호환성·의존성 변경: 신규 패키지, dependency·lock, public 명령, 저장 스키마 변경 없음. 기존 HP·ATK·DEF·AGI 파생값과 `attributes`, `/pn/` 배포 경로를 유지했다.
+- 검증 결과: `npm run typecheck` 성공. `npm run test` 전체 5개 파일·21개 테스트 성공. `npm run build` 성공(344 modules, 7.28초). `git diff --check`에서 공백 오류 없음. 빌드가 캐릭터 조합 동적 에셋 모듈을 생성하는 것을 확인했다.
+- 실패·미확정 사항: 실제 브라우저 수동 플레이와 모바일 실기기 표시는 이번 작업에서 실행하지 않았다. production build의 메인 JS 1,745.23 kB에 기존과 같은 500 kB 초과 경고가 있으나 빌드 실패는 아니다. 복사한 생성 스크립트는 산출물 덮어쓰기 위험이 있어 실행하지 않았다.
+
+## 2026-08-08 22:09:21 +09:00 | Planner | 종족 기본 능력치와 직업 보정값 전환 설계
+
+- 대상: `E:\Work\20260806\party_night`의 캐릭터 6능력치 원본·보정 구조와 준비 화면 표기
+- 사용자 작업 지시 원문: `/agent Planner\n인간 str, dex, int, con이 균등한 스타일.\n엘프 약간 낮은 str, 높은 dex, 조금 높은 int, 낮은 con, 조금 높은 agi. \n드워프 높은 str, 약간 높은 dex, 낮은 int, 약간 높은 con, 약간 낮은 agi\n하플링 낮은 str, 약간 높은 dex, int, 약간 낮은 con, 높은 agi, luk\n의 기준으로 각 종족의 베이스 스텟을 만들어줘.\n\n전사 = > 높은 str, 낮은 dex, 중간 정도 con 보정값\n성기사 => 중간 정도 str, 중간 정도 int, 중간정도 con 보정 값\n도적 => 낮은 str, 높은 dex, 약간 높은 agi 보정 값\n궁수 => 높은 dex,  높은 agi 보정 값\n사제 => 중간정도 dex, 높은 int 보정 값\n마법사 => 매우 높은 int 보정값\n\n기존 인간 케릭터의 최종 능력치와 동일할 필요는 없으나, 위의 조건을 기본으로 해서 비슷한 수준이 되도록 설정 할 것`
+- 사용한 기준 문서: 루트 `AGENTS.md`, `architecture.md` 12절, `implements.md` 21절, `raw_data_table.md` 5~6절; 현재 코드 `src/game/{types,content}.ts`, `src/ui/SetupScreen.tsx`, `src/tests/attributes.test.ts`
+- 조사 범위: 현재 직업 소유 기본 능력치, 종족 표시 데이터, 파생 공식, Actor 생성·준비 화면 미리보기 흐름, 기존 합계 36·수치 재현 테스트, 저장 호환성, LUCK UI 문구
+- 생성·갱신 문서: `architecture.md`, `implements.md`, `changelog.md`
+- 결정 근거: 종족 간 총량 우위를 방지하기 위해 네 종족의 기본 능력치 합계를 모두 31로 맞추고, 직업 역할별 보정 합계 +5~+6을 적용해 모든 종족×직업 조합의 최종 합계를 기존 36과 유사한 36~37로 제한했다. 사용자가 기존 인간 수치의 정확한 보존은 요구하지 않았으므로 직업별 기존 회귀값보다 제시된 종족·직업 성향을 우선했다.
+- 핵심 결과: 인간 `5/5/5/5/6/5`, 엘프 `3/7/6/4/7/4`, 드워프 `7/6/3/6/4/5`, 하플링 `2/6/6/3/8/6`의 STR/DEX/INT/CON/AGI/LUK 기본값을 확정했다. 전사 `+4/-1/0/+3/0/0`, 성기사 `+2/0/+2/+2/0/0`, 도적 `-1/+4/0/0/+2/0`, 궁수 `0/+3/0/0/+3/0`, 사제 `0/+2/+4/0/0/0`, 마법사 `0/0/+5/0/0/0` 보정값과 항목별 합산 흐름을 설계했다. UI는 `LUK`로 표시하고 `(현재 효과 없음)`을 삭제하되 판정 미사용 상태는 유지한다.
+- 위험·미확정 사항: `raw_data_table.md`의 기존 종족 HP·ATK·DEF·AGI 보정표와 직업 기본 능력치표는 신규 목표 구조와 충돌하며 본 작업에서는 원본 기준 문서로 보존했다. 구현 시 `architecture.md` 13절과 `implements.md` 22절을 우선해야 한다. 고정 동료의 종족은 현재 에셋 연결값인 인간을 임시 유지한다. 코드 구현과 자동·수동 검증은 Coder 작업 범위다.
+
+## 2026-08-08 22:14:17 +09:00 | Coder | 종족 기본 능력치와 직업 보정값 구현
+
+- 작업 루트·모드: `E:\Work\20260806\party_night` | 원본 직접 작업
+- 사용자 작업 지시 원문: `/agent Coder\n작업을 계속 진행해줘`
+- 사용한 설계문서: `implements.md` 22절 최우선, `architecture.md` 13절, 루트 `AGENTS.md`
+- 조사 범위: `BaseAttributes`·Actor 타입, 종족·직업 콘텐츠, 파티 Actor 생성, 준비 화면 미리보기, 전투 행동 순서 테스트, 능력치 파생 테스트, 저장 기반 파티 재생성 흐름
+- 검증 단계: 1단계 기본 검증
+- 변경 파일: `src/game/types.ts`, `src/game/content.ts`, `src/ui/SetupScreen.tsx`, `src/tests/attributes.test.ts`, `src/tests/combat.test.ts`, `changelog.md`
+- 결정 근거: 설계된 종족 기본 합계 31과 직업 보정 합계 +5~+6을 그대로 사용했다. 음수 보정을 기본 능력치와 구분하기 위해 `AttributeModifiers` 타입을 추가하고, 기존 저장·코드 호환성을 위해 내부 `luck` 키는 유지하면서 사용자 표시만 `LUK`로 변경했다.
+- 핵심 구현: `RACE_DATA`에 인간·엘프·드워프·하플링 기본 능력치를 등록하고 `CLASS_DATA`를 6개 능력치 보정 구조로 전환했다. 순수 `combineAttributes`가 종족 기본값과 직업 보정값을 검증·합산해 새 최종 능력치를 반환하며, 파티 생성과 준비 화면 미리보기가 같은 함수를 사용한다. 고정 동료 3명은 설계대로 인간 기본값을 사용한다. UI에서 `LUCK`과 `(현재 효과 없음)`을 제거하고 `LUK`로 표시한다.
+- 호환성·의존성 변경: 신규 패키지와 dependency·lock·저장 버전 변경 없음. 기존 `ClassDerivation`과 HP·ATK·DEF·전투 AGI 공식, 내부 `luck` 필드를 유지한다. 같은 기존 저장도 신규 종족·직업 표에 따라 전투 수치가 변경되는 것은 승인된 밸런스 변경이다.
+- 검증 결과: `npm run typecheck` 성공. `npm test -- src/tests/attributes.test.ts`에서 1개 파일·7개 테스트 성공. `npm test -- src/tests/combat.test.ts`에서 1개 파일·8개 테스트 성공. 24개 종족×직업 조합의 최종 합계 36~37, 개별값 1~11, 인간 최종값, 음수 보정, 입력 불변성, 오류 처리, LUK 판정 미사용을 확인했다. `git diff --check`에서 공백 오류 없음.
+- 실패·미확정 사항: 1단계 범위에 따라 전체 테스트, production build, 실제 브라우저 실행 및 모바일 수동 검증은 수행하지 않았다. `raw_data_table.md`의 이전 종족·직업 표는 신규 설계와 충돌하지만 읽기 전용 기준 문서로 보존했다. 이전 작업의 미커밋 에셋 통합 변경도 그대로 유지했다.
+
+## 2026-08-09 09:35:50 +09:00 | Planner | 원시 데이터 종족·직업 능력치표 동기화
+
+- 대상: `E:\Work\20260806\party_night\raw_data_table.md`의 종족 데이터와 직접 연결된 직업 능력치·계산 결과 표
+- 사용자 작업 지시 원문: `/agent Planner\nraw_data_table.md의 종족 데이터 테이블이 아직 갱신이 안되어있어. `
+- 사용한 기준 문서: 루트 `AGENTS.md`, `architecture.md` 13절, `implements.md` 22절; 구현 상태 `src/game/content.ts`
+- 조사 범위: `raw_data_table.md` 5절 종족 데이터, 6.1절 직업 능력치, 6.2절 파생 공식, 6.3절 계산 결과와 현재 확정된 종족 기본값·직업 보정값 비교
+- 생성·갱신 문서: `raw_data_table.md`, `changelog.md`
+- 결정 근거: 종족 기본값만 교체하면 직업 표가 여전히 직업 소유 기본 능력치로 남고 계산 결과도 이전 v0.1.0 값을 가리켜 같은 문서 안에서 상충한다. 따라서 사용자가 지적한 종족 표를 우선 갱신하고, 그 값에 직접 의존하는 직업 보정표와 인간 기준 계산 결과까지 확정 설계·구현 상태에 맞췄다.
+- 핵심 결과: 종족 표를 HP·ATK·DEF·AGI 보정 구조에서 합계 31의 `STR/DEX/INT/CON/AGI/LUK` 기본 능력치 구조로 변경했다. 직업 표를 6개 능력치 보정값 구조로 바꾸고, 최종값 계산 규칙과 24개 조합 범위를 기록했다. 단일 직업 호환값 표는 종족별 차이를 반영할 수 있도록 인간 기준 최종 능력치와 파생 전투 수치 표로 교체했다.
+- 위험·미확정 사항: 권장 열이 확정되지 않은 도적·성기사·마법사는 기존대로 `TBD`를 유지했다. LUK 판정, 성장·장비 보정과 추가 종족·직업 수치는 이번 문서 동기화 범위 밖이다. 코드·테스트·빌드는 수정하거나 실행하지 않았다.
+
+## 2026-08-09 09:53:27 +09:00 | Planner | 성별 도메인 축소 및 능력치 재조정 설계
+
+- 대상: 메인 캐릭터 성별 도메인, 하플링 기본 능력치, 도적·마법사 직업 보정값과 연결 문서
+- 사용자 작업 지시 원문: `성별에 남성, 여성만 존재하도록 변경할 것. 기타는 제외.\n현재 도적과 메이지만 보정 합계가 5로 다른 직업 군에 비해서 1낮은 상태임. 이에 대해서 도적은 luk 보정에 +1을 메이지는 str에 -1 agi luk에 +1을 추가 할 것.\n추가로 하플링의 종족 기본 값에 대해서 dex, int를 각각 5로 하고 luk를 8로 변경할 것.`
+- 사용한 기준 문서: 루트 `AGENTS.md`, `architecture.md` 13절, `implements.md` 22절, `raw_data_table.md` 5~6절; 현재 코드 `src/game/{types,content}.ts`, `src/app/gameStore.ts`, `src/ui/SetupScreen.tsx`, 관련 테스트와 에셋 registry·카탈로그
+- 조사 범위: 성별 UI 옵션·타입·저장 검증·한글/에셋 토큰 변환, 기존 neutral 에셋, 네 종족 기본값 합계, 여섯 직업 보정 합계, 24개 조합의 최종 범위와 인간 기준 파생 수치
+- 생성·갱신 문서: `architecture.md`, `implements.md`, `raw_data_table.md`, `changelog.md`
+- 결정 근거: 하플링의 DEX·INT를 각각 1 낮추고 LUK를 2 높이면 종족 합계 31을 유지한다. 도적은 LUK +1, 마법사는 STR -1·AGI +1·LUK +1을 적용하면 두 직업의 보정 합계가 +6이 되어 다른 직업과 같아진다. 그 결과 모든 24개 종족×직업 조합의 최종 합계가 37로 통일된다.
+- 핵심 결과: 하플링 기본값을 `2/5/5/3/8/8`, 도적 보정값을 `-1/+4/0/0/+2/+1`, 마법사 보정값을 `-1/0/+5/0/+1/+1`로 확정했다. 성별은 UI·저장 도메인 `남성|여성`, 에셋 토큰 `male|female`만 허용하도록 설계했다. 기존 version 1 저장의 `기타`는 프로필과 누적 보상을 보존하면서 `남성`으로 정규화하도록 정했다.
+- 검증 결과: 수치 조합 계산으로 24개 전체의 합계가 37이고 개별값이 1~11 범위임을 확인했다. `git diff --check`에서 갱신 문서의 공백 오류가 없음을 확인했다.
+- 위험·미확정 사항: 기존 `neutral` 캐릭터 에셋과 에셋 제작 이력은 원본 보존 원칙에 따라 삭제하지 않고 런타임에서만 미사용 처리한다. `기타` 저장을 `남성`으로 바꾸는 것은 저장 전체 무효화를 피하기 위한 임시 호환 결정이다. 코드·테스트·빌드 변경은 Coder 작업 범위다.
+
+## 2026-08-09 12:44:16 +09:00 | Planner | MVP 이후 7개 퀘스트·레벨 10 확장 사전 분석
+
+- 대상: Party Night MVP 이후 순차 퀘스트 5개·반복 퀘스트 2개, 캐릭터 레벨 10, 상점·장비, 직업·커스텀 스킬 확장
+- 사용자 작업 지시 원문: `1. 현재 MVP작성 이후의 다음 최종 목표는 5종류의 퀘스트 단계로 확장. \n확장될 퀘스트 단계는 다음과 같다.\n훈련 폐허(고블린 총 3파티 조우로 변경), 고블린 소굴(고블린, 홉고블린[보스]), 유적지(고블린/오크, 오우거[보스]), 지하 던전(고블린/코볼트, 놀[중보], 미노타우르스[보스]), 옛 고성(스켈레톤/좀비, 구울[중보], 리치[보스])\n5종 확장후 반복 플레이를 위한 퀘스트 두개.\n화산 동굴(임프/코볼트 오우거[중보], 사이클롭스), 깊은 숲 폐허(스켈레톤/오크, 레이스[중보], 스켈레톤 킹[보스])\n2. 각 케릭터당 레벨업은 1부터 시작해서 5종류의 퀘스트를 차례대로 진행 했을 때 6레벨. 5단계 퀘스트 이후 추가 퀘스트들을 반복 진행 했을때 10레벨까지 성장하는 것을 max level로 책정.\n3. 장비 및 아이템 상점 추가. ( 1, 3, 4 단계 퀘스트 클리어 마다 일반, 고급, 희귀, 레어 등급 장비를 개방. 5단계 클리어 후 에픽 등급 장비 개방. )\n4. 스킬은 1레벨에 직업 기본 액티브 스킬 1개(MVP기준), 2레벨에 추가 직업 기본 패시브 스킬/액티브 스킬(중 1개), 3레벨에 커스텀 스킬 슬롯 1개, 5레벨에 추가 직업 기본 패시브 스킬/액티브 스킬(중 1개), 7레벨에 커스텀 스킬 슬롯 1개, 10레벨에 커스텀 스킬 슬롯 1개로 책정\n즉 각 직업은 총 3개의 직업 스킬( 기본 액티브 스킬1개, 추가 패시브/액티브 스킬 2개를 갖는다. )\n직업별 스킬 목록 확인\n위의 조건들을 적용하여 다음 단계 확장 설계를 진행하기 전에 추가로 확인이 필요한 사항들을 정리할 것.`
+- 사용한 기준 문서: 루트 `AGENTS.md`, `architecture.md`, `implements.md`, `raw_data_table.md`; 현재 코드 `src/game/{types,content,exploration,combat}.ts`, `src/app/gameStore.ts`, `src/ui/`, `src/tests/`
+- 조사 범위: 퀘스트·맵·조우·적 생성 구조, 캐릭터·프로필 상태와 저장 version 1, EXP·보상 처리, 구현·원시 직업 스킬 목록, 커스텀 스킬, 장비 슬롯·상점 입력표, 화면·명령·테스트 범위와 현재 미커밋 설계/코드 기준선
+- 생성·갱신 문서: `architecture.md`, `changelog.md`
+- 결정 근거: 사용자는 확장 설계 자체보다 설계 전 추가 확인 사항 정리를 요청했다. 따라서 확정 요구사항과 현재 구현 사실을 교차 검증하고, 결과와 구현 구조를 바꾸는 미확정 항목을 추측하지 않고 질문 목록으로 분리했다. 확장 구현 사양인 `implements.md`는 아직 추가하지 않았다.
+- 핵심 결과: 순차 5개·반복 2개 퀘스트 목표와 레벨 1~10, 장비 등급 해금, 레벨별 직업·커스텀 스킬 해금을 확정 요구사항으로 정리했다. 현재 구현은 단일 훈련 폐허·단일 조우·고블린 2종·프로필 총 EXP·직업 스킬 1개에 고정되어 있음을 확인했다. 원시 직업 스킬 18개의 이름·해금 레벨·코드 충돌과 오타를 대조하고, 퀘스트/조우 8개, 성장 6개, 상점 6개, 스킬 7개, 저장·UI·개발 순서 5개 등 총 32개 선행 확인 항목을 작성했다.
+- 위험·미확정 사항: 퀘스트별 파티 수·구성·맵·완료 조건, EXP 표·성장치, 등급 해금 매핑·장비 목록, 직업 스킬 순서·효과, 커스텀 스킬 습득·장착, 저장 version 2와 UI 구조가 미확정이다. 화산 동굴 사이클롭스의 보스 역할과 공통 기본 공격의 스킬 수 포함 여부도 확인이 필요하다. 최신 성별·능력치 문서 변경이 코드에 아직 적용되지 않아 확장 기준선 확정이 선행되어야 한다.
+
+## 2026-08-09 13:18:07 +09:00 | Planner | 확장 선행 결정 반영 및 잔여 확인사항 재검토
+
+- 대상: 7개 퀘스트·레벨 10·상점·장비·직업/커스텀 스킬 확장의 설계 전 확인 상태
+- 사용자 작업 지시 원문: `주요 충돌 사항\n오기임 lv5가 맞음. lv7스킬들을 lv5로 수정 했음.\nlv1 사제의 기본스킬을 heal로 변경 할 것.\n스펠링 오기 및 공백 포하 id 수정했음.\n관련 기능을 적용 할 수 있도록 엔진을 수정 설계 할 것.\n\n핵심 확인 사항\n1. 5번 항목을 참고하여 적절하게 배치 할 것.\n2. 사이클롭스는 화산 동굴 보스.\n3. 보스 처치시 완료.\n4. 전투가 끝나면 HP는 유지 상태·쿨다운은 리셋\n5. 5단계 까지는 한번씩 플레이로 각각에 필요한 레벨에 달성 할 것. 6~10구간의 경우 7~9는 퀘스트 한번에 1레벨 업 9~10은 퀘스트 2번을 적정 반복 횟수로 설정 할 것.\n6. 공동분배 / 전투 불능포함 지급\n7. 각 레벨마다 직업별로 스텟 상승량을 table로 가질것.\n8. 일반(흰색), 고급(녹색), 희귀(파랑), 영웅(보라), 전설(노랑) 으로 설정 할 것.\n9. 8번 참고\n10. 각 단계별 보상을 기준으로 장비들을 구입하고 조금 여유가 생길 수 있도록 책성.\n11. 치료\n12. lv3, 7, 10에 각각 슬롯 한개씩 총 3개의 커스텀 슬롯이 오픈\n13. 훈련 페허 부터 클리어 시 3개씩 보상으로 지급, 아이템 상점에서 스킬 슬롯이 오픈되는 단계별로 3종씩 판매.\n14. 수정될 엔진과 충돌이 없도록 설계할 것.\n15. 전체 엔진을 수정 설계 후, 각 단계별 퀘스트를 테스트를 통해서 하나씩 단계를 증가 해 나갈 예정. 에셋 관련 부분(적/배경)에 대해서는 전체 엔진 설계시 미리 배정 해둘 것.\n이상의 확정 사항 이외에 추가로 확인이 필요한지 검토 할 것. 확인 후 설계 지시를 내릴 예정.`
+- 사용한 기준 문서: 루트 `AGENTS.md`, `architecture.md` 14절, 사용자가 수정한 `raw_data_table.md` 7절; 현재 코드의 스킬·저장·전투·탐사 구조
+- 조사 범위: 직업 스킬 Lv1·2·5 배치, 사제 기본 스킬, 수정된 ID와 남은 비정규 ID, 퀘스트 완료·전투간 상태, 레벨 도달 횟수, 공동 EXP, 직업 성장표, 장비 등급·경제, 커스텀 슬롯·보상·상점, 단계별 구현·에셋 선배정 조건
+- 생성·갱신 문서: `architecture.md`, `changelog.md`
+- 결정 근거: 사용자 답변으로 결과가 확정된 항목은 질문 상태에서 제거하고, 수치 규모·저장 호환성·콘텐츠 양을 여전히 바꾸는 항목만 남겼다. EXP 단위와 적 배치·성장·경제는 사용자가 적정값 산출을 위임한 것으로 분류해 Planner가 후속 설계에서 계산 가능한 항목으로 분리했다.
+- 핵심 결과: 직업 스킬 1·2·5레벨, 사제 `heal`, 사이클롭스 보스, 보스 처치 완료, 전투 후 HP 유지·상태/쿨다운 리셋, 순차 5회로 Lv6·반복 5회로 Lv10, 전투불능 포함 공동 EXP, 직업별 레벨 성장표, 5개 장비 등급, Lv3·7·10 커스텀 슬롯, 퀘스트·상점 커스텀 스킬 공급, 엔진 우선·퀘스트별 검증 확장을 확정했다. 100 EXP 단위와 캐릭터당 100 지급 시 요구 진행 횟수를 만족하는 계산안을 기록했다.
+- 위험·미확정 사항: 장비 슬롯·운영·보정 순서, 소비 아이템 범위, 커스텀 스킬의 3개 지급 방식과 슬롯 공유, 함정간파 콘텐츠, 쿨다운·상태 효과 공통 규칙, 원정 종료 회복·실패 보상, 순차 퀘스트 재플레이, version 1 EXP 마이그레이션, 남은 원시 ID 4건 등 13개 확인이 남았다. 사용자가 수정했다고 한 ID 중 `celestial shroud`, `all_enemy`, `kobolt_killer`, `bobe`는 실제 원시 표에 아직 남아 있다.
+
+## 2026-08-09 13:37:32 +09:00 | Planner | 확장 2차 선행 결정 반영 및 원시 ID 정규화
+
+- 대상: 확장 장비·소비 아이템·커스텀 스킬·함정·비밀문·전투 상태·퀘스트 실패/회복/재플레이·저장 기준과 잔여 확인사항
+- 사용자 작업 지시 원문: `1. 무기류, 머리, 몸통만 우선.\n2. 전사 : 모든무기류+방패, 도적 : 편수류, 성기사 : 날붙이 및 둔기류 + 방패, 궁수 : 활, 사제 : 지팡이, 마법사 : 지팡이와 로드 / 구입시 자동 장착 + 거점 창고를 두고 교체된 장비를 격납(100칸)\n3. 기본 능력치를 보정후 파생 수치를 재 계산.\n4. 포함 + 전투중 사용.\n5. 임의의 3개 스킬을 지급, 상점 판매도 임의의 스킬, 각 지급 판매당 제시되는 리스트 안에서의 중복은 허용하지 않음.\n6. 동일 스킬 장착 금지, 액티브, 패시브 공통으로 슬롯 1개 점유.\n7. 함정, 비밀문 추가.\n8. round마다 1턴씩 cd감소, 출혈 디버프는 상태이상 제거 전까진 계속 유지, 출혈이 걸려있을 경우 대상의 턴 시작 시 중첩 만큼 대미지. 5중첩 최대. 보스 저항은 각 스킬에 추가로 표시.\n9. 퀘스트 성공, 실피 후 준비 회면에서 회복\n10. 전부 폐기\n11. 1~5퀘스트는 1회씩 스트레이트식 진행(클리어 시).\n12. 마이그레이션 고려x\n13. 수정 허가. 이후 스펠링의 오기로 판단되는 부분은 직접 수정 할 것.\n추가 확인 사항을 다시 검토 할 것.`
+- 사용한 기준 문서: 루트 `AGENTS.md`, `architecture.md` 14.7절, `raw_data_table.md` 7~18절
+- 조사 범위: 장비 슬롯·직업별 무기 제한·자동 장착·창고, 장비 보정 순서, 소비 아이템, 커스텀 스킬 지급·판매·장착, 함정·비밀문, 쿨다운·출혈·보스 저항, 퀘스트 종료 회복·전멸·재플레이, 저장 마이그레이션과 실제 원시 스킬 ID
+- 생성·갱신 문서: `architecture.md`, `raw_data_table.md`, `changelog.md`
+- 결정 근거: 사용자가 승인한 항목은 확정 상태로 전환하고, 후속 전체 설계에서 합리적으로 산출 가능한 맵·성장·적·경제·에셋 수치는 Planner 결정 영역으로 분리했다. 플레이 결과와 데이터 구조를 여전히 바꾸는 세부 운영 규칙만 다시 질문 대상으로 남겼다.
+- 핵심 결과: 무기류·머리·몸통 장비, 직업별 무기 제한, 자동 장착과 100칸 공용 창고, 기본 능력치 선보정, 전 소비 아이템·전투 사용, 무작위 커스텀 스킬 3개, 공용 슬롯·중복 장착 금지, 함정·비밀문, 라운드 쿨다운, 최대 5중첩 지속 출혈, 보스 저항 필드, 준비 복귀 완전 회복, 전멸 보상 폐기, 순차 퀘스트 재플레이 금지, 신규 저장 시작을 확정했다. 원시 표의 `celestial_shroud`, `all_enemies`, `all_allies`, `kobold_killer`, `none`을 정규화했다.
+- 위험·미확정 사항: 도적 편수류 범위, 양손·방패, 창고 만료 처리, 판매, 전투 아이템 행동 비용, 커스텀 스킬의 과거 보유 중복·상점 갱신, 함정·비밀문 세부 규칙, 쿨다운 기산점, 출혈 외 상태, 보스 저항 체계, 전멸 시 소비 복구, 기본 공격 슬롯 외 유지 등 13개 확인이 남았다. 코드·테스트·빌드는 변경하지 않았다.
+
+## 2026-08-09 14:18:22 +09:00 | Planner | 확장 3차 선행 결정 반영 및 경계 조건 재검토
+
+- 대상: 장비 손 점유·창고·판매, 전투 아이템, 커스텀 스킬 중복·갱신, 탐사 발견, 쿨다운·상태·보스 저항, 전멸 소비와 기본 공격 규칙
+- 사용자 작업 지시 원문: `1. 단검, 한손검만\n2. 양손무기 장착시 방패 자동 해제, 활,지팡이, 로드 양손 사용.\n3. 창고 100칸 풀 상태일 시 상점 구매 불가.\n4. 판매 가능, 판매가 비율은 50%\n5. 회복, 상태이상치료, 대미지류 아이템은 턴 소비, 버프류 물약은 턴 소비x 같은 이름의 버프 중첩불가.\n6. 과거 획득 스킬이 다시 제시 될 수 있음. 1회의 지급/구매시 발생하는 table에서의 중복만 불가.\n7. 퀘스트마다 갱신\n8. seek_trap효과: 함정/비밀문 기본 발견, 실패시 모든 파티원 2대미지, 비밀문으로 진입 한 방에서의 아이템 획득.\n9. 사용한 라운드 부터. ( cooldown_2의 경우 사용 -> 쿨다운 -> 사용으로 실제 쿨 다운을 1로 봐야 한다. )\n10. 기절, 마비, 도발, 약점 노출 : 명시된 턴 만큼. 수면 : 공격 받기 전까지 유지. 능력변화 : 명시된 턴까지.(현재로서는 명시된 턴 보다 CD가 길기 때문에 중첩 불가)\n11. 명시된 확률의 50%만 적용. ( 수면의 경우 50%에 (25%)로 50% 적용된 값을 명시해두었음. )\n12. 복구하지 않음.\n13. 상시 명령으로 구분.\n추가 확정 사항을 다시 검토 할 것.`
+- 사용한 기준 문서: 루트 `AGENTS.md`, `architecture.md` 14.8절, `raw_data_table.md` 스킬·장비·상점 입력표
+- 조사 범위: 직업 무기 범위, 양손/방패, 창고 구매 차단, 판매율, 아이템 행동 비용·버프 중첩, 커스텀 스킬 목록 중복·상점 갱신, 함정·비밀문 실패, 쿨다운 감소, 상태 지속, 보스 확률 보정, 전멸 소비, 기본 공격 슬롯 경계
+- 생성·갱신 문서: `architecture.md`, `changelog.md`
+- 결정 근거: 사용자 답변을 엔진에서 결정 가능한 상태 전이로 구체화하되, 답변에 없는 발견 확률·중복 획득 결과·무료 행동 연속 사용·인벤토리 용량처럼 악용 가능성이나 저장 구조를 바꾸는 경계는 임의 확정하지 않았다.
+- 핵심 결과: 도적 단검·한손검, 양손 장비의 방패 해제, 활·지팡이·로드 양손 점유, 창고 만료 시 구매 차단, 50% 판매, 아이템별 행동 비용, 같은 버프 중첩 금지, 퀘스트별 스킬 상점 갱신, 사용 라운드부터 쿨다운 감소, 상태별 지속, 보스 확률 50%, 소비 미복구와 기본 공격 상시 명령을 확정했다. 쿨다운·수면 해제·보스 확률·판매가 내림·실패 소비에 대한 실행 가능한 해석을 기록했다.
+- 위험·미확정 사항: 함정 발견 판정·함정 전멸, 중복 스킬 실제 획득 처리, 무료 버프 물약 턴당 제한, 소비 아이템 중첩·인벤토리 용량, 창고 만료의 구매 차단 범위, 보유 스킬 재구매 UI 등 7개 경계 조건이 남았다. 코드·테스트·빌드는 변경하지 않았다.
+
+## 2026-08-09 14:29:33 +09:00 | Planner | 확장 4차 선행 결정 반영 및 데이터 소유 경계 재검토
+
+- 대상: 보스 상태 확률, 함정 전멸, 중복 스킬 사본, 무료 버프, 개인 인벤토리, 창고 만료와 스킬 재구매 규칙
+- 사용자 작업 지시 원문: `[50%확률인 강타의 기절 스킬은 보스에게 50%확률의 50%인 25%로 적용.]\n1. 기본 발견.\n2. 전멸 가능\n3. 중복 사본 보유\n4. 가능\n5. 개인 인벤토리는 10칸+str에 의한 추가 인벤(과하지 않도록), 칸당 10개 중첩\n6. 전부 차단\n7. 재구매 허용(동일한 공통 스킬을 각 파티원이 하나씩 착용 할 수도 있음.)\n추가 확인 사항을 검토 할 것.`
+- 사용한 기준 문서: 루트 `AGENTS.md`, `architecture.md` 14.9절, `raw_data_table.md`의 스킬·아이템·장비 입력표
+- 조사 범위: 일반/보스 확률 변환, 함정 피해 승패, 스킬 소유 수량과 파티 장착, 무료 버프 연속 사용, STR 기반 개인 인벤토리·중첩, 창고 만료 시 상점 차단, 보유 스킬 재구매
+- 생성·갱신 문서: `architecture.md`, `changelog.md`
+- 결정 근거: 사용자가 중복 스킬을 사본으로 보유하고 같은 공통 스킬을 여러 파티원이 각각 장착하도록 확정했으므로 스킬 해금을 boolean이 아닌 파티 공용 수량으로 해석했다. STR 인벤토리 보너스 수치는 직업별 Lv10 성장표와 함께 과도하지 않게 산출할 수 있어 Planner 설계 영역으로 분리했다.
+- 핵심 결과: 강타의 보스 기절 25%와 확률형 효과의 보스 50% 규칙, 함정 전멸, 중복 스킬 사본, 서로 다른 무료 버프 연속 사용, 개인 인벤토리 기본 10칸·칸당 10개, STR 보너스, 창고 만료 시 모든 구매 차단, 스킬 재구매·파티원별 동일 스킬 장착을 확정했다. 스킬은 공용 보유 수량과 캐릭터별 장착 참조를 분리하는 구조가 적합함을 기록했다.
+- 위험·미확정 사항: `기본 발견`이 자동 발견인지 확률 판정인지, 개인 아이템의 파티원 간 이전 시점, 스킬 사본의 공용/개인 소유, 스킬 구매 시 배분 시점 등 4개 확인이 남았다. 코드·테스트·빌드는 변경하지 않았다.
+
+## 2026-08-09 14:39:17 +09:00 | Planner | 보스 확률·자동 발견·스킬 인스턴스 소유 구조 확정
+
+- 대상: 스킬별 보스 확률 변환, `seek_trap`, 아이템 이전, 중복 커스텀 스킬 사본의 식별·보관·장착 구조
+- 사용자 작업 지시 원문: `[강타 기절만의 의미가 아닌 스킬들의 명시된 확률에 대해서 보스는 명시된 확률에서 50%만큼만 적용한다는 의미임.]\n1. 자동 발견의 의미임.\n2. 거점에서 가능, 원정중 불가\n3. 공용 창고에서 개인 스킬 슬롯으로 "이전".\n스킬 사본의 의미는? 획득한 스킬마다 고유 아이템 식별 id를 가져야 함. first_aid 스킬을 2개 중복 소유하고 이것을 파티원 1에게 파티원 2에게 할당 할 수 있는 것을 의미.\n4. 3번 참고.\n추가 확정 사항을 분석 할 것.`
+- 사용한 기준 문서: 루트 `AGENTS.md`, `architecture.md` 14.10절, `raw_data_table.md`의 직업·커스텀 스킬 목록
+- 조사 범위: 보스 확률 적용 대상, `seek_trap` 발견 방식, 개인 아이템 이전 시점, 스킬 정의와 소유 instance 분리, 공용 보관함·개인 슬롯 간 이전과 중복 장착 검증
+- 생성·갱신 문서: `architecture.md`, `changelog.md`
+- 결정 근거: 동일 skill ID의 복수 사본을 여러 파티원이 각각 장착해야 하므로 단순 해금 boolean이나 수량만으로는 장착 소유권을 추적할 수 없다. 효과 정의용 `skillId`와 소유·장착용 `skillInstanceId`를 분리하고 각 instance가 공용 보관함 또는 단일 캐릭터 슬롯 한 곳에만 존재하게 하는 구조가 필요하다.
+- 핵심 결과: 모든 스킬 명시 확률의 보스 적용값을 50%로 정의하고, `seek_trap` 자동 발견, 아이템의 거점 전용 이전, 고유 ID 스킬 인스턴스, 공용 스킬 보관함에서 개인 슬롯으로의 장착·해제 흐름을 확정했다. `SkillDefinition`, `SkillInstance`, `Profile.skillStorage`, 캐릭터 `customSkillSlots`의 데이터 경계를 기록했다.
+- 위험·미확정 사항: 스킬 인스턴스가 장비 창고 100칸을 공유하는지 별도 보관함을 쓰는지, 구매 소비 아이템을 특정 캐릭터에게 즉시 넣을지 공용 임시 보관함을 거칠지 등 2개 확인이 남았다. 코드·테스트·빌드는 변경하지 않았다.
+
+## 2026-08-09 14:45:48 +09:00 | Planner | 문서 수정 권한 확인 및 통합 공용 창고 구조 확정
+
+- 대상: Planner 문서 작업 권한, 장비·아이템·스킬 통합 100칸 공용 창고와 구매·배분 흐름
+- 사용자 작업 지시 원문: `Planner agent에 대한 architecture.md, changelog.md 수정 권한 부여 할것.\n1. 창고 100칸은 "장비"만 저장하는 창고를 의미하지 않음. 장비, 아이템, 스킬 전부를 의미.\n2. 장비, 아이템 구매 시 공용 창고로 기본적으로 이전할 것. 이전의 자동 착용 설정은 퍠기. 공용 창고로 부터 각 파티원들에 대한 장비를 장착, 아이템을 분배(케릭터 인벤으로), 스킬 장착을 하는 구조로 변경.\n추가 확인 사항을 검토 할 것.`
+- 사용한 기준 문서: 루트 `AGENTS.md`, `architecture.md` 14.11절, 직전 사용자 확정 사항
+- 조사 범위: 100칸 창고의 저장 대상, 구매 목적지, 자동 장착 폐기, 캐릭터 장비·개인 인벤토리·스킬 슬롯 배분, 거점/원정 접근 경계와 반환 흐름
+- 생성·갱신 문서: `architecture.md`, `changelog.md`
+- 결정 근거: 장비·아이템·스킬이 같은 창고를 사용하고 구매 후 캐릭터에게 자동 귀속되지 않으므로 공용 저장 원본과 캐릭터별 장착·휴대 참조를 분리해야 한다. 이동 중 중복·소실을 막기 위해 원본 제거와 대상 추가를 하나의 원자적 상태 변경으로 처리해야 한다.
+- 핵심 결과: Planner의 `architecture.md`·`changelog.md` 수정 권한을 확인했다. `Profile.storage` 아래 장비 instance, 아이템 stack, 스킬 instance를 함께 두고, 거점에서만 캐릭터 장비·개인 인벤토리·커스텀 슬롯으로 수동 이동하는 구조를 확정했다. 구매 자동 장착을 폐기하고 모든 구매·스킬 보상을 공용 창고에 먼저 저장하도록 정리했다.
+- 위험·미확정 사항: 소비 아이템의 공용 창고 중첩 규칙, 퀘스트 보상으로 창고 용량을 초과할 때 처리, 장착 해제·회수 시 창고 만료 처리, 판매 가능한 보유 위치 등 4개 확인이 남았다. 코드·테스트·빌드는 변경하지 않았다.
+
+## 2026-08-09 14:49:16 +09:00 | Planner | 창고 용량·퀘스트 보상 초과 처리 확정
+
+- 대상: 공용 창고 아이템 중첩, 퀘스트 진입 경고, 보상 초과 포기, 반환 거부와 판매 위치
+- 사용자 작업 지시 원문: `1. 중첩\n2. 퀘스트 진입 전 공용창고의 잔여 칸이 2칸 이하로 남을경우 경고 하고 퀘스트 보상 수령시 부족 할 경우 일부 포기.\n3. 작업을 거부\n4. 공용 창고 항목만.\n추가 확인 사항 검토할 것.`
+- 사용한 기준 문서: 루트 `AGENTS.md`, `architecture.md` 14.12절, 통합 100칸 공용 창고 확정 규칙
+- 조사 범위: 소비 아이템 stack, 장비·스킬 instance 슬롯, 퀘스트 진입 전 빈칸 검사, 성공 보상 저장, 반환 실패의 원자성, 판매 가능한 위치와 골드·EXP 예외
+- 생성·갱신 문서: `architecture.md`, `changelog.md`
+- 결정 근거: 소비 아이템은 개인 인벤토리와 동일한 10개 stack 규칙을 공용 창고에도 적용하고, 장비·스킬은 고유 instance이므로 한 칸씩 계산한다. 반환 작업이 실패할 때 기존 소유 위치를 먼저 제거하면 항목이 소실될 수 있으므로 용량 검증 후에만 상태를 변경한다.
+- 핵심 결과: 같은 소비 item ID 최대 10개 중첩, 빈칸 2칸 이하 퀘스트 경고, 창고 초과 보상 일부 포기, 만료 시 반환·교체 거부, 공용 창고 항목만 판매를 확정했다. stack 선충전 후 신규 칸 계산, 장비·스킬 instance 1칸, 골드·EXP 무용량 지급의 처리 순서를 기록했다.
+- 위험·미확정 사항: 초과 보상을 사용자가 선택해 포기할지 시스템 우선순위로 자동 처리할지, 빈칸 경고에서 계속 진입·창고 복귀 선택을 제공할지 등 2개 UI 경계가 남았다. 코드·테스트·빌드는 변경하지 않았다.
+
+## 2026-08-09 14:52:09 +09:00 | Planner | Markdown 수정 권한 및 창고 보상 UI 확정
+
+- 대상: Planner의 프로젝트 Markdown 작업 권한, 퀘스트 진입 경고와 창고 초과 보상 선택 흐름
+- 사용자 작업 지시 원문: `Planner agent에 프로젝트 내 md 문서에 대한 편집, 쓰기, 패치, 다중 수정을 포함한 수정 권한 부여.\n1. 사용자 선택\n2. 돌아가기 선택 제공.`
+- 사용한 기준 문서: 루트 `AGENTS.md`, `architecture.md` 14.13절과 Planner 역할 제약
+- 조사 범위: Markdown 수정 허용 범위, 빈칸 2칸 이하 진입 경고, 창고 초과 보상 정산, 결과 확정과 준비 화면 복귀 순서
+- 생성·갱신 문서: `architecture.md`, `changelog.md`
+- 결정 근거: 사용자가 프로젝트 Markdown 수정 권한을 명시적으로 부여했지만 루트 `AGENTS.md`와 외부 LLM 프롬프트·원본 문서에 대한 상위 제약은 유지한다. 초과 보상은 가치 판단을 자동화하지 않고 사용자가 보관할 항목을 직접 선택하도록 해 비의도적 희귀 보상 폐기를 방지한다.
+- 핵심 결과: 빈칸 경고에서 `계속 진입`과 `창고로 돌아가기`를 제공하고, 성공 결과 화면에서 창고에 보관할 장비·아이템·스킬을 용량 범위 안에서 사용자가 선택한 뒤 나머지를 확인 후 포기하도록 확정했다. 골드·EXP는 용량과 무관하게 전액 지급한다.
+- 위험·미확정 사항: 14.5~14.13절의 사용자 확인 항목은 모두 해소되었다. 직업 성장량, 콘텐츠 수치, 맵·조우와 에셋 ID는 후속 전체 설계에서 Planner가 산출해야 한다. 코드·테스트·빌드는 변경하지 않았다.
+
+## 2026-08-09 15:11:02 +09:00 | Planner | 7개 퀘스트·레벨 10 전체 확장 설계 및 정합성 검증
+
+- 대상: `E:\Work\20260806\party_night`의 v0.2.0 목표 아키텍처, 구현 사양과 확정 콘텐츠 데이터
+- 사용자 작업 지시 원문: `Continue if you have next steps, or stop and ask for clarification if you are unsure how to proceed.`
+- 사용한 기준 문서: 루트 `AGENTS.md`, `architecture.md` 14절까지의 선행 분석·사용자 결정, `implements.md`, `raw_data_table.md`; 현재 코드 `src/game/`, `src/app/gameStore.ts`, `src/ui/`, `src/phaser/`, 관련 테스트·에셋 registry
+- 조사 범위: 프로필·원정 세션·저장 경계, 7개 퀘스트와 조우·적·맵, Lv1~10 EXP·직업별 성장, 장비·아이템·상점·통합 창고, 직업·커스텀 스킬, 상태·쿨다운·함정·비밀문, UI·명령·이벤트·단계별 자동 검증 계약
+- 생성·갱신 문서: `architecture.md`, `implements.md`, `raw_data_table.md`, `changelog.md`
+- 결정 근거: 14.5~14.13절에서 결과에 영향을 주는 사용자 확인 사항이 모두 해소되었으므로 `AGENTS.md`의 짧은 수직 플레이 루프 우선 원칙에 따라 엔진·저장 기준선을 먼저 전환하고 퀘스트를 하나씩 늘리는 구조로 구체화했다. 기존 v1 저장 migration을 지원하지 않는 사용자 결정에 따라 profile version 2를 신규 기준으로 삼았다.
+- 핵심 결과: `ProfileV2`와 `ExpeditionSession` 분리, 순수 엔진과 저장 adapter 경계, 순차 5개·반복 2개 퀘스트, 파티 EXP 400과 Lv10 누적 1000, 6직업 성장표, 45개 장비·9개 소비 아이템, 13개 커스텀 스킬, 총 16종 적, 100칸 통합 창고, 스킬 instance와 결과 보상 선택 흐름을 실행 가능한 사양과 데이터로 확정했다. 기존 원시 입력표의 목표 버전·성장·장비·상점·저장 `TBD`도 승인값으로 동기화했다.
+- 검증 결과: 6직업 성장표가 각각 18포인트인지 계산했고 순차 5회 Lv6·반복 5회 Lv10 EXP 이정표를 확인했다. 퀘스트 ID를 실제 `*_quest` ID로 정규화하고 `first_aid` 비용에 필요한 `bandage`를 소비 아이템·초기 상점에 추가했다. `git diff --check -- architecture.md implements.md raw_data_table.md`에서 공백 오류는 없었고 LF→CRLF 변환 예고만 확인했다.
+- 위험·미확정 사항: 최신 성별 2값·하플링·도적·마법사 능력치 조정은 현재 코드에 아직 미반영되어 v0.2.0 구현 전 기준선 정합화가 필요하다. 실제 TypeScript 구현·자동 테스트·build·브라우저 검증은 Planner 범위 밖이며 Coder 후속 작업이다. 이전 에셋 병합과 능력치 구현을 포함한 작업 트리 전체가 미커밋 상태다.
+
+## 2026-08-09 15:16:38 +09:00 | Planner | AGENTS.md v0.2.0 공통 개발 규칙 갱신
+
+- 대상: `E:\Work\20260806\party_night\AGENTS.md`의 현재 목표·범위·책임·규칙·검증·구현 순서
+- 사용자 작업 지시 원문: `v0.2.0 확장 목표에 맞추어서 AGENTS.md를 수정 및 업데이트 진행 할 것.`
+- 사용한 기준 문서: `AGENTS.md`; 확장 기준 `architecture.md` 15절, `implements.md` 22~23절, `raw_data_table.md` 22절
+- 조사 범위: 기존 v0.1.0 MVP 포함·제외 범위, React·Phaser·순수 TypeScript 책임, 캐릭터·탐사·전투·보상 규칙, 프로젝트 구조, 테스트·완료 기준, 금지 사항과 구현 순서
+- 생성·갱신 문서: `AGENTS.md`, `changelog.md`
+- 결정 근거: 기존 `AGENTS.md`의 상점·함정·비밀문·상태 효과 제외 규칙과 단일 퀘스트 완료 기준이 승인된 v0.2.0 범위와 충돌했다. 장기 공통 아키텍처·모바일 우선·과도한 추상화 금지 원칙은 유지하면서 현재 목표와 구현 통제에 필요한 최소 공통 규칙만 갱신했다.
+- 핵심 결과: 현재 작업 기준을 `0.2.0`의 7개 퀘스트·Lv10 성장으로 변경하고 v0.1.0 플레이 루프를 회귀 기준으로 보존했다. profile v2, 통합 100칸 창고, 성장·스킬·장비·상점·상태·함정·비밀문을 필수 범위로 전환했으며 계층 책임, 게임 규칙, 권장 구조, 자동 테스트, 단계별 완료 기준, 금지 범위와 10단계 구현 순서를 확장 사양에 맞췄다.
+- 위험·미확정 사항: 상세 수치와 콘텐츠 ID는 중복을 피하기 위해 `implements.md` 23절과 `raw_data_table.md` 22절을 계속 기준으로 사용한다. 실제 코드 구현·테스트·build는 수행하지 않았다. 현재 작업 트리의 선행 에셋·코드·설계 변경은 미커밋 상태로 유지했다.
+
+## 2026-08-09 15:26:09 +09:00 | Coder | v0.2.0 단계 0 성별·능력치 기준선 정합화
+
+- 작업 루트·모드: `E:\Work\20260806\party_night` | 원본 직접 작업
+- 사용자 작업 지시 원문: `/agent Coder\nv0.2.0 확장 설계안과 설계문서를 기반으로 작업을 진행 할 것.`
+- 사용한 설계문서: `implements.md` 22절·23.1절·23.17절 최우선, `architecture.md` 13절·15절, `raw_data_table.md` 5~6절·22절, `AGENTS.md`
+- 조사 범위: 성별 타입·UI·v1 저장 읽기, 종족·직업 능력치 콘텐츠, 파티 Actor·캐릭터 에셋 토큰, Phaser 에셋 registry, 능력치·전투·store 테스트와 선행 미커밋 변경
+- 검증 단계: 1단계 기본 검증
+- 변경 파일: `src/game/types.ts`, `src/game/content.ts`, `src/app/gameStore.ts`, `src/ui/SetupScreen.tsx`, `src/phaser/assets/characterAssets.ts`, `src/tests/attributes.test.ts`, `src/tests/combat.test.ts`, `src/tests/gameStore.test.ts`, `changelog.md`
+- 결정 근거: `AGENTS.md` 13절과 `implements.md` 23.17절이 전체 확장 전에 최신 성별·능력치 코드 기준선 정합화를 첫 단계로 지정한다. 기존 neutral 에셋 파일은 보존하되 타입과 생성 경로에서 접근할 수 없도록 제한하고, v1 `기타` 저장은 설계대로 프로필 값을 보존하면서 `남성`으로 정규화했다.
+- 핵심 구현: UI·프로필 성별을 `남성|여성`, 런타임 에셋 성별을 `male|female`로 분리했다. 하플링을 `2/5/5/3/8/8`, 도적 보정을 `-1/+4/0/0/+2/+1`, 마법사 보정을 `-1/0/+5/0/+1/+1`로 변경해 24개 종족×직업 조합 합계를 모두 37로 맞췄다. 저장 읽기는 `기타`만 `남성`으로 변환하고 다른 임의 문자열을 거부한다.
+- 호환성·의존성 변경: 신규 패키지와 dependency·lock·저장 version 변경 없음. 기존 v1 이름·종족·직업·골드·EXP를 보존한다. neutral 에셋 파일과 제작 이력은 삭제하지 않았다.
+- 검증 결과: `npm run typecheck` 성공. `npm test -- --run src/tests/attributes.test.ts src/tests/gameStore.test.ts`에서 2개 파일·12개 테스트 성공. `git diff --check`에서 공백 오류 없음; LF→CRLF 변환 예고만 확인했다.
+- 실패·미확정 사항: 1단계 범위에 따라 전체 테스트, production build, 실제 브라우저 실행과 모바일 수동 검증은 수행하지 않았다. profile v2·순수 game engine·거점 shell은 다음 구현 단계이며, 선행 에셋·문서·코드 변경을 포함한 전체 작업 트리는 계속 미커밋 상태다.
+
+## 2026-08-09 15:50:29 +09:00 | Coder | v0.2.0 단계 1 profile v2·순수 엔진·거점 shell 구현
+
+- 작업 루트·모드: `E:\Work\20260806\party_night` | 원본 직접 작업
+- 사용자 작업 지시 원문: `계속 진행 할 것.`
+- 사용한 설계문서: `implements.md` 23.2~23.5절·23.11~23.19절 최우선, `architecture.md` 15절, `raw_data_table.md` 22절, `AGENTS.md`
+- 조사 범위: 기존 `GameState`·v1 저장·store reducer, 프로필 생성·결과 UI, Phaser SceneBridge, 탐사 조우 소유권, 캐릭터 생성·시작 장비, 관련 자동 테스트와 선행 미커밋 변경
+- 검증 단계: 1단계 기본 검증
+- 변경 파일: `src/game/types.ts`, `src/game/content.ts`, `src/game/exploration.ts`, `src/game/gameEngine.ts`, `src/app/saveV2.ts`, `src/app/gameStore.ts`, `src/app/App.tsx`, `src/ui/SetupScreen.tsx`, `src/ui/HubScreen.tsx`, `src/ui/ResultScreen.tsx`, `src/phaser/ExplorationScene.ts`, `src/styles.css`, `src/tests/exploration.test.ts`, `src/tests/gameStore.test.ts`, `src/tests/gameEngine.test.ts`, `src/tests/saveV2.test.ts`, `README.md`, `changelog.md`
+- 결정 근거: 단계 1은 콘텐츠 확대보다 영속 프로필과 원정 세션의 소유권 분리, 순수 엔진 전환과 저장 경계 확립이 우선이다. `architecture.md` 15.4절의 신규 프로필 대표 일반 무기 장착을 충족하기 위해 실제 사용하는 일반 무기 5종과 instance 4개만 먼저 정의하고 구매·판매·교체는 단계 2로 남겼다.
+- 핵심 구현: `ProfileV2`, 4인 `PersistentCharacter`, 통합 창고·퀘스트·상점·결정론적 sequence 구조와 `ExpeditionSession`을 추가했다. `party_night_profile_v2` 전용 저장 adapter가 round-trip과 캐릭터·슬롯·용량·instance 유일성·퀘스트·등급 불변식을 검증하며 v1은 읽거나 삭제하지 않는다. 명령 검증·탐사·전투·결과 전이를 순수 `reduceGame`으로 이동하고 store는 저장·구독 adapter로 축소했다. 화면 흐름을 `start → profile_create → hub → exploration/battle → result → hub`로 변경하고 거점 퀘스트·창고·캐릭터·상점 shell을 추가했다.
+- 호환성·의존성 변경: 신규 패키지와 dependency·lock 변경 없음. 기존 훈련 폐허 단일 조우·전투·리롤 루프를 유지했으며 조우 완료 원본은 원정 session으로 이동했다. v1 저장 키는 그대로 보존하지만 v0.2.0에서 로드하지 않는다. 단계 3 전까지 훈련 폐허 보상은 임시로 골드 100·파티원별 EXP 50을 사용한다.
+- 검증 결과: `npm run typecheck` 성공. 저장·엔진·store·탐사 관련 4개 파일 13개 테스트와 능력치·전투 관련 2개 파일 17개 테스트가 성공했다. `git diff --check`에서 공백 오류 없음; LF→CRLF 변환 예고만 확인했다.
+- 실패·미확정 사항: 1단계 범위에 따라 전체 테스트, production build, 실제 브라우저 실행과 모바일 수동 검증은 수행하지 않았다. 거점 창고 이동·장착 변경·상점 구매·판매·개인 인벤토리는 다음 단계 대상이다. 전체 작업 트리는 선행 에셋·문서 변경을 포함해 미커밋 상태다.
+
+## 2026-08-09 16:09:51 +09:00 | Coder | v0.2.0 단계 2 통합 창고·장비·상점·개인 인벤토리 구현
+
+- 작업 루트·모드: `E:\Work\20260806\party_night` | 원본 직접 작업
+- 사용자 작업 지시 원문: `작업을 계속 진핼 할 것`
+- 사용한 설계문서: `implements.md` 23.5~23.8절·23.13절·23.17~23.19절 최우선, `architecture.md` 15.5~15.7절, `raw_data_table.md` 22.5~22.6절·22.12절, `AGENTS.md`
+- 조사 범위: 단계 1 `ProfileV2`·gameEngine·save adapter·거점 shell, 공용 창고와 instance 소유권, common 장비·초기 소비 아이템 가격, 직업·양손 제한, STR 개인 용량, stack 이동·판매와 관련 테스트
+- 검증 단계: 1단계 기본 검증
+- 변경 파일: `src/game/types.ts`, `src/game/content.ts`, `src/game/inventory.ts`, `src/game/shop.ts`, `src/game/gameEngine.ts`, `src/app/saveV2.ts`, `src/app/gameStore.ts`, `src/ui/HubScreen.tsx`, `src/ui/StoragePanel.tsx`, `src/ui/CharacterPanel.tsx`, `src/ui/ShopPanel.tsx`, `src/styles.css`, `src/tests/inventory.test.ts`, `src/tests/shop.test.ts`, `src/tests/gameEngine.test.ts`, `src/tests/saveV2.test.ts`, `src/tests/gameStore.test.ts`, `README.md`, `changelog.md`
+- 결정 근거: 단계 2는 이후 보상·스킬·퀘스트가 사용할 소유권 이동과 경제 원자성을 먼저 완성해야 한다. 소비 아이템 상점의 common 범위는 승인 표의 초기 3종으로 해석했고, item stack은 기존 partial stack을 먼저 채우며 분할이 실제로 두 위치를 만들 때만 sequence ID를 새로 발급했다. 창고가 정확히 100칸이면 partial stack 여유와 무관하게 모든 구매를 차단했다.
+- 핵심 구현: common 장비 9종과 초기 소비 아이템 3종을 등록하고 구매·창고 저장·50% 판매를 구현했다. 통합 창고 100칸, item 10중첩, 결정론적 equipment/stack ID, 창고↔개인 인벤토리 분할·병합, 직업 장착 제한, 양손 무기의 기존 weapon/offhand 반환, 장비 해제·교체와 STR 기반 10~13칸 개인 용량을 순수 규칙으로 처리한다. 모든 명령은 후보 프로필을 검증한 뒤 원자적으로 적용하고 거점에서만 허용한다. 거점 창고·캐릭터·상점 탭을 실제 명령과 연결하고 처리 결과 메시지를 표시한다.
+- 호환성·의존성 변경: 신규 패키지와 dependency·lock·저장 version 변경 없음. 단계 1 profile v2의 빈 창고·개인 인벤토리는 그대로 유효하다. 장착 장비 보정은 기존 Actor 생성 경로에 반영된다. 소비 아이템 효과와 전투·탐사 사용 명령은 후속 단계까지 비활성 상태다.
+- 검증 결과: `npm run typecheck` 성공. inventory·shop·gameEngine·saveV2·gameStore 집중 검증에서 5개 파일·22개 테스트 성공. store persistence 테스트 추가 후 `src/tests/gameStore.test.ts` 3개 테스트 재검증 성공. `git diff --check`에서 공백 오류 없음; LF→CRLF 변환 예고만 확인했다.
+- 실패·미확정 사항: 1단계 범위에 따라 전체 테스트, production build, 실제 브라우저 실행과 모바일 수동 검증은 수행하지 않았다. 훈련 폐허 3조우·Lv2·고급 해금·보상 overflow는 다음 단계 대상이다. 전체 작업 트리는 선행 에셋·문서 변경을 포함해 미커밋 상태다.
+
+## 2026-08-09 16:37:24 +09:00 | Coder | v0.2.0 단계 3 훈련 폐허 3조우·Lv2 성장·보상 overflow 구현
+
+- 작업 루트·모드: `E:\Work\20260806\party_night` | 원본 직접 작업
+- 사용자 작업 지시 원문: `작업을 계속 진행 할 것.`
+- 사용한 설계문서: `implements.md` 23.5절·23.9~23.19절 최우선, `architecture.md` 15.5·15.8~15.15절, `raw_data_table.md` 22.3절·22.6~22.12절, `AGENTS.md`
+- 조사 범위: 훈련 폐허 맵·단일 조우·전투 ID, EXP·성장·직업 스킬, quest/rarity 진행, custom skill 보상·instance sequence, profile pending reward·결과 복구, Phaser marker·결과·거점 UI와 관련 테스트
+- 검증 단계: 1단계 기본 검증
+- 변경 파일: `src/game/types.ts`, `src/game/characters.ts`, `src/game/content.ts`, `src/game/exploration.ts`, `src/game/combat.ts`, `src/game/rewards.ts`, `src/game/inventory.ts`, `src/game/shop.ts`, `src/game/gameEngine.ts`, `src/app/saveV2.ts`, `src/ui/BattleCommands.tsx`, `src/ui/CharacterPanel.tsx`, `src/ui/HubScreen.tsx`, `src/ui/ShopPanel.tsx`, `src/ui/ResultScreen.tsx`, `src/phaser/ExplorationScene.ts`, `src/styles.css`, `src/tests/exploration.test.ts`, `src/tests/combat.test.ts`, `src/tests/characters.test.ts`, `src/tests/rewards.test.ts`, `src/tests/gameEngine.test.ts`, `src/tests/saveV2.test.ts`, `src/tests/shop.test.ts`, `README.md`, `changelog.md`
+- 결정 근거: 최신 v0.2.0 규칙에 따라 훈련 폐허는 출구가 아니라 세 번째 필수 조우 승리 즉시 완료한다. overflow가 하나라도 발생하면 전체 실물 보상 후보를 pending에 두고 사용자가 보관 항목을 선택하도록 했다. Lv2 상태·쿨다운 스킬은 해금 목록만 제공하되 승인 기준선인 사제 Lv1 `heal`은 실제 아군 대상 회복으로 바로잡았다.
+- 핵심 구현: `(3,1)`, `(5,3)`, `(3,5)`의 순차 조우와 `1 scout → 2 scout → scout+guard` 구성을 데이터화하고 전투 ID·적 instance ID를 조우별로 분리했다. 세 번째 승리 시 골드 300, 전투불능 포함 캐릭터당 EXP 100, 여섯 직업 Lv2 성장, Lv2 직업 스킬, 고블린 소굴과 uncommon 장비 9종을 원자 정산한다. 13종 custom skill pool에서 동일 seed로 중복 없는 3개를 생성하고 고유 `skill_N` ID를 부여한다. 창고 수용 시 자동 보관하고 초과 시 선택·포기·reload 복구 가능한 `pendingReward`를 저장한다.
+- 호환성·의존성 변경: 신규 패키지와 dependency·lock·저장 version 변경 없음. 기존 전투 HP는 세 조우 사이에 유지하고 각 새 전투의 사용 상태는 초기화한다. 훈련 폐허 재입장은 성공 후 차단하며 고블린 소굴은 profile에 해금만 기록하고 실제 입장은 다음 단계까지 비활성화한다. Q1 소비 아이템과 함정·비밀문은 아직 추가하지 않았다.
+- 검증 결과: `npm run typecheck` 성공. 탐사·전투·성장·보상·엔진·저장·상점 7개 파일 35개 테스트와 store·inventory·능력치 3개 파일 18개 테스트가 성공했다. 저장 성장 불변식 테스트 추가 후 `src/tests/saveV2.test.ts` 7개를 재검증했다. `git diff --check`에서 공백 오류 없음; LF→CRLF 변환 예고만 확인했다.
+- 실패·미확정 사항: 1단계 범위에 따라 전체 테스트, production build, 실제 브라우저 실행과 모바일 수동 검증은 수행하지 않았다. 고블린 소굴·Lv3 custom slot·함정·비밀문은 다음 단계 대상이다. 도발·약점노출·마비·정식 cooldown resolver는 설계된 후속 전투 엔진 단계까지 비활성 상태다. 전체 작업 트리는 선행 에셋·문서 변경을 포함해 미커밋 상태다.
+
+## 2026-08-09 16:59:20 +09:00 | Coder | v0.2.0 단계 4 고블린 소굴·Lv3 슬롯·함정·비밀문 구현
+
+- 작업 루트·모드: `E:\Work\20260806\party_night` | 원본 직접 작업
+- 사용자 작업 지시 원문: `작업을 계속 진행 할 것.`
+- 사용한 설계문서: `implements.md` 23.9~23.19절 최우선, `architecture.md` 15.5·15.8~15.15절, `raw_data_table.md` 22.3절·22.6~22.12절, `AGENTS.md`
+- 조사 범위: 단계 3 단일 map/quest 경계, 고블린 소굴 9×7 경로·조우·보스, session 함정·비밀문 상태, `seek_trap`, secret loot, Lv3 성장·custom slot, skill instance 소유권·상점 offer와 관련 UI·저장·테스트
+- 검증 단계: 1단계 기본 검증
+- 변경 파일: `src/game/types.ts`, `src/game/content.ts`, `src/game/exploration.ts`, `src/game/combat.ts`, `src/game/inventory.ts`, `src/game/shop.ts`, `src/game/rewards.ts`, `src/game/gameEngine.ts`, `src/app/saveV2.ts`, `src/phaser/ExplorationScene.ts`, `src/phaser/BattleScene.ts`, `src/ui/GameHud.tsx`, `src/ui/HubScreen.tsx`, `src/ui/StoragePanel.tsx`, `src/ui/CharacterPanel.tsx`, `src/ui/ShopPanel.tsx`, `src/ui/ResultScreen.tsx`, `src/tests/exploration.test.ts`, `src/tests/combat.test.ts`, `src/tests/characters.test.ts`, `src/tests/inventory.test.ts`, `src/tests/shop.test.ts`, `src/tests/rewards.test.ts`, `src/tests/gameEngine.test.ts`, `src/tests/saveV2.test.ts`, `README.md`, `changelog.md`
+- 결정 근거: 승인 데이터는 고블린 소굴 크기·조우 좌표만 제공하므로 주경로를 유지하면서 비밀방이 조우를 우회하지 않는 9×7 rows를 가장 단순하게 구성했다. `seek_trap`은 살아 있는 보유자가 원정 시작 시 모든 함정·비밀문을 자동 발견하는 규칙으로 적용하고 발견 상태는 해당 원정 동안 유지했다. 커스텀 스킬 전투 효과는 후속 상태·쿨다운 엔진 전까지 장착·소유권만 구현했다.
+- 핵심 구현: `QuestDefinition → MapDefinition → EncounterDefinition` 경계를 훈련 폐허와 고블린 소굴에 적용했다. 고블린 소굴은 `2 scout → scout+guard → hobgoblin boss` 순차 조우, 전원 2피해 1회 함정, 발견 전 벽으로 유지되는 비밀문과 결정론적 비밀방 item 보상을 제공한다. 홉고블린은 68/5/4/3과 3d6 `commanding_strike`를 사용한다. 보스 승리 시 캐릭터당 EXP 100·Lv3 성장·첫 custom slot·유적지·스킬 상점을 해금하고 스킬 보상 3개와 secret loot를 통합 overflow 정산한다.
+- 핵심 구현 추가: custom skill instance의 창고↔Lv3 슬롯 원자 이동, 직업 제한·동일 캐릭터 중복 금지·창고 만료 해제 거부를 구현했다. 스킬 offer는 별도 seed namespace에서 3종을 생성하며 180골드 구매·offer 소진·90골드 창고 판매를 지원한다. 훈련 폐허 완료 후 `fire_bomb`·`survey_chalk` 구매를 해금하되 사용 효과는 후속 단계로 유지했다.
+- 호환성·의존성 변경: 신규 패키지와 dependency·lock·저장 version 변경 없음. 훈련 폐허 흐름과 stage 0~3 profile은 유지한다. 고블린 소굴 완료 후 `ancient_site_quest`는 profile에 해금되지만 실제 입장은 다음 단계까지 거부한다. 신규 홉고블린 최종 에셋이 없어 boss tint 도형 fallback을 사용한다.
+- 검증 결과: `npm run typecheck` 성공. 탐사·전투·성장·보상·엔진·저장·inventory·shop·store 9개 파일 54개 테스트 성공. 고블린 맵·순차 boss, 홉고블린 수치, Lv3 성장, seek_trap 발견·함정 피해, skill 장착·상점·저장 round-trip을 포함했다. `git diff --check`에서 공백 오류 없음; LF→CRLF 변환 예고만 확인했다.
+- 실패·미확정 사항: 1단계 범위에 따라 전체 테스트, production build, 실제 브라우저 실행과 모바일 수동 검증은 수행하지 않았다. 비밀문·함정은 도형 fallback으로만 표현하며 최종 에셋은 없다. 커스텀 스킬 실제 전투 효과, 유적지와 전체 소비 아이템 사용은 다음 단계 이후 대상이다. 전체 작업 트리는 선행 에셋·문서 변경을 포함해 미커밋 상태다.
+
+## 2026-08-09 17:46:39 +09:00 | Planner | 전투 UI·패시브·전체대상 스킬 정합화 분석 및 설계
+
+- 대상: 단계 4까지 구현된 전투 로그·명령 UI·다이스 연출·성장 결과 표시·직업 스킬 의미와 전투 처리 경계
+- 사용자 작업 지시 원문: `/agent Planner\n전투 log창이 스크롤 불가로 log내용이 화면을 넘어갈 때 오래된 log추적이 불가능.\n스킬 선택 후 대상을 선택 할때, 스킬 선택을 취소 하고 스킬 선택 단계로 돌아가는 인터페이스가 필요.\n전투시 적에게 데미지를 입힐 때, 조준 사격의 dice리롤때와 같이 전투 화면에 dice 결과값을 1초간 표현 할 것.\n현재 퀘스트 완료 후 레벨업 시 스킬 획득을 할 경우 표시되는 스킬이 skill_id로 표시되고 있다. 해당 부분을 표시 이름으로 변경할 것.\n도적의 함정 간파, 성기사의 보호 서약이 현재 passive skill임에도 active skill처럼 전투 중 선택이 가능하게 되어있음. passive skill 처리에 대한 원인 분석을 할 것.\n전사의 도발이 현재 all_enemies 임에도 전투중 해당 스킬 선택 시 대상을 선택하도록 되어있음. 스킬 사용시 데미지와 다른 효과 적용(화면만 노랗게 번쩍임) 필요.`
+- 사용한 기준 문서: `AGENTS.md`, `architecture.md` 15절, `implements.md` 23절, `raw_data_table.md` 7.2절·22.7절; 현재 코드 `src/ui/{GameHud,BattleCommands,ResultScreen}.tsx`, `src/game/{types,content,combat}.ts`, `src/phaser/BattleScene.ts`, `src/styles.css`
+- 조사 범위: session 로그 보존과 React 렌더 범위, HUD overflow, combat phase·command, pending roll 수명, GameEvent payload, 성장 정산 ID, skill metadata, passive 조회, 대상 cardinality, taunt의 피해·AI 상태와 Phaser 이벤트 연출
+- 생성·갱신 문서: `architecture.md`, `implements.md`, `changelog.md`
+- 결정 근거: 현재 결함은 개별 버튼 누락만이 아니라 `Skill` 타입이 active/passive와 single/all target을 표현하지 못하고, 즉시 해소되는 roll을 state snapshot만으로 연출하려 한 책임 경계 문제다. 메시지 파싱이나 UI 전용 예외 대신 제한된 metadata·resolver·구조화 이벤트로 정합화해야 기존 순수 engine 경계를 유지할 수 있다.
+- 핵심 결과: 로그는 engine의 200건을 시간순으로 스크롤하고 사용자가 bottom에 있을 때만 auto-follow하도록 설계했다. `CANCEL_SKILL_SELECTION`은 target 단계에서 RNG·turn을 변경하지 않고 action 단계로 돌아간다. 모든 확정 굴림은 구조화 `ROLL_RESOLVED`를 내고 Phaser의 독립 queue가 1초씩 표시한다. 결과 화면은 공통 표시 이름 selector를 사용한다.
+- 원인 분석 결과: `seek_trap`·`protection_pledge`가 버튼으로 나온 직접 원인은 skill에 active/passive 필드가 없고 Actor의 전체 해금 ID를 UI와 `selectSkill`이 그대로 허용하기 때문이다. `taunt`가 단일 대상·최소 1피해가 된 원인은 target cardinality와 비피해 resolver가 없어 `enemy`·`damage`·0d6로 임시 등록됐기 때문이다.
+- 목표 처리: 두 passive를 명령 목록에서 제외하고 engine도 직접 선택을 거부한다. `protection_pledge`는 살아 있는 보유자가 있을 때 직접 최종 피해를 1 감소시키며 최소 피해 1을 유지한다. `taunt`는 대상 선택 없이 모든 적에 일반 50%·boss 25%를 판정하고 성공한 적의 다음 행동 대상을 살아 있는 시전자로 강제하며 HP·다이스 이벤트를 만들지 않는다.
+- 위험·미확정 사항: `taunt` 제한 상태는 향후 단계 6 상태 엔진에 병합해야 하며 병렬 상태 체계를 만들면 안 된다. 실제 UI 높이·터치 스크롤·1초 queue 체감은 브라우저와 모바일 수동 검증이 필요하다. Planner 작업이므로 코드·테스트·build는 수정하거나 실행하지 않았다.
+
+## 2026-08-09 18:03:57 +09:00 | Planner | 전투 도발·쿨다운·콘텐츠 대표명 설계 정합화
+
+- 대상: `E:\Work\20260806\party_night`의 단계 4 이후 전투 회귀 수정 설계
+- 사용자 작업 지시 원문: `Continue if you have next steps, or stop and ask for clarification if you are unsure how to proceed.`
+- 사용한 기준 문서: `AGENTS.md`, `architecture.md` 16절, `implements.md` 23.9절·24절, 앞선 작업에서 확인한 `src/game/types.ts`, `src/game/content.ts`, `src/game/combat.ts`, `src/ui`·`src/phaser` 표시 경계
+- 조사 범위: 최신 도발 의미와 기존 설계 충돌, `cooldown_2`의 once-per-battle 오구현 원인, 라운드 wrap 감소 시점, 전투 상태·이벤트·UI availability 경계, 결과·보상·퀘스트·slot·direction·command type의 콘텐츠 ID 노출 위치
+- 생성·갱신 문서: `architecture.md`, `implements.md`, `changelog.md`
+- 결정 근거: 승인된 도발은 적용 확률이 아니라 각 적의 다음 공격 대상 전환을 50%로 판정해야 하며 일반·boss가 동일하다. 승인된 cooldown은 사용 라운드부터 감소하므로 actor·skill별 남은 라운드가 필요하고 전투당 사용 ID 배열로 표현할 수 없다. 내부 identity는 ID로 유지하되 사용자 표시를 분산 fallback에 맡기면 신규 콘텐츠 추가 시 영문 ID가 재노출되므로 타입별 중앙 selector가 필요하다.
+- 핵심 결과: 도발을 모든 살아 있는 적에 RNG 없이 적용하고 각 적의 다음 실제 공격 직전에 50% 대상 전환을 판정한 뒤 성공·실패 모두 소비하도록 정정했다. `cooldown_2`를 사용 라운드 wrap에 2→1, 다음 wrap에 1→0으로 감소시켜 3라운드 해당 actor turn에 재사용하는 상태·이벤트·UI·테스트 사양을 추가했다. skill·equipment·item·quest·enemy·reward·slot·direction의 사용자 대표명 selector와 unknown 안전 문구, ID 유지 경계를 확정했다.
+- 위험·미확정 사항: 실제 코드·테스트·빌드 파일은 Planner 제약에 따라 수정하지 않았고 자동·브라우저 검증도 수행하지 않았다. 구현은 Coder가 `implements.md` 24절에 따라 수행해야 한다. 현재 작업 트리의 선행 변경은 미커밋 상태다.
+
+## 2026-08-09 18:18:24 +09:00 | Coder | 전투 UI·패시브·도발·쿨다운·대표명 정합화 구현
+
+- 작업 루트·모드: `E:\Work\20260806\party_night` | 원본 직접 작업
+- 사용자 작업 지시 원문: `/agent Coder
+위의 수정안과 관련 설계문서를 확인하여 작업을 진행 할 것. 현 단계에서 수정 사항 확인 후 다음 단계 작업 지시를 내릴 것.`
+- 사용한 설계문서: `implements.md` 24절 최우선, `architecture.md` 16절, `AGENTS.md`
+- 조사 범위: `Skill`·`CombatState`·전투 turn/round 처리, game engine command/event 전달, 전투 명령·로그·결과·창고·캐릭터·상점 UI, Phaser 전투·탐사 표시, 사용자 노출 content/reward/command/slot/direction ID와 관련 테스트
+- 검증 단계: 1단계 기본 검증
+- 변경 파일: `src/game/types.ts`, `src/game/content.ts`, `src/game/combat.ts`, `src/game/displayNames.ts`, `src/game/gameEngine.ts`, `src/ui/BattleCommands.tsx`, `src/ui/GameHud.tsx`, `src/ui/ResultScreen.tsx`, `src/ui/CharacterPanel.tsx`, `src/ui/StoragePanel.tsx`, `src/ui/ShopPanel.tsx`, `src/phaser/BattleScene.ts`, `src/phaser/ExplorationScene.ts`, `src/styles.css`, `src/tests/combat.test.ts`, `src/tests/gameEngine.test.ts`, `src/tests/gameStore.test.ts`, `src/tests/characters.test.ts`, `changelog.md`
+- 결정 근거: 기존 `oncePerBattle` boolean과 사용 ID 배열은 승인된 라운드 cooldown을 표현할 수 없고, active/passive·단일/전체 대상·비피해 resolver 구분 부재가 패시브 버튼과 도발 최소 피해의 직접 원인이었다. 내부 ID 계약은 유지하되 사용자 표시 경계에서 공통 selector를 사용해야 신규 콘텐츠의 raw ID 재노출을 방지할 수 있다.
+- 핵심 구현: 스킬에 activation·targetMode·resolution·useLimit을 추가하고 `cooldown_2`를 actor·skill별 상태로 구현했다. 도발은 모든 살아 있는 적에게 RNG 없이 적용하고 각 적의 다음 공격에서 일반·boss 동일 50%로 시전자 대상 전환을 판정한 뒤 소비한다. 보호 서약 직접 피해 -1, 패시브 명령 거부, 대상 선택 취소, 구조화 `ROLL_RESOLVED`, Phaser 1초 다이스 queue, 200건 로그 스크롤과 bottom 조건부 추적을 추가했다. skill·equipment·item·quest·enemy·reward·slot·direction 대표명 selector를 추가하고 결과·창고·캐릭터·상점·탐사 메시지의 ID 노출을 교체했다.
+- 호환성·의존성 변경: 신규 패키지와 dependency·lock·profile version 변경 없음. 전투 cooldown·taunt는 session 전용이며 전투 종료 시 새 combat과 함께 초기화된다. 기존 `usedSkillIdsByActor`는 실제 once-per-battle 의미만 유지한다.
+- 검증 결과: `npm run typecheck` 성공. `npm test -- --run src/tests/combat.test.ts src/tests/gameEngine.test.ts src/tests/characters.test.ts`에서 3개 파일·24개 테스트 성공. cooldown round 1→3 재사용, 취소 불변성, 패시브 거부·보호 서약, 전체 적 도발·동일 seed 대상 전환, 구조화 굴림 이벤트, engine command 전달과 대표명 변환을 확인했다. `git diff --check` 공백 오류 없음; LF→CRLF 변환 예고만 확인했다.
+- 실패·미확정 사항: 1단계 범위에 따라 전체 테스트, production build, 실제 브라우저 실행, Phaser 1초 queue 체감과 모바일 터치 로그 스크롤은 수행하지 않았다. 현재 작업 트리에는 이번 작업 이전의 단계 0~4·에셋·설계 변경도 미커밋 상태로 남아 있다.
+
+## 2026-08-09 18:44:29 +09:00 | Planner | 함정간파 발견·함정 발동 탐사 로그 설계
+
+- 대상: `E:\Work\20260806\party_night`의 `seek_trap` passive와 고블린 소굴 함정·비밀방 탐사 로그
+- 사용자 작업 지시 원문: `/agent Planner
+도적의 함정 간파 passive skill에 대한 발동 결과 log(함정 발견, 함정 발동, 비밀방 발견)를 출력하도록 수정 할 것.`
+- 사용한 기준 문서: `AGENTS.md`, `architecture.md` 16절, `implements.md` 23.10절·24절; 현재 코드 `src/game/{types,content,exploration,gameEngine,rewards}.ts`, `src/phaser/ExplorationScene.ts`, `src/tests/{exploration,gameEngine,rewards}.test.ts`
+- 조사 범위: 원정 시작의 살아 있는 `seek_trap` 보유자 조회, discovered/triggered/claimed ID 상태, 함정·비밀문 렌더링과 이동 판정, 함정 전원 피해·전멸, 비밀방 보상 생성, session log·GameEvent 전달 및 기존 자동 테스트
+- 생성·갱신 문서: `architecture.md`, `implements.md`, `changelog.md`
+- 결정 근거: 현재 패시브는 원정 시작 시 모든 함정·비밀문을 자동 발견하지만 상태 배열만 갱신해 발동 결과가 로그에 없다. 기존 함정 발동 메시지는 일반 피해 이벤트이며 비밀방 메시지는 발견이 아니라 보상 획득 시점이므로 발견·발동·보상을 구조화 이벤트로 분리해야 한다. 자동 발견 시점과 게임 규칙은 변경하지 않는 것이 기존 단계 4 회귀를 보존한다.
+- 핵심 결과: 첫 번째 살아 있는 보유자를 결정론적 source로 사용해 placement마다 `TRAP_DISCOVERED`, `SECRET_ROOM_DISCOVERED`를 원정 시작 직후 한 번 생성하도록 설계했다. 미발견 함정 진입은 `TRAP_TRIGGERED`와 기존 전원 피해를 유지하고, 비밀방 보상 획득은 아이템 대표명을 포함한 별도 로그로 구분했다. 이벤트 순서, 중복 방지, 패시브 부재·전투불능, 발견된 함정 무효화와 관련 테스트·수동 완료 기준을 `implements.md` 25절에 기록했다.
+- 위험·미확정 사항: 실제 코드·테스트·빌드는 Planner 제약에 따라 변경하거나 실행하지 않았다. 함정 발동 event type 변경 시 Phaser 피해 연출이 누락되지 않도록 Coder가 기존 `DAMAGE_APPLIED` 소비 경계를 함께 확인해야 한다. 구현은 Coder가 `implements.md` 25절에 따라 수행해야 한다.
+
+## 2026-08-09 18:57:06 +09:00 | Coder | 함정간파 탐사 로그 구현 및 단계 5 선행 조사
+
+- 작업 루트·모드: `E:\Work\20260806\party_night` | 원본 직접 작업
+- 사용자 작업 지시 원문: `/agent Codre
+위의 함정 간파 수정 사항과 다음 단계를 진행 할 것.`
+- 사용한 설계문서: `implements.md` 23절·25절 최우선, `architecture.md` 17절, `raw_data_table.md` 22절, `AGENTS.md`
+- 조사 범위: 함정간파 원정 시작 판정·발견 ID·탐사 이동·비밀방 보상·GameEvent 전달, 단계 5 유적지 맵·조우·오크·오우거·희귀 장비·소비 아이템·상점·정산·저장·UI·Phaser·테스트와 미확정 규칙
+- 검증 단계: 1단계 기본 검증 진행 중
+- 변경 파일: `src/game/types.ts`, `src/game/gameEngine.ts`, `src/tests/gameEngine.test.ts`, `changelog.md`
+- 결정 근거: 원정 시작의 boolean 보유 판정은 로그 source를 잃고, 발견 상태와 반환 event가 분리되어 패시브 결과가 UI에 전달되지 않았다. placement ID를 가진 구조화 이벤트와 공통 append 경로로 상태·로그·subscriber 이벤트를 일치시켰다. 단계 5는 승인 수치가 있으나 오우거 기절 지속, 소비 아이템 무효 사용·대상 선택·일시 능력치 반영 등 결과에 영향을 주는 규칙이 확정되지 않아 임의 구현을 중단했다.
+- 핵심 구현: 첫 번째 살아 있는 `seek_trap` 보유자를 source로 선택하고 `SESSION_STARTED → TRAP_DISCOVERED* → SECRET_ROOM_DISCOVERED*` 순서로 이벤트와 로그를 한 번 생성한다. 미발견 함정은 `TRAP_TRIGGERED`에 placement·damage payload를 포함하고 비치명 발동 이벤트도 subscriber에 반환한다. 비밀방 보상 로그는 reward ID 대신 실제 아이템 대표명을 표시한다.
+- 호환성·의존성 변경: 신규 패키지와 dependency·lock·profile version 변경 없음. 기존 자동 발견·함정 무효화·전원 2피해·비밀방 보상 판정은 유지했다.
+- 검증 결과: `npm run typecheck` 성공. `npm test -- --run src/tests/gameEngine.test.ts`에서 1개 파일·6개 테스트 성공. 발견 이벤트 순서·source·placement payload, 함정 발동 1회 로그, 비밀방 보상 대표명을 확인했다.
+- 실패·미확정 사항: 단계 5 구현은 오우거 기절 지속, 붕대 직접 사용, 정화약 제거 대상 선택, 강장제 파생 능력치·행동 순서, 탐색용 분필 범위·무발견 소비, 유적지 임시 맵 배치 결정이 필요해 착수 전 사용자 확인 대기 중이다. 전체 테스트·build·브라우저 검증은 아직 수행하지 않았다.
+
+## 2026-08-09 19:14:13 +09:00 | Coder | v0.2.0 단계 5 유적지·소비 아이템·희귀 해금 구현
+
+- 작업 루트·모드: `E:\Work\20260806\party_night` | 원본 직접 작업
+- 사용자 작업 지시 원문: `권장안대로 진행`
+- 사용한 설계문서: `implements.md` 23절·25절 최우선, `architecture.md` 15절·17절, `raw_data_table.md` 22절, `AGENTS.md`; 사용자 승인 권장안 7개
+- 조사 범위: 유적지 9×9 맵·조우 순서·오크·오우거, 희귀 장비·상점·정산·저장, 9종 소비 아이템 metadata·개인 stack 소비·전투/탐사 resolver·UI, 응급 치료 붕대 비용, 오우거 기절·강장제 일시 능력치, 탐색용 분필과 비밀방 보상, 관련 Phaser fallback·자동 테스트
+- 검증 단계: 1단계 기본 검증
+- 변경 파일: `README.md`, `src/app/App.tsx`, `src/app/saveV2.ts`, `src/game/types.ts`, `src/game/content.ts`, `src/game/displayNames.ts`, `src/game/exploration.ts`, `src/game/combat.ts`, `src/game/inventory.ts`, `src/game/shop.ts`, `src/game/rewards.ts`, `src/game/gameEngine.ts`, `src/ui/BattleCommands.tsx`, `src/ui/ExplorationItems.tsx`, `src/ui/HubScreen.tsx`, `src/ui/ShopPanel.tsx`, `src/ui/ResultScreen.tsx`, `src/phaser/BattleScene.ts`, `src/phaser/ExplorationScene.ts`, `src/styles.css`, `src/tests/combat.test.ts`, `src/tests/exploration.test.ts`, `src/tests/gameEngine.test.ts`, `src/tests/inventory.test.ts`, `src/tests/rewards.test.ts`, `src/tests/shop.test.ts`, `src/tests/gameStore.test.ts`, `changelog.md`
+- 결정 근거: 사용자가 권장안을 승인해 오우거 기절 1행동, 붕대의 응급 치료 전용 비용, 정화약 고정 우선순위, 강장제 3라운드·파생 수치 재계산·turn order 유지, 분필의 Manhattan 거리 1 전체 발견·무발견 미소비, 승인 좌표 기반 임시 맵, 유적지 희귀 이하 비밀방 보상을 구현 기준으로 사용했다. 범용 효과 DSL 대신 현재 항목별 명시 resolver와 제한 상태 map을 사용했다.
+- 핵심 구현: 9×9 유적지에 승인 좌표의 4개 순차 조우, 오크 약탈자 30/6/3/3, 오우거 92/7/5/1과 3d6+2·25% 기절을 추가했다. 오우거 승리 시 500골드·캐릭터당 EXP100·Lv4·지하 던전·희귀 등급·스킬 offer/보상을 정산한다. 희귀 장비 9종과 소비 아이템 9종을 등록하고 Q3 완료 후 상급 회복약·근력/민첩 강장제를 해금한다. 개인 stack 원자 소비, 화염병 방어 무시 10피해, 회복 10/22, 정화약 우선 치료, 3라운드 강장제, 분필 인접 탐지, 만능 치료제 제한 resolver와 전투·탐사 UI를 연결했다. 장착한 `first_aid`는 Actor 명령에 포함되고 자신 대상 1d6+2·cooldown2로 붕대 1개를 소비한다. 비밀방 보상은 해당 퀘스트 등급 이하 장비 또는 아이템을 결정론적으로 생성한다.
+- 호환성·의존성 변경: 신규 패키지와 dependency·lock·profile version 변경 없음. Q4 해금 전 `panacea`는 정의·resolver만 존재하고 상점에는 나오지 않는다. 유적지 전용 최종 에셋이 없어 회갈색 맵 데이터와 오크·오우거 도형/tint fallback을 사용한다. 임시 map row·함정·비밀방 배치는 `TODO(v0.2.0)`로 표시했다.
+- 검증 결과: `npm run typecheck` 성공. combat·exploration·gameEngine·rewards·shop·inventory·saveV2·gameStore 관련 8개 파일·61개 테스트 성공. 유적지 크기·조우·비밀문, 오크/오우거 수치, 25% 기절, 화염병·회복·강장제, 개인 stack 소비, 오우거 정산·Lv4·희귀 해금, Q3 상점과 profile v2 불변식을 확인했다. `git diff --check` 공백 오류 없음; LF→CRLF 변환 예고만 확인했다.
+- 실패·미확정 사항: 1단계 범위에 따라 전체 테스트, production build, 실제 브라우저 플레이와 Android/iOS 수동 검증은 수행하지 않았다. 정화약이 치료할 출혈·신경독·마비·수면·능력 감소의 실제 발생 스킬은 단계 6 이후 구현 대상이며 현재는 상태가 존재할 때의 제거 resolver만 제공한다. 오크·오우거·유적지 최종 에셋은 없다.
+
+## 2026-08-09 20:44:36 +09:00 | Coder | 외부 에셋 작업본 terrain·적 registry 통합
+
+- 작업 루트·모드: `E:\Work\20260806\party_night` | 원본 직접 작업; 가져온 원본 `E:\Work\20260806\assets_pn`
+- 사용자 작업 지시 원문: `"E:\Work\20260806\assets_pn" 위치의 프로젝트에 현재 v0.2.0에 설계된 모든 terrain및 몹 에셋과 registry작업이 진행 되어있다. 관련 md문서들을 확인하여 작업된 부분을 현재의 프로젝트에 적용 하고 이후 구현 작업 지시에는 업데이트 된 에셋을 이용하여 구현 할 것.
+관련 에셋 추가 작업이 끝난 후 현재 v0.2.0 설계 대비 누락된 에셋에 대해서 정리 하여 출력 할 것.`
+- 사용한 설계문서: 대상 `AGENTS.md`, `raw_data_table.md` 22.9~22.11절, `implements.md` 23절; 원본 `assets_pn/{AGENTS.md,asset-catalog.md,asset-plan.md,raw_data_table.md}`
+- 조사 범위: 두 프로젝트의 terrain/enemy PNG·생성 스크립트·registry API·Phaser Scene 연결·콘텐츠 ID·문서 상태, 승인 terrain 7종·enemy 16종·marker 2종의 파일 및 mapping 완전성
+- 검증 단계: 1단계 기본 검증
+- 변경 파일: `src/assets/terrain/*.png`, `src/assets/enemies/*.png`, `assets-source/terrain/generate_terrain_tiles.mjs`, `assets-source/enemies/{generate_goblin_sprites,generate_hobgoblin_boss_sprite,generate_bestiary_sprites}.mjs`, `src/phaser/assets/{terrainAssets,enemyAssets}.ts`, `src/phaser/ExplorationScene.ts`, `src/phaser/BattleScene.ts`, `src/tests/assets.test.ts`, `README.md`, `asset-catalog.md`, `asset-plan.md`, `changelog-assets.md`, `changelog.md`
+- 결정 근거: 에셋 작업본은 승인 ID와 정확히 일치하는 7개 map별 4-surface terrain 세트, 16개 enemy sprite와 boss marker를 자체 생성 원본·registry 형태로 완성했다. 현재 프로젝트의 단계 5 게임 엔진 코드는 더 최신이므로 game source를 덮어쓰지 않고 runtime PNG·생성 원본·registry API와 Scene 렌더 경계만 병합했다.
+- 핵심 구현: `queueTerrainAssets(scene,mapId)`와 map별 texture key로 훈련 폐허·고블린 소굴·유적지 전용 terrain을 적용하고 향후 4개 맵도 registry에 준비했다. enemy 16종을 전부 등록해 현재 5종과 향후 11종이 Actor content ID로 자동 연결된다. 실제 `marker_boss`를 우선 사용하고 로딩 실패 시 기존 붉은 조우 marker fallback을 유지했다. 3개 적도 640×360 안에 표시되도록 배치를 조정했다.
+- 호환성·의존성 변경: 신규 패키지·dependency·lock·profile version 변경 없음. 원본 에셋은 외부 출처 없는 절차적 생성 draft다. 기존 `dungeon_*.png`는 삭제 승인을 받지 않아 미참조 역사 파일로 보존했다.
+- 검증 결과: 원본 대비 SHA-256으로 terrain 31개·enemy 16개 missing 0, mismatch 0. `npm run typecheck` 성공. `npm test -- --run src/tests/assets.test.ts src/tests/exploration.test.ts src/tests/combat.test.ts`에서 3개 파일·24개 테스트 성공. `git diff --check`는 최종 기록 후 별도 확인한다.
+- 실패·미확정 사항: production build, 실제 브라우저 Scene, Android/iOS 실기 검증은 수행하지 않았다. 승인 terrain·enemy·encounter/boss marker 누락은 없으며, 별도 승인 asset ID가 없는 함정·비밀문·비밀방·다이스·장비/아이템/스킬 아이콘은 fallback 상태다. animation/effect/sound ID는 설계상 `TBD`다.
+
+## 2026-08-09 20:54:36 +09:00 | Coder | v0.2.0 단계 6 지하 던전·상태·쿨다운 구현
+
+- 작업 루트·모드: `E:\Work\20260806\party_night` | 원본 직접 작업
+- 사용자 작업 지시 원문: `Continue if you have next steps, or stop and ask for clarification if you are unsure how to proceed.`
+- 사용한 설계문서: `implements.md` 23.9절·23.11절·23.17~23.19절 최우선, `architecture.md` 15.9~15.12절, `raw_data_table.md` 22.5~22.12절, `AGENTS.md`
+- 조사 범위: 지하 던전 11×9 맵·5개 순차 조우·신규 적과 통합 에셋 registry, 분산 전투 상태·라운드 쿨다운·직업/커스텀 스킬 resolver, Q4 정산·Lv5 성장·상점·profile v2 불변식, 거점·전투·결과 UI와 관련 테스트
+- 검증 단계: 1단계 기본 검증
+- 변경 파일: `src/game/types.ts`, `src/game/content.ts`, `src/game/combat.ts`, `src/game/rewards.ts`, `src/game/gameEngine.ts`, `src/game/displayNames.ts`, `src/app/saveV2.ts`, `src/ui/HubScreen.tsx`, `src/ui/GameHud.tsx`, `src/ui/ResultScreen.tsx`, `src/tests/stage6.test.ts`, `changelog.md`
+- 결정 근거: `implements.md`의 최신 도발·상태·쿨다운 의미를 원시 표보다 우선하고 범용 DSL 대신 기존 분산 상태 map을 최소 확장했다. 정확한 맵 row는 미지정이므로 승인 크기·좌표·단일 연결 주경로·함정·비밀문 조건을 만족하는 단순 임시 회랑을 사용했다. `minotaur_gore`는 기술 자체의 명시 확률 50%를 유지하고 일반적인 보스 대상 확률 절반 규칙에서는 제외했다.
+- 핵심 구현: 코볼트 척후병·놀 투사 중간보스·미노타우르스 보스와 5개 조우를 추가했다. 출혈 최대 5·턴 시작 방어 무시 피해, 기절/마비 행동 건너뛰기, 직접 공격 시 수면 해제, 약점 노출, 신경독 AGI 감소, 행동 횟수형 능력 변화와 CD5를 순수 전투 엔진에 연결했다. Lv5 직업 스킬 6종, 관련 커스텀 스킬·패시브, 성력·마력, 비전 화살 초과 피해 이전, 피해 없는 약점 노출과 자기 대상 희생 회복 비용을 구현했다. 지하 던전 성공 시 720골드·캐릭터당 EXP100·Lv5 스킬·옛 고성·영웅 장비 9종·만능 치료제를 해금하고 UI와 profile v2 검증을 갱신했다.
+- 호환성·의존성 변경: 신규 패키지·dependency·lock·profile version 변경 없음. 기존 public command 흐름과 통합 terrain/enemy registry를 유지했다. 지하 던전 map row·함정·비밀방은 승인 메타데이터를 만족하는 임시 콘텐츠다.
+- 검증 결과: `npm run typecheck` 성공. `npx vitest run src/tests/stage6.test.ts`에서 1개 파일·9개 테스트 성공. 지하 던전 순서·적 수치·상태 확률 재현·출혈/수면/치료·CD5·Lv5 resolver·정산/재입장 거부와 비전 화살·약점 노출·희생 경계를 확인했다. 대상 파일 `git diff --check` 공백 오류 없음; LF→CRLF 변환 예고만 확인했다.
+- 실패·미확정 사항: 1단계 범위에 따라 전체 테스트, production build, 패키징, 실제 브라우저 실행과 Android Chrome/iOS Safari 수동 검증은 수행하지 않았다. 최종 지하 던전 동선·함정·비밀방 배치는 향후 콘텐츠 승인 시 교체 대상이다.

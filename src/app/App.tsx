@@ -2,6 +2,8 @@ import { useSyncExternalStore } from 'react'
 import { PhaserGame } from '../phaser/PhaserGame'
 import { BattleCommands } from '../ui/BattleCommands'
 import { GameHud } from '../ui/GameHud'
+import { ExplorationItems } from '../ui/ExplorationItems'
+import { HubScreen } from '../ui/HubScreen'
 import { ResultScreen } from '../ui/ResultScreen'
 import { SetupScreen } from '../ui/SetupScreen'
 import { gameStore } from './gameStore'
@@ -12,7 +14,8 @@ function subscribe(listener: () => void): () => void {
 
 export function App() {
   const state = useSyncExternalStore(subscribe, gameStore.getState, gameStore.getState)
-  if (state.screen === 'start' || state.screen === 'setup') return <><SetupScreen state={state} dispatch={gameStore.dispatch} /><OrientationWarning /></>
+  if (state.screen === 'start' || state.screen === 'profile_create') return <><SetupScreen state={state} dispatch={gameStore.dispatch} /><OrientationWarning /></>
+  if (state.screen === 'hub') return <><HubScreen state={state} dispatch={gameStore.dispatch} /><OrientationWarning /></>
   if (state.screen === 'result') return <><ResultScreen state={state} dispatch={gameStore.dispatch} /><OrientationWarning /></>
   return (
     <main className="game-shell">
@@ -22,6 +25,7 @@ export function App() {
       <aside className="hud-panel">
         <GameHud state={state} />
         {state.screen === 'battle' && <BattleCommands state={state} dispatch={gameStore.dispatch} />}
+        {state.screen === 'exploration' && <ExplorationItems state={state} dispatch={gameStore.dispatch} />}
       </aside>
       <OrientationWarning />
     </main>

@@ -4,3 +4,6 @@ dist/
 .vite/
 coverage/
 *.log
+*.local
+.DS_Store
+Thumbs.db
