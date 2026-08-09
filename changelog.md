@@ -699,3 +699,18 @@
 - 결정 근거: 수동 데이터표가 일반/boss 확률, 7개 골드와 후반 보스 수치를 모두 명시하므로 이를 최신 승인 원본으로 사용했다. 신경독은 Actor AGI 값만 낮추고 고정 turn order에는 영향을 주지 않는 현재 불일치를 확인해, 행동 완료 prefix를 보존하면서 미행동 suffix와 다음 라운드 전체를 안정 정렬하도록 설계했다. 약점 노출은 시전자 source 수명을 저장해 현재 행동 직후에는 유지하고 다음 궁수 행동 종료에 만료하며, 그 전에 사망하면 사망 라운드 wrap에서 제거하도록 정규화했다.
 - 핵심 결과: `quick_stab`·`neurotoxin` 일반100%/boss50%, 신경독 current battle AGI 절반·비중첩·순서 반영, source 기준 약점 노출, 퀘스트 골드 1100/1100/1800/2700/4000/4000/4000, 미노타우르스 120/8/6/4·3d6+2·기절40%, 사이클롭스 150/10/7/2·3d6+4·기절40%, 스켈레톤 킹 145/9/7/5·전체2d6의 실행 사양을 확정했다. 퀘스트 definition을 골드 단일 원본으로 사용하고 profile version과 기존 보유 골드는 유지한다.
 - 위험·미확정 사항: 결과를 막는 미확정 사항은 없다. 현재 `raw_data_table.md`는 사용자 변경으로 미커밋 상태이며 실제 코드와 테스트는 아직 기존 확률·골드·보스 수치를 사용한다. 행동 순서 suffix 재정렬의 중복/누락, 궁수 사망 round 만료와 7개 정산 골드 일치를 구현 시 집중 검증해야 한다. 실제 구현·자동 테스트·빌드·모바일 검증은 Coder 작업 범위다.
+
+## 2026-08-10 03:06:37 +09:00 | Coder | 수정 밸런스 설계안 Git 반영·원격 push
+
+- 작업 루트·모드: `E:\Work\20260806\party_night` | 원본 직접 작업
+- 사용자 작업 지시 원문: `/agent Coder
+현재 수정된 수정 설계안을 push할 것.`
+- 사용한 설계문서: 사용자 수정 `raw_data_table.md`, Planner 갱신 `architecture.md` 18절·`implements.md` 26절, `AGENTS.md`
+- 조사 범위: 설계안 4개 파일의 working/staged diff, 최근 커밋 10개, `main`·`origin/main` 추적 상태, 원격 URL과 민감 파일명
+- 검증 단계: 1단계 기본 검증 중 문서 diff·참조·공백 검사; 코드 실행·테스트 대상 없음
+- 변경 파일: `raw_data_table.md`, `architecture.md`, `implements.md`, `changelog.md`
+- 결정 근거: 사용자가 수동 조정한 스킬·골드·보스 데이터와 해당 구현 계획의 원격 반영을 명시적으로 승인했다. 변경 파일은 원시 데이터표와 설계·작업 기록에 한정되며 민감 파일은 확인되지 않았다.
+- 핵심 구현: 수정 설계안을 `c5467e9` (`Plan combat and economy balance update`)로 커밋하고 `origin/main`에 push했다.
+- 호환성·의존성 변경: 소스·dependency·lock·profile version 변경 없음. Git 이력 재작성과 force push를 사용하지 않았다.
+- 검증 결과: staged diff 4개 파일·291줄 추가·17줄 삭제와 `git diff --cached --check` 공백 오류 없음을 확인했다. `6db1b2a..c5467e9 main -> main`으로 `https://github.com/orcspy/party_night.git`에 push하는 데 성공했다.
+- 실패·미확정 사항: 실제 코드와 테스트는 아직 신규 설계값을 적용하지 않았다. 본 작업 기록 커밋을 추가로 `origin/main`에 일반 push한다.
