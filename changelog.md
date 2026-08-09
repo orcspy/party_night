@@ -668,3 +668,18 @@
 - 호환성·의존성 변경: 신규 패키지·dependency·lock·profile version 변경 없음. 기존 all-target resolver를 시전자 반대편 대상으로 일반화해 화염구와 왕의 휩쓸기를 함께 처리하고 보호 서약·수면 해제·승패 판정을 유지했다. 두 신규 map의 row·함정·비밀방 위치는 `TODO(v0.2.0)` 임시 데이터다.
 - 검증 결과: `npm run typecheck` 성공. `npx vitest run src/tests/stage7.test.ts src/tests/stage89.test.ts`에서 2개 파일·15개 테스트 성공. 두 map과 조우/에셋, 기절·흡혈·전체 공격, 반복 5회 Lv10·EXP cap·정확 성장, Lv7/Lv10 슬롯·저장 round-trip, 스킬 가격 180/420/650, 반복 정산·overflow·재입장·저장 불변식을 확인했다. `git diff --check` 공백 오류 없음; LF→CRLF 변환 예고만 확인했다.
 - 실패·미확정 사항: 1단계 범위에 따라 전체 테스트, production build, 패키징, 실제 브라우저 실행과 Android Chrome/iOS Safari 수동 검증은 수행하지 않았다. 단계 10 전체 모바일·저장·overflow·장시간 반복 회귀는 후속 검증 대상이다.
+
+## 2026-08-09 23:03:10 +09:00 | Coder | v0.2.0 단계 7~9 Git 반영·원격 push
+
+- 작업 루트·모드: `E:\Work\20260806\party_night` | 원본 직접 작업
+- 사용자 작업 지시 원문: `/agent Coder
+현재 구현된 9단계까지 push를 진행 할 것.`
+- 사용한 설계문서: 단계 7~9 구현에 적용된 `implements.md`, `architecture.md`, `raw_data_table.md`, `AGENTS.md`; 본 push 작업에서는 설계문서 수정 없음
+- 조사 범위: 단계 7~9 working tree 18개 파일, staged diff, 최근 커밋 10개, `main`의 `origin/main` 추적 상태, 원격 URL, 민감 파일명
+- 검증 단계: 1단계 기본 검증; 직전 `npm run typecheck`와 단계 7~9 집중 테스트 15개 성공 결과 재사용
+- 변경 파일: 단계 7~9 소스·UI·저장·테스트·README·asset catalog·`changelog.md`
+- 결정 근거: 사용자가 현재 구현된 9단계까지의 원격 반영을 명시적으로 승인했다. 변경은 옛 고성, 반복 퀘스트 2개, Lv6~10 성장과 관련 테스트·기록으로 한정되며 민감 파일은 확인되지 않았다.
+- 핵심 구현: 단계 7~9 변경을 `f4b07ee` (`Implement v0.2.0 quests through level 10`)로 커밋하고 `origin/main`에 push했다.
+- 호환성·의존성 변경: 신규 dependency·lock·profile version 변경 없음. Git 이력 재작성과 force push를 사용하지 않았다.
+- 검증 결과: staged diff 18개 파일·625줄 추가·29줄 삭제와 공백 오류 없음을 확인했다. `e238021..f4b07ee main -> main`으로 `https://github.com/orcspy/party_night.git`에 push하는 데 성공했다.
+- 실패·미확정 사항: 없음. 본 작업 기록 커밋을 추가로 `origin/main`에 일반 push한다.
