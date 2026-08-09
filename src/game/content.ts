@@ -87,6 +87,15 @@ export const EQUIPMENT_DATA: Record<string, EquipmentData> = {
   heroic_rod: { name: '공허의 로드', family: 'rod', rarity: 'heroic', slot: 'weapon', twoHanded: true, modifiers: { str: 0, dex: 0, int: 5, con: 0, agi: 2, luck: 1 }, allowedClasses: ['warrior', 'mage'], buyPrice: 490 },
   heroic_head: { name: '왕실 투구', family: 'head', rarity: 'heroic', slot: 'head', twoHanded: false, modifiers: { str: 0, dex: 1, int: 2, con: 1, agi: 2, luck: 2 }, allowedClasses: ['warrior', 'rogue', 'archer', 'paladin', 'priest', 'mage'], buyPrice: 340 },
   heroic_body: { name: '영웅의 갑옷', family: 'body', rarity: 'heroic', slot: 'body', twoHanded: false, modifiers: { str: 2, dex: 1, int: 0, con: 4, agi: 0, luck: 1 }, allowedClasses: ['warrior', 'rogue', 'archer', 'paladin', 'priest', 'mage'], buyPrice: 430 },
+  legendary_dagger: { name: '황금 송곳니', family: 'dagger', rarity: 'legendary', slot: 'weapon', twoHanded: false, modifiers: { str: 1, dex: 5, int: 0, con: 0, agi: 3, luck: 2 }, allowedClasses: ['warrior', 'rogue'], buyPrice: 580 },
+  legendary_sword: { name: '태양검', family: 'sword', rarity: 'legendary', slot: 'weapon', twoHanded: false, modifiers: { str: 7, dex: 3, int: 0, con: 1, agi: 0, luck: 0 }, allowedClasses: ['warrior', 'paladin', 'rogue'], buyPrice: 700 },
+  legendary_mace: { name: '심판의 망치', family: 'mace', rarity: 'legendary', slot: 'weapon', twoHanded: false, modifiers: { str: 6, dex: 0, int: 2, con: 3, agi: 0, luck: 0 }, allowedClasses: ['warrior', 'paladin'], buyPrice: 700 },
+  legendary_shield: { name: '태양 방패', family: 'shield', rarity: 'legendary', slot: 'offhand', twoHanded: false, modifiers: { str: 3, dex: 0, int: 0, con: 6, agi: 0, luck: 2 }, allowedClasses: ['warrior', 'paladin'], buyPrice: 580 },
+  legendary_bow: { name: '별빛 장궁', family: 'bow', rarity: 'legendary', slot: 'weapon', twoHanded: true, modifiers: { str: 0, dex: 6, int: 0, con: 0, agi: 4, luck: 1 }, allowedClasses: ['warrior', 'archer'], buyPrice: 740 },
+  legendary_staff: { name: '세계수 지팡이', family: 'staff', rarity: 'legendary', slot: 'weapon', twoHanded: true, modifiers: { str: 0, dex: 0, int: 6, con: 3, agi: 0, luck: 2 }, allowedClasses: ['warrior', 'priest', 'mage'], buyPrice: 700 },
+  legendary_rod: { name: '용맥의 로드', family: 'rod', rarity: 'legendary', slot: 'weapon', twoHanded: true, modifiers: { str: 0, dex: 0, int: 7, con: 0, agi: 2, luck: 2 }, allowedClasses: ['warrior', 'mage'], buyPrice: 740 },
+  legendary_head: { name: '별왕관', family: 'head', rarity: 'legendary', slot: 'head', twoHanded: false, modifiers: { str: 1, dex: 2, int: 2, con: 1, agi: 2, luck: 3 }, allowedClasses: ['warrior', 'rogue', 'archer', 'paladin', 'priest', 'mage'], buyPrice: 520 },
+  legendary_body: { name: '천명 갑옷', family: 'body', rarity: 'legendary', slot: 'body', twoHanded: false, modifiers: { str: 3, dex: 1, int: 0, con: 6, agi: 0, luck: 1 }, allowedClasses: ['warrior', 'rogue', 'archer', 'paladin', 'priest', 'mage'], buyPrice: 650 },
 }
 
 export const ITEM_DATA: Record<ItemId, ItemData> = {
@@ -191,6 +200,11 @@ export const SKILLS: Record<string, Skill> = {
   first_aid: { ...activeDamage('first_aid', '응급 치료', 1, 2, 0, 2), targetMode: 'self', resolution: 'heal' },
   rending_bite: activeDamage('rending_bite', '찢는 물기', 2, 2),
   minotaur_gore: activeDamage('minotaur_gore', '미노타우르스 돌진', 4, 0),
+  paralyzing_claw: activeDamage('paralyzing_claw', '마비 발톱', 2, 2),
+  death_bolt: activeDamage('death_bolt', '죽음의 화살', 3, 4),
+  crushing_blow: activeDamage('crushing_blow', '분쇄의 일격', 4, 4),
+  drain_touch: activeDamage('drain_touch', '생명력 흡수', 3, 0),
+  royal_cleave: { ...activeDamage('royal_cleave', '왕의 휩쓸기', 3, 0), targetMode: 'all_enemies' },
   ability_reinforcement: { id: 'ability_reinforcement', name: '능력 강화', diceCount: 0, fixedModifier: 0, rerolls: 0, activation: 'active', targetMode: 'self', resolution: 'buff', useLimit: { type: 'cooldown', rounds: 5 } },
   wound_break: activeDamage('wound_break', '상처 가르기', 3, 5, 0, 5),
   head_shot: activeDamage('head_shot', '헤드 샷', 5, 5, 0, 5),
@@ -254,7 +268,7 @@ export interface EncounterDefinition {
   x: number
   y: number
   role: 'normal' | 'boss'
-  enemies: { enemyId: 'goblin_scout' | 'goblin_guard' | 'hobgoblin_boss' | 'orc_raider' | 'ogre' | 'kobold_skirmisher' | 'gnoll_brute' | 'minotaur_boss'; count: number }[]
+  enemies: { enemyId: 'goblin_scout' | 'goblin_guard' | 'hobgoblin_boss' | 'orc_raider' | 'ogre' | 'kobold_skirmisher' | 'gnoll_brute' | 'minotaur_boss' | 'skeleton_soldier' | 'zombie' | 'ghoul' | 'lich_boss' | 'imp' | 'cyclops_boss' | 'wraith' | 'skeleton_king_boss'; count: number }[]
 }
 
 export const TRAINING_RUINS_ENCOUNTERS: EncounterDefinition[] = [
@@ -284,7 +298,31 @@ export const UNDERGROUND_DUNGEON_ENCOUNTERS: EncounterDefinition[] = [
   { encounterId: 'underground_dungeon_boss', questId: 'underground_dungeon_quest', x: 9, y: 7, role: 'boss', enemies: [{ enemyId: 'minotaur_boss', count: 1 }] },
 ]
 
-const ALL_ENCOUNTERS = [...TRAINING_RUINS_ENCOUNTERS, ...GOBLIN_DEN_ENCOUNTERS, ...ANCIENT_SITE_ENCOUNTERS, ...UNDERGROUND_DUNGEON_ENCOUNTERS]
+export const OLD_CASTLE_ENCOUNTERS: EncounterDefinition[] = [
+  { encounterId: 'old_castle_encounter_1', questId: 'old_castle_quest', x: 3, y: 1, role: 'normal', enemies: [{ enemyId: 'skeleton_soldier', count: 2 }] },
+  { encounterId: 'old_castle_encounter_2', questId: 'old_castle_quest', x: 8, y: 2, role: 'normal', enemies: [{ enemyId: 'zombie', count: 2 }] },
+  { encounterId: 'old_castle_midboss', questId: 'old_castle_quest', x: 8, y: 5, role: 'normal', enemies: [{ enemyId: 'ghoul', count: 1 }] },
+  { encounterId: 'old_castle_encounter_4', questId: 'old_castle_quest', x: 3, y: 8, role: 'normal', enemies: [{ enemyId: 'skeleton_soldier', count: 1 }, { enemyId: 'zombie', count: 1 }] },
+  { encounterId: 'old_castle_boss', questId: 'old_castle_quest', x: 9, y: 9, role: 'boss', enemies: [{ enemyId: 'lich_boss', count: 1 }] },
+]
+
+export const VOLCANIC_CAVE_ENCOUNTERS: EncounterDefinition[] = [
+  { encounterId: 'volcanic_cave_encounter_1', questId: 'volcanic_cave_quest', x: 4, y: 1, role: 'normal', enemies: [{ enemyId: 'imp', count: 2 }] },
+  { encounterId: 'volcanic_cave_encounter_2', questId: 'volcanic_cave_quest', x: 9, y: 3, role: 'normal', enemies: [{ enemyId: 'kobold_skirmisher', count: 2 }, { enemyId: 'imp', count: 1 }] },
+  { encounterId: 'volcanic_cave_midboss', questId: 'volcanic_cave_quest', x: 6, y: 5, role: 'normal', enemies: [{ enemyId: 'ogre', count: 1 }] },
+  { encounterId: 'volcanic_cave_encounter_4', questId: 'volcanic_cave_quest', x: 3, y: 8, role: 'normal', enemies: [{ enemyId: 'imp', count: 2 }, { enemyId: 'kobold_skirmisher', count: 1 }] },
+  { encounterId: 'volcanic_cave_boss', questId: 'volcanic_cave_quest', x: 9, y: 9, role: 'boss', enemies: [{ enemyId: 'cyclops_boss', count: 1 }] },
+]
+
+export const DEEP_FOREST_RUINS_ENCOUNTERS: EncounterDefinition[] = [
+  { encounterId: 'deep_forest_ruins_encounter_1', questId: 'deep_forest_ruins_quest', x: 4, y: 1, role: 'normal', enemies: [{ enemyId: 'skeleton_soldier', count: 2 }] },
+  { encounterId: 'deep_forest_ruins_encounter_2', questId: 'deep_forest_ruins_quest', x: 10, y: 3, role: 'normal', enemies: [{ enemyId: 'orc_raider', count: 2 }] },
+  { encounterId: 'deep_forest_ruins_midboss', questId: 'deep_forest_ruins_quest', x: 6, y: 5, role: 'normal', enemies: [{ enemyId: 'wraith', count: 1 }] },
+  { encounterId: 'deep_forest_ruins_encounter_4', questId: 'deep_forest_ruins_quest', x: 3, y: 8, role: 'normal', enemies: [{ enemyId: 'skeleton_soldier', count: 2 }, { enemyId: 'orc_raider', count: 1 }] },
+  { encounterId: 'deep_forest_ruins_boss', questId: 'deep_forest_ruins_quest', x: 11, y: 9, role: 'boss', enemies: [{ enemyId: 'skeleton_king_boss', count: 1 }] },
+]
+
+const ALL_ENCOUNTERS = [...TRAINING_RUINS_ENCOUNTERS, ...GOBLIN_DEN_ENCOUNTERS, ...ANCIENT_SITE_ENCOUNTERS, ...UNDERGROUND_DUNGEON_ENCOUNTERS, ...OLD_CASTLE_ENCOUNTERS, ...VOLCANIC_CAVE_ENCOUNTERS, ...DEEP_FOREST_RUINS_ENCOUNTERS]
 
 export const MAP_DATA: Record<string, MapDefinition> = {
   training_ruins: { mapId: 'training_ruins', name: '훈련 폐허', rows: ['#######','#S....#','#.###.#','#...#.#','###.#.#','#.....#','#######'], start: { x: 1, y: 1, direction: 'east' }, encounterIds: TRAINING_RUINS_ENCOUNTERS.map((item) => item.encounterId), traps: [], secrets: [] },
@@ -293,6 +331,12 @@ export const MAP_DATA: Record<string, MapDefinition> = {
   ancient_site: { mapId: 'ancient_site', name: '유적지', rows: ['#########','#S......#','#######.#','#.......#','#.#######','#.......#','#######.#','#####.#.#','#########'], start: { x: 1, y: 1, direction: 'east' }, encounterIds: ANCIENT_SITE_ENCOUNTERS.map((item) => item.encounterId), traps: [{ trapId: 'ancient_site_trap_1', x: 6, y: 5, damage: 2 }], secrets: [{ secretId: 'ancient_site_secret_1', doorX: 5, doorY: 6, rewardX: 5, rewardY: 7 }] },
   // TODO(v0.2.0): 승인 좌표를 한 회랑으로 연결한 임시 지하 던전이다.
   underground_dungeon: { mapId: 'underground_dungeon', name: '지하 던전', rows: ['###########','#S........#','########.##','########.##','#........##','#.###.#####','#.#########','#.........#','###########'], start: { x: 1, y: 1, direction: 'east' }, encounterIds: UNDERGROUND_DUNGEON_ENCOUNTERS.map((item) => item.encounterId), traps: [{ trapId: 'underground_dungeon_trap_1', x: 5, y: 7, damage: 2 }], secrets: [{ secretId: 'underground_dungeon_secret_1', doorX: 5, doorY: 6, rewardX: 5, rewardY: 5 }] },
+  // TODO(v0.2.0): 승인 좌표를 단일 회랑으로 연결한 임시 옛 고성과 비밀방 배치다.
+  old_castle: { mapId: 'old_castle', name: '옛 고성', rows: ['###########','#S........#','########.##','########.##','########.##','#........##','#.###.#####','#.#########','#.........#','#########.#','###########'], start: { x: 1, y: 1, direction: 'east' }, encounterIds: OLD_CASTLE_ENCOUNTERS.map((item) => item.encounterId), traps: [{ trapId: 'old_castle_trap_1', x: 6, y: 5, damage: 2 }], secrets: [{ secretId: 'old_castle_secret_1', doorX: 5, doorY: 7, rewardX: 5, rewardY: 6 }] },
+  // TODO(v0.2.0): 승인 좌표를 단일 회랑으로 연결한 임시 화산 동굴과 비밀방 배치다.
+  volcanic_cave: { mapId: 'volcanic_cave', name: '화산 동굴', rows: ['###########','#S........#','#########.#','######....#','######.####','###....####','###.#.#####','###.#.#####','###.......#','#########.#','###########'], start: { x: 1, y: 1, direction: 'east' }, encounterIds: VOLCANIC_CAVE_ENCOUNTERS.map((item) => item.encounterId), traps: [{ trapId: 'volcanic_cave_trap_1', x: 4, y: 5, damage: 2 }], secrets: [{ secretId: 'volcanic_cave_secret_1', doorX: 4, doorY: 7, rewardX: 5, rewardY: 7 }] },
+  // TODO(v0.2.0): 승인 좌표를 단일 회랑으로 연결한 임시 깊은 숲 폐허와 비밀방 배치다.
+  deep_forest_ruins: { mapId: 'deep_forest_ruins', name: '깊은 숲 폐허', rows: ['#############','#S..........#','##########.##','######.....##','######.######','###....######','###.#.#######','###.#.#######','###.........#','###########.#','#############'], start: { x: 1, y: 1, direction: 'east' }, encounterIds: DEEP_FOREST_RUINS_ENCOUNTERS.map((item) => item.encounterId), traps: [{ trapId: 'deep_forest_ruins_trap_1', x: 5, y: 5, damage: 2 }], secrets: [{ secretId: 'deep_forest_ruins_secret_1', doorX: 4, doorY: 7, rewardX: 5, rewardY: 7 }] },
 }
 
 export const MAP_ROWS = MAP_DATA.training_ruins.rows
@@ -302,6 +346,9 @@ export const QUEST_DATA: Partial<Record<QuestId, QuestDefinition>> = {
   goblin_den_quest: { questId: 'goblin_den_quest', name: '고블린 소굴', mapId: 'goblin_den', completionEncounterId: 'goblin_den_boss', goldReward: 320, experiencePerCharacter: 100, nextQuestId: 'ancient_site_quest' },
   ancient_site_quest: { questId: 'ancient_site_quest', name: '유적지', mapId: 'ancient_site', completionEncounterId: 'ancient_site_boss', goldReward: 500, experiencePerCharacter: 100, nextQuestId: 'underground_dungeon_quest' },
   underground_dungeon_quest: { questId: 'underground_dungeon_quest', name: '지하 던전', mapId: 'underground_dungeon', completionEncounterId: 'underground_dungeon_boss', goldReward: 720, experiencePerCharacter: 100, nextQuestId: 'old_castle_quest' },
+  old_castle_quest: { questId: 'old_castle_quest', name: '옛 고성', mapId: 'old_castle', completionEncounterId: 'old_castle_boss', goldReward: 1050, experiencePerCharacter: 100, nextQuestId: null },
+  volcanic_cave_quest: { questId: 'volcanic_cave_quest', name: '화산 동굴', mapId: 'volcanic_cave', completionEncounterId: 'volcanic_cave_boss', goldReward: 760, experiencePerCharacter: 100, nextQuestId: null },
+  deep_forest_ruins_quest: { questId: 'deep_forest_ruins_quest', name: '깊은 숲 폐허', mapId: 'deep_forest_ruins', completionEncounterId: 'deep_forest_ruins_boss', goldReward: 820, experiencePerCharacter: 100, nextQuestId: null },
 }
 
 export function getQuestDefinition(questId: QuestId): QuestDefinition | null { return QUEST_DATA[questId] ?? null }
@@ -402,12 +449,20 @@ export function createEncounterEnemies(encounterId: string): Actor[] {
       kobold_skirmisher: { name: '코볼트 척후병', maxHp: 25, atk: 5, def: 3, agi: 6, skillId: 'basic_attack' },
       gnoll_brute: { name: '놀 투사', maxHp: 74, atk: 7, def: 5, agi: 5, skillId: 'rending_bite' },
       minotaur_boss: { name: '미노타우르스', maxHp: 120, atk: 9, def: 6, agi: 4, skillId: 'minotaur_gore' },
+      skeleton_soldier: { name: '스켈레톤 병사', maxHp: 30, atk: 6, def: 5, agi: 3, skillId: 'basic_attack', isUndead: true },
+      zombie: { name: '좀비', maxHp: 42, atk: 7, def: 3, agi: 1, skillId: 'basic_attack', isUndead: true },
+      ghoul: { name: '구울', maxHp: 82, atk: 8, def: 5, agi: 6, skillId: 'paralyzing_claw', isUndead: true },
+      lich_boss: { name: '리치', maxHp: 125, atk: 10, def: 7, agi: 6, skillId: 'death_bolt', isUndead: true },
+      imp: { name: '임프', maxHp: 34, atk: 8, def: 4, agi: 7, skillId: 'basic_attack' },
+      cyclops_boss: { name: '사이클롭스', maxHp: 150, atk: 11, def: 7, agi: 2, skillId: 'crushing_blow' },
+      wraith: { name: '레이스', maxHp: 86, atk: 10, def: 7, agi: 8, skillId: 'drain_touch', isUndead: true },
+      skeleton_king_boss: { name: '스켈레톤 킹', maxHp: 155, atk: 11, def: 8, agi: 5, skillId: 'royal_cleave', isUndead: true },
     } as const
     const definition = definitions[enemyId]
     return {
       id: `${encounterId}_${enemyId}_${index + 1}`, contentId: enemyId, name: definition.name, side: 'enemy' as const,
       maxHp: definition.maxHp, currentHp: definition.maxHp, atk: definition.atk, def: definition.def, agi: definition.agi,
-      isBoss: encounter.role === 'boss', skillIds: [definition.skillId],
+      isBoss: encounter.role === 'boss', isUndead: 'isUndead' in definition ? definition.isUndead : false, skillIds: [definition.skillId],
     }
   }))
 }

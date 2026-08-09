@@ -4,7 +4,7 @@ import { getDirectionDisplayName, getQuestDisplayName, getRewardDisplayName } fr
 import { createExploration, discoverNearbyPlacements, move, turn } from './exploration'
 import { consumeCharacterItem, equipCustomSkill, equipEquipment, moveItemToCharacter, returnItemToStorage, unequipCustomSkill, unequipEquipment, type RuleResult } from './inventory'
 import { normalizeSeed } from './rng'
-import { confirmRewardSelection, createSecretRoomReward, setRewardSelection, settleAncientSite, settleGoblinDen, settleTrainingRuins, settleUndergroundDungeon } from './rewards'
+import { confirmRewardSelection, createSecretRoomReward, setRewardSelection, settleAncientSite, settleDeepForestRuins, settleGoblinDen, settleOldCastle, settleTrainingRuins, settleUndergroundDungeon, settleVolcanicCave } from './rewards'
 import { buyEquipment, buyItem, buySkill, sellEquipment, sellItem, sellSkill } from './shop'
 import type { ExpeditionSession, GameCommand, GameEvent, GameState, ItemId, MainCharacterConfig, ProfileV2, QuestId } from './types'
 
@@ -142,13 +142,19 @@ function applyCombatUpdate(state: GameState, command: GameCommand, update: Comba
           ? settleGoblinDen(state.profile, session.seed, session.expeditionId, session.pendingLoot)
           : session.questId === 'ancient_site_quest'
             ? settleAncientSite(state.profile, session.seed, session.expeditionId, session.pendingLoot)
-            : settleUndergroundDungeon(state.profile, session.seed, session.expeditionId, session.pendingLoot)
+            : session.questId === 'underground_dungeon_quest'
+              ? settleUndergroundDungeon(state.profile, session.seed, session.expeditionId, session.pendingLoot)
+              : session.questId === 'old_castle_quest'
+                ? settleOldCastle(state.profile, session.seed, session.expeditionId, session.pendingLoot)
+                : session.questId === 'volcanic_cave_quest'
+                  ? settleVolcanicCave(state.profile, session.seed, session.expeditionId, session.pendingLoot)
+                  : settleDeepForestRuins(state.profile, session.seed, session.expeditionId, session.pendingLoot)
       if (!settled.ok) return reject(state, command, settled.error)
       const settlementEvents: GameEvent[] = [
         ...update.events,
         { type: 'QUEST_COMPLETED', message: `${quest.name}을 완료했다.` },
         { type: 'GROWTH_APPLIED', message: `파티 전원이 Lv${settled.value.profile.characters[0].level}로 성장했다.` },
-        { type: 'UNLOCK_GRANTED', message: `${settled.value.summary.unlockedQuestIds.map(getQuestDisplayName).join(', ')} 해금` },
+        ...(settled.value.summary.unlockedQuestIds.length > 0 ? [{ type: 'UNLOCK_GRANTED' as const, message: `${settled.value.summary.unlockedQuestIds.map(getQuestDisplayName).join(', ')} 해금` }] : []),
         { type: 'REWARD_GRANTED', message: `골드 ${quest.goldReward}, 캐릭터당 EXP ${quest.experiencePerCharacter}, 원정 보상을 획득했다.` },
       ]
       return {
@@ -194,7 +200,8 @@ export function reduceGame(state: GameState, command: GameCommand): EngineResult
   if (command.type === 'REQUEST_QUEST_ENTRY') {
     if (state.screen !== 'hub' || !state.profile || state.session || state.profile.pendingReward) return reject(state, command, '현재 퀘스트에 입장할 수 없다.')
     if (!getQuestDefinition(command.questId) || !state.profile.questProgress.unlockedQuestIds.includes(command.questId)) return reject(state, command, '현재 플레이할 수 없는 퀘스트다.')
-    if (state.profile.questProgress.completedQuestIds.includes(command.questId)) return reject(state, command, '이미 완료한 퀘스트다.')
+    const repeatQuest = command.questId === 'volcanic_cave_quest' || command.questId === 'deep_forest_ruins_quest'
+    if (!repeatQuest && state.profile.questProgress.completedQuestIds.includes(command.questId)) return reject(state, command, '이미 완료한 퀘스트다.')
     const started = beginExpedition(state.profile, command.questId)
     return {
       state: { ...state, screen: 'exploration', profile: started.profile, session: started.session, result: null },

@@ -249,9 +249,9 @@ node assets-source/characters/generate_character_sprites.mjs
 | `goblin_den` | `terrain_goblin_den` | `terrain_goblin_den_{floor,ceiling,wall_side,wall_front}.png` | 실제 맵 배선 |
 | `ancient_site` | `terrain_ancient_site` | `terrain_ancient_site_{floor,ceiling,wall_side,wall_front}.png` | 실제 맵 배선 |
 | `underground_dungeon` | `terrain_underground_dungeon` | `terrain_underground_dungeon_{floor,ceiling,wall_side,wall_front}.png` | registry 준비, 맵 구현 대기 |
-| `old_castle` | `terrain_old_castle` | `terrain_old_castle_{floor,ceiling,wall_side,wall_front}.png` | registry 준비, 맵 구현 대기 |
-| `volcanic_cave` | `terrain_volcanic_cave` | `terrain_volcanic_cave_{floor,ceiling,wall_side,wall_front}.png` | registry 준비, 맵 구현 대기 |
-| `deep_forest_ruins` | `terrain_deep_forest_ruins` | `terrain_deep_forest_ruins_{floor,ceiling,wall_side,wall_front}.png` | registry 준비, 맵 구현 대기 |
+| `old_castle` | `terrain_old_castle` | `terrain_old_castle_{floor,ceiling,wall_side,wall_front}.png` | 옛 고성 맵 적용 완료 |
+| `volcanic_cave` | `terrain_volcanic_cave` | `terrain_volcanic_cave_{floor,ceiling,wall_side,wall_front}.png` | 화산 동굴 맵 적용 완료 |
+| `deep_forest_ruins` | `terrain_deep_forest_ruins` | `terrain_deep_forest_ruins_{floor,ceiling,wall_side,wall_front}.png` | 깊은 숲 폐허 맵 적용 완료 |
 
 - `queueTerrainAssets(scene, mapId)`는 현재 맵의 네 파트와 공용 marker만 Phaser에 등록한다.
 - `marker_encounter`, `marker_boss`는 승인 마커로 배선됐다. `marker_exit`는 v0.1 잔존 에셋으로 로딩만 하며 현재 보스 완료형 맵에서는 표시하지 않는다.

@@ -3,7 +3,7 @@ import { CUSTOM_SKILL_DATA, EQUIPMENT_DATA, type CustomSkillId } from './content
 import { addItemQuantityToStorage, allocateUniqueId, usedStorageSlots, type RuleResult } from './inventory'
 import { normalizeSeed, randomIndex } from './rng'
 import { generateSkillOffers, getAvailableItemIds } from './shop'
-import type { CharacterSettlementResult, ItemId, PendingRewardClaim, PendingRewardEntry, ProfileV2, QuestId, QuestSettlementSummary, Rarity, RewardSelection } from './types'
+import type { CharacterSettlementResult, ItemId, PendingRewardClaim, PendingRewardEntry, ProfileV2, QuestId, QuestSettlementSummary, Rarity, RepeatQuestId, RewardSelection } from './types'
 
 export interface TrainingSettlement {
   profile: ProfileV2
@@ -57,7 +57,7 @@ export function settleTrainingRuins(profile: ProfileV2, expeditionSeed: number, 
     const applied = applyExperience(character, 100)
     characterResults.push({
       characterId: character.characterId, previousLevel, level: applied.character.level, previousExperience,
-      experience: applied.character.experience, growthApplied: applied.growthApplied, unlockedClassSkillIds: applied.unlockedClassSkillIds,
+      experience: applied.character.experience, growthApplied: applied.growthApplied, unlockedClassSkillIds: applied.unlockedClassSkillIds, unlockedCustomSlotIndices: applied.unlockedCustomSlotIndices,
     })
     return applied.character
   }) as ProfileV2['characters']
@@ -96,7 +96,7 @@ export function createSecretRoomReward(profile: ProfileV2, expeditionSeed: numbe
   const questItems: ItemId[] = questId === 'ancient_site_quest'
     ? ['minor_healing_potion', 'bandage', 'remedy', 'fire_bomb', 'survey_chalk', 'greater_healing_potion', 'might_tonic', 'haste_tonic']
     : getAvailableItemIds(profile)
-  const maxRarity: Rarity = questId === 'ancient_site_quest' ? 'rare' : profile.shop.unlockedRarities.at(-1) ?? 'common'
+  const maxRarity: Rarity = questId === 'ancient_site_quest' ? 'rare' : questId === 'old_castle_quest' ? 'legendary' : profile.shop.unlockedRarities.at(-1) ?? 'common'
   const rarityOrder: Rarity[] = ['common', 'uncommon', 'rare', 'heroic', 'legendary']
   const equipmentIds = Object.keys(EQUIPMENT_DATA).filter((id) => rarityOrder.indexOf(EQUIPMENT_DATA[id].rarity) <= rarityOrder.indexOf(maxRarity))
   const candidates = [...questItems.map((id) => ({ kind: 'item' as const, id })), ...equipmentIds.map((id) => ({ kind: 'equipment' as const, id }))]
@@ -113,7 +113,7 @@ export function settleGoblinDen(profile: ProfileV2, expeditionSeed: number, expe
   const characters = profile.characters.map((character) => {
     const previousLevel = character.level; const previousExperience = character.experience
     const applied = applyExperience(character, 100)
-    characterResults.push({ characterId: character.characterId, previousLevel, level: applied.character.level, previousExperience, experience: applied.character.experience, growthApplied: applied.growthApplied, unlockedClassSkillIds: applied.unlockedClassSkillIds })
+    characterResults.push({ characterId: character.characterId, previousLevel, level: applied.character.level, previousExperience, experience: applied.character.experience, growthApplied: applied.growthApplied, unlockedClassSkillIds: applied.unlockedClassSkillIds, unlockedCustomSlotIndices: applied.unlockedCustomSlotIndices })
     return applied.character
   }) as ProfileV2['characters']
   const summary: QuestSettlementSummary = { questId: 'goblin_den_quest', goldGranted: 320, experiencePerCharacter: 100, characterResults, unlockedQuestIds: ['ancient_site_quest'], unlockedRarities: [] }
@@ -139,7 +139,7 @@ export function settleAncientSite(profile: ProfileV2, expeditionSeed: number, ex
   const characters = profile.characters.map((character) => {
     const previousLevel = character.level; const previousExperience = character.experience
     const applied = applyExperience(character, 100)
-    characterResults.push({ characterId: character.characterId, previousLevel, level: applied.character.level, previousExperience, experience: applied.character.experience, growthApplied: applied.growthApplied, unlockedClassSkillIds: applied.unlockedClassSkillIds })
+    characterResults.push({ characterId: character.characterId, previousLevel, level: applied.character.level, previousExperience, experience: applied.character.experience, growthApplied: applied.growthApplied, unlockedClassSkillIds: applied.unlockedClassSkillIds, unlockedCustomSlotIndices: applied.unlockedCustomSlotIndices })
     return applied.character
   }) as ProfileV2['characters']
   const summary: QuestSettlementSummary = { questId: 'ancient_site_quest', goldGranted: 500, experiencePerCharacter: 100, characterResults, unlockedQuestIds: ['underground_dungeon_quest'], unlockedRarities: ['rare'] }
@@ -165,7 +165,7 @@ export function settleUndergroundDungeon(profile: ProfileV2, expeditionSeed: num
   const characters = profile.characters.map((character) => {
     const previousLevel = character.level; const previousExperience = character.experience
     const applied = applyExperience(character, 100)
-    characterResults.push({ characterId: character.characterId, previousLevel, level: applied.character.level, previousExperience, experience: applied.character.experience, growthApplied: applied.growthApplied, unlockedClassSkillIds: applied.unlockedClassSkillIds })
+    characterResults.push({ characterId: character.characterId, previousLevel, level: applied.character.level, previousExperience, experience: applied.character.experience, growthApplied: applied.growthApplied, unlockedClassSkillIds: applied.unlockedClassSkillIds, unlockedCustomSlotIndices: applied.unlockedCustomSlotIndices })
     return applied.character
   }) as ProfileV2['characters']
   const summary: QuestSettlementSummary = { questId: 'underground_dungeon_quest', goldGranted: 720, experiencePerCharacter: 100, characterResults, unlockedQuestIds: ['old_castle_quest'], unlockedRarities: ['heroic'] }
@@ -183,6 +183,79 @@ export function settleUndergroundDungeon(profile: ProfileV2, expeditionSeed: num
   if (applied.ok) candidate = applied.value
   else candidate = { ...candidate, pendingReward: { claimId: `reward_${expeditionId}`, questId: 'underground_dungeon_quest', summary, rewards, selections: [] } }
   return { ok: true, value: { profile: candidate, summary, rewards } }
+}
+
+export function settleOldCastle(profile: ProfileV2, expeditionSeed: number, expeditionId: string, pendingLoot: PendingRewardEntry[]): RuleResult<TrainingSettlement> {
+  if (!profile.questProgress.completedQuestIds.includes('underground_dungeon_quest') || profile.questProgress.completedQuestIds.includes('old_castle_quest')) return { ok: false, error: '옛 고성을 정산할 수 없다.' }
+  const characterResults: CharacterSettlementResult[] = []
+  const characters = profile.characters.map((character) => {
+    const previousLevel = character.level; const previousExperience = character.experience
+    const applied = applyExperience(character, 100)
+    characterResults.push({ characterId: character.characterId, previousLevel, level: applied.character.level, previousExperience, experience: applied.character.experience, growthApplied: applied.growthApplied, unlockedClassSkillIds: applied.unlockedClassSkillIds, unlockedCustomSlotIndices: applied.unlockedCustomSlotIndices })
+    return applied.character
+  }) as ProfileV2['characters']
+  const repeatQuestIds: QuestId[] = ['volcanic_cave_quest', 'deep_forest_ruins_quest']
+  const summary: QuestSettlementSummary = { questId: 'old_castle_quest', goldGranted: 1050, experiencePerCharacter: 100, characterResults, unlockedQuestIds: repeatQuestIds, unlockedRarities: ['legendary'] }
+  const revision = profile.random.shopRevision + 1
+  let candidate: ProfileV2 = {
+    ...profile, gold: profile.gold + 1050, characters,
+    questProgress: {
+      ...profile.questProgress,
+      completedQuestIds: [...profile.questProgress.completedQuestIds, 'old_castle_quest'],
+      unlockedQuestIds: [...profile.questProgress.unlockedQuestIds, ...repeatQuestIds.filter((questId) => !profile.questProgress.unlockedQuestIds.includes(questId))],
+    },
+    shop: { ...profile.shop, unlockedRarities: profile.shop.unlockedRarities.includes('legendary') ? profile.shop.unlockedRarities : [...profile.shop.unlockedRarities, 'legendary'], skillOfferIds: generateSkillOffers(profile.random.rootSeed, revision) },
+    random: { ...profile.random, shopRevision: revision },
+  }
+  const generated = createSkillRewards(candidate, expeditionSeed ^ 0x5c7a9d)
+  candidate = generated.profile
+  const rewards = [...generated.rewards, ...pendingLoot]
+  const applied = applyEntries(candidate, rewards)
+  if (applied.ok) candidate = applied.value
+  else candidate = { ...candidate, pendingReward: { claimId: `reward_${expeditionId}`, questId: 'old_castle_quest', summary, rewards, selections: [] } }
+  return { ok: true, value: { profile: candidate, summary, rewards } }
+}
+
+function settleRepeatQuest(profile: ProfileV2, questId: RepeatQuestId, goldReward: number, expeditionSeed: number, expeditionId: string, pendingLoot: PendingRewardEntry[]): RuleResult<TrainingSettlement> {
+  if (!profile.questProgress.completedQuestIds.includes('old_castle_quest') || !profile.questProgress.unlockedQuestIds.includes(questId)) return { ok: false, error: '반복 퀘스트를 정산할 수 없다.' }
+  const characterResults: CharacterSettlementResult[] = []
+  const characters = profile.characters.map((character) => {
+    const previousLevel = character.level
+    const previousExperience = character.experience
+    const applied = applyExperience(character, 100)
+    characterResults.push({ characterId: character.characterId, previousLevel, level: applied.character.level, previousExperience, experience: applied.character.experience, growthApplied: applied.growthApplied, unlockedClassSkillIds: applied.unlockedClassSkillIds, unlockedCustomSlotIndices: applied.unlockedCustomSlotIndices })
+    return applied.character
+  }) as ProfileV2['characters']
+  const summary: QuestSettlementSummary = { questId, goldGranted: goldReward, experiencePerCharacter: 100, characterResults, unlockedQuestIds: [], unlockedRarities: [] }
+  const revision = profile.random.shopRevision + 1
+  const completedQuestIds = profile.questProgress.completedQuestIds.includes(questId) ? profile.questProgress.completedQuestIds : [...profile.questProgress.completedQuestIds, questId]
+  let candidate: ProfileV2 = {
+    ...profile,
+    gold: profile.gold + goldReward,
+    characters,
+    questProgress: {
+      ...profile.questProgress,
+      completedQuestIds,
+      repeatCompletionCounts: { ...profile.questProgress.repeatCompletionCounts, [questId]: profile.questProgress.repeatCompletionCounts[questId] + 1 },
+    },
+    shop: { ...profile.shop, skillOfferIds: generateSkillOffers(profile.random.rootSeed, revision) },
+    random: { ...profile.random, shopRevision: revision },
+  }
+  const generated = createSkillRewards(candidate, expeditionSeed ^ (questId === 'volcanic_cave_quest' ? 0x6d8b2f : 0x7e9c31))
+  candidate = generated.profile
+  const rewards = [...generated.rewards, ...pendingLoot]
+  const applied = applyEntries(candidate, rewards)
+  if (applied.ok) candidate = applied.value
+  else candidate = { ...candidate, pendingReward: { claimId: `reward_${expeditionId}`, questId, summary, rewards, selections: [] } }
+  return { ok: true, value: { profile: candidate, summary, rewards } }
+}
+
+export function settleVolcanicCave(profile: ProfileV2, expeditionSeed: number, expeditionId: string, pendingLoot: PendingRewardEntry[]): RuleResult<TrainingSettlement> {
+  return settleRepeatQuest(profile, 'volcanic_cave_quest', 760, expeditionSeed, expeditionId, pendingLoot)
+}
+
+export function settleDeepForestRuins(profile: ProfileV2, expeditionSeed: number, expeditionId: string, pendingLoot: PendingRewardEntry[]): RuleResult<TrainingSettlement> {
+  return settleRepeatQuest(profile, 'deep_forest_ruins_quest', 820, expeditionSeed, expeditionId, pendingLoot)
 }
 
 export function setRewardSelection(profile: ProfileV2, selections: RewardSelection[]): RuleResult<ProfileV2> {

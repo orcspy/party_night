@@ -39,6 +39,22 @@ describe('level 2 growth and class skill unlocks', () => {
     expect([3, 7, 10].filter((level) => level3.level >= level)).toHaveLength(1)
   })
 
+  it('reports custom slots only when their unlock level is crossed', () => {
+    let character = createInitialCharacters({ name: '슬롯', raceId: 'human', classId: 'mage', gender: '여성' })[0]
+    expect(applyExperience(character, 100).unlockedCustomSlotIndices).toEqual([])
+    character = applyExperience(character, 100).character
+    const level3 = applyExperience(character, 100)
+    expect(level3.unlockedCustomSlotIndices).toEqual([0])
+    character = level3.character
+    while (character.level < 6) character = applyExperience(character, 100).character
+    expect(applyExperience(character, 100).unlockedCustomSlotIndices).toEqual([1])
+    while (character.level < 9) character = applyExperience(character, 100).character
+    expect(applyExperience(character, 100).unlockedCustomSlotIndices).toEqual([])
+    const level10 = applyExperience(character, 200)
+    expect(level10.unlockedCustomSlotIndices).toEqual([2])
+    expect(applyExperience(level10.character, 100).unlockedCustomSlotIndices).toEqual([])
+  })
+
   it('uses representative names instead of exposing content IDs', () => {
     expect(getSkillDisplayName('taunt')).toBe('도발')
     expect(getSkillDisplayName('seek_trap')).toBe('함정간파')

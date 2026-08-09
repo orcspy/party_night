@@ -183,6 +183,7 @@ export interface CharacterSettlementResult {
   experience: number
   growthApplied: AttributeGrowth
   unlockedClassSkillIds: string[]
+  unlockedCustomSlotIndices: number[]
 }
 
 export interface QuestSettlementSummary {

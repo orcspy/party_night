@@ -180,6 +180,7 @@ export function isProfileV2(value: unknown): value is ProfileV2 {
   const goblinCompleted = completedQuestIds.includes('goblin_den_quest')
   const ancientCompleted = completedQuestIds.includes('ancient_site_quest')
   const dungeonCompleted = completedQuestIds.includes('underground_dungeon_quest')
+  const castleCompleted = completedQuestIds.includes('old_castle_quest')
   if (trainingCompleted && (!unlockedQuestIds.includes('goblin_den_quest') || !(shop.unlockedRarities as Rarity[]).includes('uncommon'))) return false
   if (!trainingCompleted && (shop.unlockedRarities as Rarity[]).includes('uncommon')) return false
   if (goblinCompleted && (!trainingCompleted || !unlockedQuestIds.includes('ancient_site_quest'))) return false
@@ -187,6 +188,21 @@ export function isProfileV2(value: unknown): value is ProfileV2 {
   if (!ancientCompleted && (shop.unlockedRarities as Rarity[]).includes('rare')) return false
   if (dungeonCompleted && (!ancientCompleted || !unlockedQuestIds.includes('old_castle_quest') || !(shop.unlockedRarities as Rarity[]).includes('heroic'))) return false
   if (!dungeonCompleted && (shop.unlockedRarities as Rarity[]).includes('heroic')) return false
+  if (castleCompleted && (!dungeonCompleted || !unlockedQuestIds.includes('volcanic_cave_quest') || !unlockedQuestIds.includes('deep_forest_ruins_quest') || !(shop.unlockedRarities as Rarity[]).includes('legendary'))) return false
+  if (!castleCompleted && (unlockedQuestIds.includes('volcanic_cave_quest') || unlockedQuestIds.includes('deep_forest_ruins_quest'))) return false
+  if (!castleCompleted && (shop.unlockedRarities as Rarity[]).includes('legendary')) return false
+  for (const questId of ['volcanic_cave_quest', 'deep_forest_ruins_quest'] as const) {
+    const count = repeats[questId] as number
+    const completed = completedQuestIds.includes(questId)
+    if (!castleCompleted && count !== 0) return false
+    if ((count > 0) !== completed) return false
+    if (completed && !unlockedQuestIds.includes(questId)) return false
+  }
+  const ownedEquipment = [
+    ...characters.flatMap((character) => Object.values(character.equipment).filter((instance): instance is EquipmentInstance => Boolean(instance))),
+    ...(storage.equipmentInstances as EquipmentInstance[]),
+  ]
+  if (!castleCompleted && ownedEquipment.some((instance) => EQUIPMENT_DATA[instance.equipmentId].rarity === 'legendary')) return false
   if (!goblinCompleted && shop.skillOfferIds.length > 0) return false
 
   const random = record(profile.random)
@@ -196,6 +212,7 @@ export function isProfileV2(value: unknown): value is ProfileV2 {
 
   const typed = profile as unknown as ProfileV2
   if (!uniqueIds(typed)) return false
+  if (!castleCompleted && typed.pendingReward?.rewards.some((reward) => reward.kind === 'equipment' && EQUIPMENT_DATA[reward.instance.equipmentId].rarity === 'legendary')) return false
   if (typed.pendingReward && (!typed.questProgress.completedQuestIds.includes(typed.pendingReward.questId)
     || usedStorageSlots(typed) + typed.pendingReward.selections.reduce((sum, selection) => sum + selection.quantity, 0) > typed.storage.capacity)) return false
   const ownedIds = [

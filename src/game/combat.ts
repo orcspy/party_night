@@ -207,10 +207,13 @@ function resolvePending(combat: CombatState, rngState: number, events: GameEvent
     return protectedParty ? Math.max(1, value - 1) : value
   }
   if (skill.resolution === 'damage' && skill.targetMode === 'all_enemies') {
-    for (const victim of participants.filter((item) => item.side === 'enemy' && item.currentHp > 0)) {
+    const victimSide = actor.side === 'party' ? 'enemy' : 'party'
+    for (const victim of participants.filter((item) => item.side === victimSide && item.currentHp > 0)) {
       const value = directDamageFor(victim)
-      participants = participants.map((item) => item.id === victim.id ? { ...item, currentHp: Math.max(0, item.currentHp - value) } : item)
+      const victimHp = Math.max(0, victim.currentHp - value)
+      participants = participants.map((item) => item.id === victim.id ? { ...item, currentHp: victimHp } : item)
       events.push({ type: 'DAMAGE_APPLIED', message: `${actor.name}의 ${skill.name}: ${victim.name}에게 ${value} 피해`, actorId: actor.id, targetId: victim.id, skillId: skill.id, damage: value })
+      if (victimHp === 0) events.push({ type: 'ACTOR_DEFEATED', message: `${victim.name}이(가) 쓰러졌다.`, actorId: actor.id, targetId: victim.id, skillId: skill.id })
     }
     damage = directDamageFor(target)
     hp = participants.find((item) => item.id === target.id)!.currentHp
@@ -232,6 +235,15 @@ function resolvePending(combat: CombatState, rngState: number, events: GameEvent
   } else if (pending.skillId === 'bless') {
     const changed = applyAttributeKeys(target, ['str', 'dex', 'int'], 2)
     participants = participants.map((item) => item.id === target.id ? changed : item)
+  }
+  if (pending.skillId === 'drain_touch') {
+    const actualDamage = target.currentHp - hp
+    const healingAmount = Math.floor(actualDamage / 2)
+    const currentActor = participants.find((item) => item.id === actor.id) ?? actor
+    const healedHp = Math.min(currentActor.maxHp, currentActor.currentHp + healingAmount)
+    const actualHealing = healedHp - currentActor.currentHp
+    participants = participants.map((item) => item.id === actor.id ? { ...item, currentHp: healedHp } : item)
+    events.push({ type: 'HEAL_APPLIED', message: `${actor.name}이(가) HP ${actualHealing} 회복`, actorId: actor.id, targetId: actor.id, skillId: pending.skillId, resultValue: actualHealing })
   }
   const diceText = pending.originalDice.join(', ')
   const finalText = pending.dice.map((die) => die.value).join(', ')
@@ -265,7 +277,7 @@ function resolvePending(combat: CombatState, rngState: number, events: GameEvent
   }
   let next: CombatState = { ...combat, participants, pendingRoll: null, selectedSkillId: null }
   if (skill.resolution === 'damage') {
-    const damagedTargets = skill.targetMode === 'all_enemies' ? next.participants.filter((item) => item.side === 'enemy') : [next.participants.find((item) => item.id === target.id) ?? target]
+    const damagedTargets = skill.targetMode === 'all_enemies' ? next.participants.filter((item) => item.side !== actor.side) : [next.participants.find((item) => item.id === target.id) ?? target]
     for (const damagedTarget of damagedTargets) if (next.sleepingByActor?.[damagedTarget.id] && damagedTarget.currentHp < (combat.participants.find((item) => item.id === damagedTarget.id)?.currentHp ?? damagedTarget.currentHp)) next = removeStatus(next, damagedTarget.id, 'sleep', events)
   }
   if (pending.skillId === 'wound_break') next = removeStatus(next, target.id, 'bleed', events)
@@ -276,7 +288,8 @@ function resolvePending(combat: CombatState, rngState: number, events: GameEvent
   const chanceBySkill: Record<string, { percent: number; status: 'stun' | 'bleed' | 'paralysis' | 'neurotoxin' | 'sleep' }> = {
     power_strike: { percent: 50, status: 'stun' }, quick_stab: { percent: 50, status: 'bleed' }, ogre_smash: { percent: 25, status: 'stun' },
     rending_bite: { percent: 50, status: 'bleed' }, minotaur_gore: { percent: 50, status: 'stun' }, lightning_bolt: { percent: 100, status: 'paralysis' },
-    neurotoxin: { percent: 50, status: 'neurotoxin' }, sleep: { percent: 50, status: 'sleep' },
+    paralyzing_claw: { percent: 50, status: 'paralysis' }, neurotoxin: { percent: 50, status: 'neurotoxin' }, sleep: { percent: 50, status: 'sleep' },
+    crushing_blow: { percent: 50, status: 'stun' },
   }
   const chance = chanceBySkill[pending.skillId]
   if (chance && hp > 0) {

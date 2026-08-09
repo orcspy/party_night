@@ -17,7 +17,8 @@ const QUEST_NAMES: Record<QuestId, string> = {
 
 const ENEMY_NAMES: Record<string, string> = {
   goblin_scout: '고블린 정찰병', goblin_guard: '고블린 경비병', hobgoblin_boss: '홉고블린 대장', orc_raider: '오크 약탈자', ogre: '오우거',
-  kobold_skirmisher: '코볼트 척후병', gnoll_brute: '놀 투사', minotaur_boss: '미노타우르스',
+  kobold_skirmisher: '코볼트 척후병', gnoll_brute: '놀 투사', minotaur_boss: '미노타우르스', skeleton_soldier: '스켈레톤 병사', zombie: '좀비', ghoul: '구울', lich_boss: '리치',
+  imp: '임프', cyclops_boss: '사이클롭스', wraith: '레이스', skeleton_king_boss: '스켈레톤 킹',
 }
 
 const SLOT_NAMES: Record<EquipmentSlot, string> = { weapon: '무기', offhand: '보조 장비', head: '머리', body: '몸통' }

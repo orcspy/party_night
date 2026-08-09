@@ -640,3 +640,31 @@
 - 호환성·의존성 변경: 신규 dependency·lock 변경 없음. Git 원격 설정과 이력은 재작성하지 않았고 force push를 사용하지 않았다.
 - 검증 결과: staged diff 395개 파일·9,566줄 추가·634줄 삭제를 확인했고 `git diff --cached --check`에서 공백 오류가 없었다. 커밋 `30b5693`을 `69182d5..30b5693 main -> main`으로 `https://github.com/orcspy/party_night.git`에 push하는 데 성공했다.
 - 실패·미확정 사항: 없음. 본 작업 기록 커밋을 추가로 `origin/main`에 일반 push한다.
+
+## 2026-08-09 21:35:22 +09:00 | Coder | v0.2.0 단계 7 옛 고성·Lv6·전설 등급 구현
+
+- 작업 루트·모드: `E:\Work\20260806\party_night` | 원본 직접 작업
+- 사용자 작업 지시 원문: `다음 단계의 구현을 진행 할 것.`
+- 사용한 설계문서: `implements.md` 23.9절·23.11절·23.15절·23.17~23.19절 최우선, `architecture.md` 15.9~15.12절, `raw_data_table.md` 22.2~22.12절, `AGENTS.md`
+- 조사 범위: 옛 고성 11×11 맵·5개 순차 조우·언데드 적/에셋, 마비 발톱·죽음의 화살과 언데드 피해 상호작용, Lv6 성장·전설 장비 9종·상점·비밀방 보상, Q5 정산·반복 퀘스트 해금·profile v2 불변식·거점/결과 UI와 집중 테스트
+- 검증 단계: 1단계 기본 검증
+- 변경 파일: `src/app/saveV2.ts`, `src/game/combat.ts`, `src/game/content.ts`, `src/game/displayNames.ts`, `src/game/gameEngine.ts`, `src/game/rewards.ts`, `src/ui/HubScreen.tsx`, `src/ui/ResultScreen.tsx`, `src/tests/stage7.test.ts`, `README.md`, `asset-catalog.md`, `changelog.md`
+- 결정 근거: 승인된 옛 고성 크기와 조우 좌표를 유지하되 정확한 벽 row는 미지정이므로 외곽벽·단일 연결 주경로·함정·비밀문 조건을 만족하는 임시 지그재그 회랑을 사용했다. 반복 퀘스트는 단계 7에서 영속 해금·UI 표시만 제공하고 실제 입장은 단계 8·9까지 명시적으로 거부한다. 옛 고성 비밀방은 해당 퀘스트가 해금하는 전설 등급 이하 장비를 후보로 사용한다.
+- 핵심 구현: 스켈레톤 병사·좀비·구울·리치를 언데드로 등록하고 5개 순차 조우를 연결했다. 구울의 2d6+2·50% 마비와 리치의 3d6+4 죽음의 화살을 결정론적으로 처리하며 신성 공격·성스러운 분노·본 크러셔의 언데드 상호작용을 유지했다. 옛 고성 성공 시 1,050골드·캐릭터당 EXP100·전원 Lv6 성장, 전설 장비 9종, 화산 동굴·깊은 숲 폐허, 스킬 offer/보상과 overflow를 정산한다. 완료 전 전설 등급·전설 장비·반복 퀘스트 조기 해금을 profile v2에서 거부한다.
+- 호환성·의존성 변경: 신규 패키지·dependency·lock·profile version 변경 없음. 기존 terrain/enemy registry와 상태·정화·보상 흐름을 재사용했다. 옛 고성 map row·함정 `(6,5)`·비밀문 `(5,7)`·비밀방 `(5,6)`은 `TODO(v0.2.0)` 임시 배치다.
+- 검증 결과: `npm run typecheck` 성공. `npx vitest run src/tests/stage7.test.ts`에서 1개 파일·8개 테스트 성공. 맵·조우·언데드 수치/에셋, 적 스킬 확률 재현, 언데드 피해, 전설 장비/상점, Lv6·반복 해금·overflow·저장 불변식, 보스 정산·재입장 거부와 전설 비밀방 후보를 확인했다. `git diff --check` 공백 오류 없음; LF→CRLF 변환 예고만 확인했다.
+- 실패·미확정 사항: 1단계 범위에 따라 전체 테스트, production build, 패키징, 실제 브라우저 실행과 Android Chrome/iOS Safari 수동 검증은 수행하지 않았다. 화산 동굴·깊은 숲 폐허는 해금 표시만 제공하며 실제 콘텐츠는 단계 8·9 구현 대상이다.
+
+## 2026-08-09 22:13:07 +09:00 | Coder | v0.2.0 단계 8·9 반복 퀘스트·Lv10 성장 구현
+
+- 작업 루트·모드: `E:\Work\20260806\party_night` | 원본 직접 작업
+- 사용자 작업 지시 원문: `8,9 단계에 대해서 설계대로 구현 작업을 진행 할 것.`
+- 사용한 설계문서: `implements.md` 23.9~23.19절 최우선, `architecture.md` 15.5~15.12절, `raw_data_table.md` 22.2~22.12절, `AGENTS.md`
+- 조사 범위: 화산 동굴·깊은 숲 폐허 map/조우/에셋, 임프·사이클롭스·레이스·스켈레톤 킹과 특수 스킬, 반복 정산·EXP 상한·성장표·커스텀 슬롯, 단계별 스킬 가격·판매, profile v2 반복 횟수 불변식, 거점·상점·결과 UI와 단계 7~9 집중 테스트
+- 검증 단계: 1단계 기본 검증
+- 변경 파일: `src/app/saveV2.ts`, `src/game/types.ts`, `src/game/characters.ts`, `src/game/combat.ts`, `src/game/content.ts`, `src/game/displayNames.ts`, `src/game/gameEngine.ts`, `src/game/rewards.ts`, `src/game/shop.ts`, `src/ui/HubScreen.tsx`, `src/ui/ResultScreen.tsx`, `src/ui/ShopPanel.tsx`, `src/tests/characters.test.ts`, `src/tests/stage7.test.ts`, `src/tests/stage89.test.ts`, `README.md`, `asset-catalog.md`, `changelog.md`
+- 결정 근거: 두 반복 퀘스트는 옛 고성 완료 후 무제한 입장을 허용하고 어떤 조합으로 완료해도 공통 EXP로 성장하도록 했다. 순차 5회 후 EXP500/Lv6에서 반복 3회로 EXP800/Lv9, 2회 추가로 EXP1000/Lv10이 되는 승인 임계값을 유지했다. 정확한 map row는 미지정이므로 승인 크기·좌표·단일 연결 주경로·함정·비밀문 조건을 만족하는 임시 회랑을 사용했다. 스킬 instance에 구매가를 추가하지 않고 현재 파티 최대 슬롯 단계의 180/420/650 가격과 절반 판매가를 적용해 profile version을 유지했다.
+- 핵심 구현: 화산 동굴에 임프·코볼트·오우거 중간보스·사이클롭스 보스 5개 조우와 4d6+4·50% 기절 분쇄의 일격을 추가했다. 깊은 숲 폐허에 스켈레톤·오크·레이스 중간보스·스켈레톤 킹 보스 5개 조우, 실제 피해 절반 회복 생명력 흡수와 공통 3d6 한 번으로 전원을 공격하는 왕의 휩쓸기를 추가했다. 반복 성공마다 760/820골드·캐릭터당 EXP100·완료 횟수·스킬 offer/보상/overflow를 정산하며 Lv10 이후 EXP1000을 유지한다. Lv7·Lv10 커스텀 슬롯 해금을 순수 성장 결과에 포함하고 결과 UI에 표시하며 거점에서 반복 횟수와 재입장 버튼을 제공한다.
+- 호환성·의존성 변경: 신규 패키지·dependency·lock·profile version 변경 없음. 기존 all-target resolver를 시전자 반대편 대상으로 일반화해 화염구와 왕의 휩쓸기를 함께 처리하고 보호 서약·수면 해제·승패 판정을 유지했다. 두 신규 map의 row·함정·비밀방 위치는 `TODO(v0.2.0)` 임시 데이터다.
+- 검증 결과: `npm run typecheck` 성공. `npx vitest run src/tests/stage7.test.ts src/tests/stage89.test.ts`에서 2개 파일·15개 테스트 성공. 두 map과 조우/에셋, 기절·흡혈·전체 공격, 반복 5회 Lv10·EXP cap·정확 성장, Lv7/Lv10 슬롯·저장 round-trip, 스킬 가격 180/420/650, 반복 정산·overflow·재입장·저장 불변식을 확인했다. `git diff --check` 공백 오류 없음; LF→CRLF 변환 예고만 확인했다.
+- 실패·미확정 사항: 1단계 범위에 따라 전체 테스트, production build, 패키징, 실제 브라우저 실행과 Android Chrome/iOS Safari 수동 검증은 수행하지 않았다. 단계 10 전체 모바일·저장·overflow·장시간 반복 회귀는 후속 검증 대상이다.

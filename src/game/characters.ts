@@ -46,7 +46,7 @@ export function getUnlockedClassSkillIds(classId: ClassId, level: number): strin
   return [skills[0], ...(level >= 2 ? [skills[1]] : []), ...(level >= 5 ? [skills[2]] : [])]
 }
 
-export function applyExperience(character: PersistentCharacter, amount: number): { character: PersistentCharacter; growthApplied: AttributeGrowth; unlockedClassSkillIds: string[] } {
+export function applyExperience(character: PersistentCharacter, amount: number): { character: PersistentCharacter; growthApplied: AttributeGrowth; unlockedClassSkillIds: string[]; unlockedCustomSlotIndices: number[] } {
   const previousSkills = getUnlockedClassSkillIds(character.classId, character.level)
   const experience = Math.min(1000, character.experience + amount)
   const level = levelForExperience(experience)
@@ -60,5 +60,6 @@ export function applyExperience(character: PersistentCharacter, amount: number):
     character: { ...character, experience, level, growth: nextGrowth },
     growthApplied,
     unlockedClassSkillIds: nextSkills.filter((skillId) => !previousSkills.includes(skillId)),
+    unlockedCustomSlotIndices: [3, 7, 10].flatMap((unlockLevel, index) => character.level < unlockLevel && level >= unlockLevel ? [index] : []),
   }
 }

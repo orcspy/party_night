@@ -59,16 +59,22 @@ export function generateSkillOffers(rootSeed: number, revision: number): string[
   return offers
 }
 
+export function getSkillPrice(profile: ProfileV2): number {
+  const maximumLevel = Math.max(...profile.characters.map((character) => character.level))
+  return maximumLevel >= 10 ? 650 : maximumLevel >= 7 ? 420 : 180
+}
+
 export function buySkill(profile: ProfileV2, skillId: string): RuleResult<ProfileV2> {
   if (!profile.shop.skillOfferIds.includes(skillId) || !(skillId in CUSTOM_SKILL_DATA)) return { ok: false, error: '현재 판매 중인 스킬이 아니다.' }
   if (usedStorageSlots(profile) >= profile.storage.capacity) return { ok: false, error: '공용 창고가 가득 찼다.' }
-  if (profile.gold < 180) return { ok: false, error: '골드가 부족하다.' }
+  const price = getSkillPrice(profile)
+  if (profile.gold < price) return { ok: false, error: '골드가 부족하다.' }
   const allocated = allocateUniqueId(profile, 'skill')
   return {
     ok: true,
     value: {
       ...allocated.profile,
-      gold: allocated.profile.gold - 180,
+      gold: allocated.profile.gold - price,
       storage: { ...allocated.profile.storage, skillInstances: [...allocated.profile.storage.skillInstances, { skillInstanceId: allocated.id, skillId }] },
       shop: { ...allocated.profile.shop, skillOfferIds: allocated.profile.shop.skillOfferIds.filter((id) => id !== skillId) },
     },
@@ -78,7 +84,7 @@ export function buySkill(profile: ProfileV2, skillId: string): RuleResult<Profil
 export function sellSkill(profile: ProfileV2, skillInstanceId: string): RuleResult<ProfileV2> {
   const instance = profile.storage.skillInstances.find((item) => item.skillInstanceId === skillInstanceId)
   if (!instance) return { ok: false, error: '판매할 스킬을 찾을 수 없다.' }
-  return { ok: true, value: { ...profile, gold: profile.gold + 90, storage: { ...profile.storage, skillInstances: profile.storage.skillInstances.filter((item) => item.skillInstanceId !== skillInstanceId) } } }
+  return { ok: true, value: { ...profile, gold: profile.gold + Math.floor(getSkillPrice(profile) * 0.5), storage: { ...profile.storage, skillInstances: profile.storage.skillInstances.filter((item) => item.skillInstanceId !== skillInstanceId) } } }
 }
 
 export function sellEquipment(profile: ProfileV2, equipmentInstanceId: string): RuleResult<ProfileV2> {
