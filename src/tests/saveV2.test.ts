@@ -31,6 +31,23 @@ describe('profile v2 save adapter', () => {
     const profile = validProfile()
     expect(writeProfileV2(profile, storage)).toBe(true)
     expect(readProfileV2(storage)).toEqual(profile)
+    expect(profile.characters.map((character) => character.raceId)).toEqual(['halfling', 'dwarf', 'human', 'elf'])
+  })
+
+  it('preserves legacy companion races instead of normalizing existing profiles', () => {
+    const profile = validProfile()
+    const legacy: ProfileV2 = {
+      ...profile,
+      characters: [
+        profile.characters[0],
+        { ...profile.characters[1], raceId: 'human' },
+        profile.characters[2],
+        { ...profile.characters[3], raceId: 'human' },
+      ],
+    }
+    const storage = memoryStorage()
+    expect(writeProfileV2(legacy, storage)).toBe(true)
+    expect(readProfileV2(storage)?.characters.map((character) => character.raceId)).toEqual(['halfling', 'human', 'human', 'human'])
   })
 
   it('ignores and preserves the version 1 key', () => {

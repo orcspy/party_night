@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { getQuestDisplayName } from '../game/displayNames'
 import { usedStorageSlots } from '../game/inventory'
 import type { GameCommand, GameEvent, GameState } from '../game/types'
 import { CharacterPanel } from './CharacterPanel'
@@ -24,6 +25,7 @@ export function HubScreen({ state, dispatch }: { state: GameState; dispatch: (co
   const send = (command: GameCommand) => {
     const events = dispatch(command)
     setMessage(events.at(-1)?.message ?? '')
+    return events
   }
 
   return (
@@ -37,7 +39,7 @@ export function HubScreen({ state, dispatch }: { state: GameState; dispatch: (co
       </nav>
       <section className="card hub-panel">
         {message && <p className="hub-message" role="status">{message}</p>}
-        {tab === 'quest' && <QuestTab state={state} dispatch={send} />}
+        {tab === 'quest' && <QuestTab state={state} dispatch={send} onReturnToStorage={() => { send({ type: 'RETURN_TO_STORAGE' }); setTab('storage') }} />}
         {tab === 'storage' && <StoragePanel profile={profile} dispatch={send} />}
         {tab === 'characters' && <CharacterPanel profile={profile} dispatch={send} />}
         {tab === 'shop' && <ShopPanel profile={profile} dispatch={send} />}
@@ -47,7 +49,7 @@ export function HubScreen({ state, dispatch }: { state: GameState; dispatch: (co
   )
 }
 
-function QuestTab({ state, dispatch }: { state: GameState; dispatch: (command: GameCommand) => void }) {
+function QuestTab({ state, dispatch, onReturnToStorage }: { state: GameState; dispatch: (command: GameCommand) => void; onReturnToStorage: () => void }) {
   const completed = state.profile?.questProgress.completedQuestIds.includes('training_ruins_quest') ?? false
   const goblinDenUnlocked = state.profile?.questProgress.unlockedQuestIds.includes('goblin_den_quest') ?? false
   const goblinDenCompleted = state.profile?.questProgress.completedQuestIds.includes('goblin_den_quest') ?? false
@@ -56,6 +58,16 @@ function QuestTab({ state, dispatch }: { state: GameState; dispatch: (command: G
   const dungeonCompleted = state.profile?.questProgress.completedQuestIds.includes('underground_dungeon_quest') ?? false
   const castleUnlocked = state.profile?.questProgress.unlockedQuestIds.includes('old_castle_quest') ?? false
   const castleCompleted = state.profile?.questProgress.completedQuestIds.includes('old_castle_quest') ?? false
+  if (state.pendingQuestEntry) {
+    const freeSlots = Math.max(0, (state.profile?.storage.capacity ?? 100) - usedStorageSlots(state.profile!))
+    return (
+      <section className="quest-entry-warning" role="dialog" aria-labelledby="quest-entry-warning-title" aria-modal="true">
+        <h2 id="quest-entry-warning-title">창고 공간 경고</h2>
+        <p>{getQuestDisplayName(state.pendingQuestEntry)} 입장 전 창고 빈칸이 {freeSlots}칸 남았습니다. 보상 일부를 포기할 수 있습니다.</p>
+        <div><button className="primary" onClick={() => dispatch({ type: 'CONTINUE_QUEST_ENTRY', questId: state.pendingQuestEntry! })}>계속 진입</button><button onClick={onReturnToStorage}>창고로 돌아가기</button></div>
+      </section>
+    )
+  }
   return (
     <div className="management-list">
       <article><span><p className="eyebrow">QUEST 01</p><b>훈련 폐허</b><small>{completed ? '완료 · 3개 필수 조우 승리' : '고블린 3개 파티와 순차 조우'}</small></span>{!completed && <button className="primary" onClick={() => dispatch({ type: 'REQUEST_QUEST_ENTRY', questId: 'training_ruins_quest' })}>입장</button>}</article>

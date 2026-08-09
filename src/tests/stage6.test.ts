@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { isProfileV2 } from '../app/saveV2'
 import { advanceToPlayer, getSkillAvailability, selectSkill, selectTarget, startCombat, useCombatItem } from '../game/combat'
-import { createEncounterEnemies, createParty, getMapDefinition } from '../game/content'
+import { createEncounterEnemies, createParty, getMapDefinition, SKILLS } from '../game/content'
 import { createProfile, createInitialGameState, reduceGame } from '../game/gameEngine'
 import { move, createExploration, isWall } from '../game/exploration'
 import { settleAncientSite, settleGoblinDen, settleTrainingRuins, settleUndergroundDungeon } from '../game/rewards'
@@ -42,11 +42,16 @@ describe('stage 6 underground dungeon', () => {
     expect(createEncounterEnemies('underground_dungeon_encounter_1')[0]).toMatchObject({ contentId: 'kobold_skirmisher', maxHp: 25, atk: 5, def: 3, agi: 6 })
     expect(createEncounterEnemies('underground_dungeon_midboss')[0]).toMatchObject({ contentId: 'gnoll_brute', maxHp: 74, skillIds: ['rending_bite'] })
     const minotaur = createEncounterEnemies('underground_dungeon_boss')[0]
-    expect(minotaur).toMatchObject({ contentId: 'minotaur_boss', maxHp: 120, atk: 9, def: 6, agi: 4, isBoss: true, skillIds: ['minotaur_gore'] })
+    expect(minotaur).toMatchObject({ contentId: 'minotaur_boss', maxHp: 120, atk: 8, def: 6, agi: 4, isBoss: true, skillIds: ['minotaur_gore'] })
+    expect(SKILLS.minotaur_gore).toMatchObject({ diceCount: 3, fixedModifier: 2 })
     const party = [{ ...createParty(main)[0], maxHp: 999, currentHp: 999 }]
     const base = startCombat(party, [minotaur], 5).combat
     const enemyTurn: CombatState = { ...base, turnOrder: [minotaur.id, party[0].id], turnIndex: 0, phase: 'awaiting_action' }
     expect(advanceToPlayer(enemyTurn, 81)).toEqual(advanceToPlayer(enemyTurn, 81))
+    let minotaurStuns = 0
+    for (let seed = 1; seed <= 100; seed++) minotaurStuns += advanceToPlayer(enemyTurn, seed).events.some((event) => event.type === 'STATUS_APPLIED' && event.skillId === 'minotaur_gore') ? 1 : 0
+    expect(minotaurStuns).toBeGreaterThanOrEqual(25)
+    expect(minotaurStuns).toBeLessThanOrEqual(55)
 
     const attacker = { ...createParty({ ...main, classId: 'rogue' })[0], skillIds: ['basic_attack', 'quick_stab'] }
     const normal = { ...createEncounterEnemies('underground_dungeon_encounter_1')[0], maxHp: 999, currentHp: 999 }
@@ -62,8 +67,9 @@ describe('stage 6 underground dungeon', () => {
       normalApplications += run(normal) > 0 ? 1 : 0
       bossApplications += run(boss) > 0 ? 1 : 0
     }
-    expect(normalApplications).toBeGreaterThan(bossApplications)
-    expect([normalApplications, bossApplications]).toEqual([normalApplications, bossApplications])
+    expect(normalApplications).toBe(100)
+    expect(bossApplications).toBeGreaterThan(30)
+    expect(bossApplications).toBeLessThan(70)
   })
 
   it('ticks capped bleed at turn start and keeps sleep through bleed but clears it after direct damage', () => {
@@ -119,7 +125,7 @@ describe('stage 6 underground dungeon', () => {
     const wound = selectTarget(woundSelected.combat, rogue.enemy.id, woundSelected.rngState)
     expect(wound.combat.bleedStacksByActor?.[rogue.enemy.id]).toBeUndefined()
     expect(wound.events.find((event) => event.type === 'DAMAGE_APPLIED')?.message).toContain('피해')
-    const exposedCombat: CombatState = { ...rogue.combat, exposedByActor: { [rogue.enemy.id]: { bonusDamage: 2, remainingActions: 1 } } }
+    const exposedCombat: CombatState = { ...rogue.combat, exposedByActor: { [rogue.enemy.id]: { bonusDamage: 2, sourceActorId: rogue.actor.id, sourceActionsRemaining: 1, appliedRound: 1 } } }
     const headSelected = selectSkill(exposedCombat, 'head_shot', rogue.rngState)
     expect(selectTarget(headSelected.combat, rogue.enemy.id, headSelected.rngState).events.some((event) => event.skillId === 'head_shot' && event.type === 'ROLL_RESOLVED')).toBe(true)
 
@@ -151,7 +157,7 @@ describe('stage 6 underground dungeon', () => {
     const before = progressedProfile()
     const settled = settleUndergroundDungeon(before, 4, 'expedition_4', [])
     if (!settled.ok) throw new Error(settled.error)
-    expect(settled.value.profile.gold - before.gold).toBe(720)
+    expect(settled.value.profile.gold - before.gold).toBe(2700)
     expect(settled.value.profile.characters.every((character) => character.level === 5 && character.experience === 400)).toBe(true)
     expect(settled.value.profile.characters[0].classId === 'warrior' && settled.value.summary.characterResults[0].unlockedClassSkillIds).toContain('ability_reinforcement')
     expect(settled.value.profile.questProgress.unlockedQuestIds).toContain('old_castle_quest')
@@ -164,7 +170,7 @@ describe('stage 6 underground dungeon', () => {
     const battleState = { ...entered.state, screen: 'battle' as const, session: { ...entered.state.session!, combat: { ...battle, participants: [...party, boss], turnOrder: [party[0].id], turnIndex: 0, phase: 'awaiting_action' as const, outcome: null } } }
     const selected = reduceGame(battleState, { type: 'SELECT_SKILL', skillId: 'basic_attack' })
     const completed = reduceGame(selected.state, { type: 'SELECT_TARGET', targetId: boss.id })
-    expect(completed.state).toMatchObject({ screen: 'result', result: { outcome: 'victory', gold: 720, experience: 100 } })
+    expect(completed.state).toMatchObject({ screen: 'result', result: { outcome: 'victory', gold: 2700, experience: 100 } })
     const state = { ...createInitialGameState(settled.value.profile), screen: 'hub' as const }
     expect(reduceGame(state, { type: 'REQUEST_QUEST_ENTRY', questId: 'underground_dungeon_quest' }).events[0].type).toBe('COMMAND_REJECTED')
   })

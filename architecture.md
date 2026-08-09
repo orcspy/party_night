@@ -345,7 +345,7 @@ battleAgi = max(1, floor((AGI + 2) / 2))
 - 최종 능력치는 `final[key] = raceBase[key] + classModifier[key]`로 계산한다.
 - 확정된 24개 조합의 최종 합계는 모두 37이고 각 항목은 1~11이다. 기존 초기값의 1~10은 직업 단독 템플릿 기준이므로 최종 결합값의 절대 상한으로 사용하지 않는다.
 - HP·ATK·DEF·전투 AGI 공식과 `attackBasis`, ATK 보정, DEF 보정은 12.4~12.5절의 현재 구조를 유지한다.
-- 고정 동료는 현재 에셋 연결에 사용 중인 종족을 능력치에도 사용한다. 별도 동료 설정이 확정되기 전까지 브람·세라·로웬은 모두 `human`이다.
+- 고정 동료 종족은 `raw_data_table.md` 16절의 최신 사용자 입력을 따른다. 브람은 `dwarf`, 세라는 `human`, 로웬은 `elf`이며 상세 적용·호환성은 20절을 따른다.
 
 ### 13.5 인간 기준 최종 능력치 확인
 
@@ -1314,3 +1314,171 @@ ExposedState {
 - 퀘스트 골드가 여러 settlement에 중복되어 있어 literal 일부만 교체하면 저장 골드와 결과 UI가 불일치한다. 단일 원본 전환과 7개 퀘스트 정산 테스트가 필요하다.
 - 보스 피해 하향은 결정론적 전투 snapshot과 기존 수치 assertion을 의도적으로 변경한다. unrelated RNG·상태·전체 공격 대상 수 회귀는 유지해야 한다.
 - 기존 profile의 보유 골드는 소급 변경하지 않는다. 변경 이후 완료한 퀘스트부터 신규 보상값을 지급하며 profile version 2를 유지한다.
+
+## 19. 아이템·장비·스킬 대표 아이콘과 등급 색상 분석
+
+### 19.1 분석 범위와 확인된 현재 상태
+
+- 대상은 소비 아이템, 장비, 직업·커스텀 스킬을 표시하는 React UI와 해당 콘텐츠 정의, 에셋 관례다. 게임 판정, Phaser 전투 캐릭터·적·지형 렌더링과 저장 데이터는 변경 대상이 아니다.
+- `Rarity`는 `common/uncommon/rare/heroic/legendary` 5단계이며 승인된 의미 색은 각각 흰색/녹색/파랑색/보라색/노랑색이다. 실제 등급 데이터는 `EquipmentData.rarity`에만 존재한다.
+- 장비는 9개 `EquipmentFamily`와 45개 정의가 있고, 각 instance는 `equipmentId`만 저장한다. 아이템 stack과 스킬 instance도 각각 콘텐츠 ID만 저장한다.
+- 아이템 정의에는 등급·아이콘·family가 없고, 스킬 정의에는 등급은 없지만 `activation: active | passive`가 있다. 존재하지 않는 아이템·스킬 등급을 가격이나 해금 시점으로 추론하면 현재 게임 규칙을 변경하게 된다.
+- 상점, 창고, 캐릭터 장착·인벤토리, 탐사 아이템, 전투 명령, 결과·초과 보상은 모두 React DOM 텍스트로 표시된다. 아이콘 registry와 등급 CSS token은 없다.
+- 현재 런타임 에셋은 `src/assets/{terrain,enemies,characters}`에만 있고 장비·아이템·스킬 아이콘은 `asset-plan.md`에서 Graphics/텍스트 fallback 대상으로 분류되어 있다.
+- `CharacterPanel`의 직업 스킬과 `ResultScreen`의 신규 스킬·자동 보상은 여러 항목을 문자열로 합치므로 항목별 아이콘·색상을 적용하려면 개별 DOM 요소로 바꿔야 한다.
+
+### 19.2 표시 책임과 데이터 흐름
+
+```text
+EquipmentInstance / ItemStack / SkillInstance / PendingRewardEntry
+→ 콘텐츠 ID로 EQUIPMENT_DATA / ITEM_DATA / SKILLS 조회
+→ UI 전용 presentation selector가 iconKey·rarity·표시명을 파생
+→ React ContentIcon과 콘텐츠 행이 아이콘·색상·등급명을 표현
+→ 이미지 누락·로드 실패 시 텍스트 대체 배지와 기존 표시명 유지
+```
+
+- 아이콘과 색상은 표시 정보이며 구매·장착·스킬 사용·보상 선택 판정에 참여하지 않는다.
+- `EquipmentInstance`, `ItemStack`, `SkillInstance`, `PendingRewardEntry`에 icon이나 rarity를 중복 저장하지 않는다. 기존 profile version 2와 저장 검증을 그대로 유지한다.
+- React UI용 아이콘을 Phaser texture registry에 넣지 않는다. DOM `<img>`와 소형 manifest를 사용하고 기존 Phaser loader 의존성을 추가하지 않는다.
+- 콘텐츠 이름은 기존 `displayNames.ts`의 안전한 표시명을 유지한다. 아이콘은 이름을 대체하지 않고 보조한다.
+
+### 19.3 대표 아이콘 계약
+
+승인 요청 범위의 대표 아이콘 key는 다음 11개로 제한한다.
+
+| 대상 | icon key | 파생 기준 | 의미 |
+|---|---|---|---|
+| 소비 아이템 | `item_potion` | 모든 `ItemId` | 개별 물체가 아닌 소비 아이템 카테고리 대표 |
+| 검 | `equipment_sword` | `family=sword` | 한손검 계열 |
+| 몽둥이 | `equipment_club` | `family=mace` | 둔기·철퇴·망치 계열 대표 |
+| 단검 | `equipment_dagger` | `family=dagger` | 단검 계열 |
+| 활 | `equipment_bow` | `family=bow` | 활 계열 |
+| 지팡이 | `equipment_staff` | `family=staff | rod` | 지팡이·로드 계열 공용 대표 |
+| 방패 | `equipment_shield` | `family=shield` | 보조 장비 방패 계열 |
+| 투구 | `equipment_helmet` | `family=head` | 모자·두건·투구·왕관을 포함한 머리 장비 대표 |
+| 갑옷 | `equipment_armor` | `family=body` | 몸통 장비 대표 |
+| 액티브 스킬 | `skill_active` | `activation=active` | 직접 선택·발동하는 스킬 |
+| 패시브 스킬 | `skill_passive` | `activation=passive` | 자동·상시 적용 스킬 |
+
+- 포션 아이콘은 붕대·화염병·분필을 포함한 소비 아이템 전체의 카테고리 표식이다. 개별 아이템 외형을 정확히 나타내는 아이콘으로 해석하지 않는다.
+- `rod`는 요청된 지팡이 대표 아이콘과 실루엣이 호환되므로 같은 key를 사용한다.
+- `shield`는 정식 `equipment_shield`를 사용한다. 장비 방패는 큰 전면 방패 실루엣, 패시브 스킬은 작은 방패와 외곽 지속 오라로 구분한다.
+- 알 수 없는 ID, 누락된 정의와 등록되지 않은 icon key도 같은 대체 배지를 사용하고 원본 ID를 사용자 화면에 노출하지 않는다.
+
+### 19.4 에셋 표현 규칙
+
+- 파일은 `src/assets/icons/<iconKey>.png`, 원본 생성기는 `assets-source/icons/generate_content_icons.mjs`를 사용한다.
+- 각 아이콘은 투명 배경의 24×24px 단일 정적 픽셀 이미지, 중앙 anchor 관념, 1px 어두운 외곽선, 제한된 내부 팔레트를 사용한다.
+- 아이콘 자체에 등급 색을 굽지 않는다. 동일 대표 아이콘을 모든 등급에서 재사용하고 React 프레임·이름·등급 배지가 rarity 색을 담당한다.
+- 도상 기준은 포션 병, 대각 검, 두꺼운 둔기, 짧은 단검, 활과 시위, 오브가 없는 지팡이, 큰 전면형 장비 방패, 정면 투구, 흉갑, 폭발/발동 표식, 작은 방패와 지속 오라 표식이다. 글자와 수치는 이미지에 넣지 않는다.
+- DOM 표시 크기는 기본 24px, 조밀한 결과·스킬 목록은 20px까지 축소할 수 있다. CSS `image-rendering: pixelated`를 적용하고 비정수 확대를 피한다.
+- 11개 소형 에셋은 초기 UI에서 eager manifest로 읽어도 허용한다. 파일 누락 또는 브라우저 decode 실패는 항목별 대체 배지로 독립 fallback한다.
+
+### 19.5 등급 색상과 접근성
+
+| rarity | 한글 | 의미 색 | 임시 CSS 기준값 |
+|---|---|---|---|
+| `common` | 일반 | 흰색 | `#f4f4f4` |
+| `uncommon` | 고급 | 녹색 | `#62c370` |
+| `rare` | 희귀 | 파랑색 | `#5aa9ff` |
+| `heroic` | 영웅 | 보라색 | `#b678f2` |
+| `legendary` | 전설 | 노랑색 | `#ffd45a` |
+
+- 정확한 HEX는 사용자에게 별도로 지정되지 않았으므로 위 값은 어두운 현행 배경에서 구분 가능한 `임시 결정`이다. 색 이름과 rarity 의미는 확정이며 후속 팔레트 조정은 CSS token만 교체한다.
+- 장비의 아이콘 테두리, 이름, 목록 좌측 accent와 등급 배지에 같은 token을 사용한다. 배경 전체를 강한 색으로 채우지 않아 텍스트 대비와 disabled 상태 가독성을 보존한다.
+- 아이템·스킬은 등급 데이터가 없으므로 `neutral` 회색 테두리·기존 본문색을 사용하며 `common`으로 표기하지 않는다. 스킬 active/passive는 아이콘과 텍스트로 구분한다.
+- 색만으로 등급을 전달하지 않는다. 장비 metadata에 `일반/고급/희귀/영웅/전설`을 함께 표시하고 이미지에는 인접 텍스트가 있으므로 장식 이미지로 처리한다.
+- 결과 화면의 `unlockedRarities`도 같은 색 token과 한글 등급 배지를 사용해 별도 ternary 색상을 만들지 않는다.
+
+### 19.6 적용 화면과 구조 영향
+
+| 화면 | 적용 내용 | 구조 변경 |
+|---|---|---|
+| `ShopPanel` | 장비·아이템·스킬 대표 아이콘, 장비 rarity 이름·색 | 각 상품 identity 영역 추가 |
+| `StoragePanel` | 세 종류 보관 항목 아이콘, 장비 rarity 색 | 기존 instance ID와 동작 버튼 유지 |
+| `CharacterPanel` | 직업/커스텀 스킬, 장착 장비, 개인 아이템 아이콘 | join 문자열을 스킬별 inline 요소로 변경 |
+| `ExplorationItems` | 포션 대표 아이콘 | 대상 버튼과 아이템 이름 영역 분리 |
+| `BattleCommands` | 액티브 스킬·포션 대표 아이콘 | 버튼 내부 icon+label 구조, 명령 흐름 유지 |
+| `ResultScreen` | 신규 스킬, 자동·초과 보상, 등급 해금 표시 | join 문자열을 항목별 요소로 변경 |
+
+- 전투 명령에는 현재 active 스킬만 나타나지만 공용 selector는 passive도 처리해 거점·결과 화면에서 사용한다.
+- 모바일 가로 화면의 42~50px 행과 버튼 높이를 유지한다. 아이콘은 별도 열을 과도하게 차지하지 않고 이름과 metadata를 포함한 `content-identity` 내부에 배치한다.
+- 보상 kind에 따라 장비 definition의 rarity, 아이템 대표, 스킬 activation을 조회한다. lookup 실패가 보상 선택 checkbox와 저장을 막아서는 안 된다.
+
+### 19.7 충돌·위험·미확정 사항
+
+- `equipment_shield`가 정식 범위에 포함되어 9개 장비 family가 모두 대표 아이콘으로 해석된다. 방패 파일 누락·decode 실패 때만 다른 장비와 동일하게 `장` 대체 배지를 사용한다.
+- 포션 하나로 모든 소비 아이템을 표시하므로 붕대·화염병·분필의 개별 식별력은 이름에 의존한다. 이번 요청은 대표 아이콘 범위로 한정하고 개별 아이템 icon family는 추가하지 않는다.
+- 아이템·스킬에 rarity를 부여하지 않으므로 5색은 장비와 장비 등급 해금에만 의미가 있다. 향후 아이템·스킬 등급이 승인되면 콘텐츠 정의부터 별도 설계해야 한다.
+- 문자열 join을 개별 DOM으로 바꾸면서 문장 흐름과 모바일 높이가 증가할 수 있다. 640×360, 760px 이하 가로 화면과 결과 보상 다수·스킬 다수 상태를 확인해야 한다.
+- disabled opacity, 노랑색과 기존 금색 UI, 흰색과 본문색이 가까워 보일 수 있다. 등급 배지 텍스트와 테두리를 함께 확인하며 색상 대비가 부족하면 CSS token만 조정한다.
+- 아이콘은 표시 전용이므로 에셋 실패가 구매·장착·사용·보상 선택·저장 결과에 영향을 주면 안 된다.
+
+## 20. 고정 동료 종족 데이터 반영 분석
+
+### 20.1 기준과 적용 범위
+
+- 사용자가 수동 추가한 `raw_data_table.md` 16절의 `race_id` 열을 최신 동료 종족 기준으로 사용한다.
+- 적용값은 브람 `dwarf`, 세라 `human`, 로웬 `elf`다. 직업·배치·이름과 캐릭터 ID는 기존 값을 유지한다.
+- 이번 요청은 동료 **종족 데이터** 반영이므로 같은 원시 표의 고정 스킬·고정 장비·계약 열은 기존 Lv1·2·5 직업 스킬 및 시작 무기 규칙을 대체하지 않는다.
+- 원시 표의 상태는 `current`지만 현재 코드가 브람·세라·로웬을 모두 `human`으로 생성하므로 문서 주장과 코드 상태를 구분한다. 사용자 지시로 race 값은 후속 구현 기준이 되었고 코드는 아직 미반영 상태다.
+
+### 20.2 현재 코드와 목표값
+
+| characterId | 이름 | 현재 코드 race | 목표 race | 직업 | 성별·배치 유지 |
+|---|---|---|---|---|---|
+| `party_warrior` | 브람 | `human` | `dwarf` | `warrior` | 남성·전열·2P |
+| `party_priest` | 세라 | `human` | `human` | `priest` | 여성·후열·3P |
+| `party_archer` | 로웬 | `human` | `elf` | `archer` | 남성·후열·4P |
+
+- `src/game/content.ts`의 `createInitialCharacters`와 `src/ui/SetupScreen.tsx`의 미리보기 값이 각각 하드코딩되어 있어 두 위치를 따로 수정하면 불일치가 재발한다.
+- 동료 identity는 `content.ts`의 단일 `COMPANION_DATA`에서 관리하고 프로필 생성과 준비 화면이 같은 정의를 읽는다.
+- 성별 값은 원시 표에 없고 이번 요청 범위에도 포함되지 않으므로 현재 `남성/여성/남성` 값을 유지한다. 이는 종족 승인과 별개의 기존 임시값이다.
+
+### 20.3 능력치·인벤토리·전투 영향
+
+종족은 표시 메타데이터가 아니라 다음 판정 흐름의 입력이다.
+
+```text
+COMPANION_DATA.raceId
+→ ProfileV2.characters[].raceId
+→ RACE_DATA + CLASS_DATA + 성장 + 장비
+→ 최종 STR/DEX/INT/CON/AGI/LUK
+→ HP/ATK/DEF/전투 AGI와 개인 인벤토리 용량
+→ Actor.raceId와 캐릭터 texture 선택
+```
+
+현재 Lv1 시작 무기를 포함한 목표 수치는 다음과 같다.
+
+| 동료 | 최종 STR/DEX/INT/CON/AGI/LUK | HP | ATK | DEF | 전투 AGI |
+|---|---|---:|---:|---:|---:|
+| 브람·드워프 전사·`common_sword` | `12/5/3/9/4/5` | 30 | 6 | 4 | 3 |
+| 세라·인간 사제·`common_staff` | `5/7/10/5/6/5` | 22 | 3 | 3 | 4 |
+| 로웬·엘프 궁수·`common_bow` | `3/11/6/4/10/4` | 20 | 5 | 2 | 6 |
+
+- 로웬의 Lv1 STR은 장비 포함 3으로 개인 인벤토리 용량이 10칸이다. 기존 인간 로웬은 STR 5로 11칸이므로 기존 프로필을 무조건 변환하면 초과 stack이 생길 수 있다.
+- 로웬의 전투 AGI가 5에서 6으로 바뀌어 기존 turn order와 동률 seed 기대값이 변경될 수 있다.
+- 준비 화면은 현재 시작 무기 modifier를 제외해 실제 Actor와 이미 다른 값을 표시한다. 종족 반영 시 `createInitialCharacters`와 `getFinalAttributes` 결과를 재사용해 시작 장비까지 포함한 동일값을 표시한다.
+
+### 20.4 저장 호환성 결정
+
+- `PersistentCharacter.raceId`는 이미 profile version 2에 저장되고 save validator는 네 종족을 모두 허용한다. schema와 envelope version은 변경하지 않는다.
+- 신규 프로필은 즉시 브람 `dwarf`, 세라 `human`, 로웬 `elf`로 생성한다.
+- 기존 profile은 저장된 동료 race를 사용자 진행 상태로 보존하고 자동 변환하지 않는다. 이는 로웬 인벤토리 용량 축소와 저장 무효화를 피하는 비파괴 기본값이다.
+- 기존 profile에서 신규 종족을 적용하려면 사용자가 프로필을 초기화해 새로 생성한다. 기존 진행을 유지한 강제 변환·overflow 이관은 별도 migration 승인 없이는 추가하지 않는다.
+- 이 정책에 따라 생성 시점이 다른 profile은 동료 종족이 다를 수 있으나, 각 profile의 race 값으로 능력치와 에셋을 일관되게 계산한다.
+
+### 20.5 캐릭터 에셋 영향
+
+- 기존 조합형 캐릭터 에셋 registry는 `(raceId, classId, gender, slot)`을 사용하므로 로더·texture key 계약을 변경하지 않는다.
+- 목표 파일 `dwarf_warrior_male_p2.png`, `human_priest_female_p3.png`, `elf_archer_male_p4.png`가 모두 존재한다.
+- 신규 캐릭터 PNG 생성 없이 profile의 race 값만으로 해당 파일이 지연 로드된다.
+- 동료 종족을 바꿔도 1P~4P 색상 띠, fallback geometry, gender 변환과 적·terrain registry에는 영향이 없다.
+
+### 20.6 충돌·위험·미확정 사항
+
+- `raw_data_table.md` 16절의 세라 고정 스킬 `basic_attack,smite`는 승인된 사제 Lv1 `heal`, Lv2 `smite` 규칙과 충돌한다. 이번 반영은 race 열로 한정하고 스킬 진행 규칙은 변경하지 않는다.
+- 같은 표의 고정 장비 `N/A`는 현재 공통 시작 무기 자동 장착과 의미가 다를 수 있다. 이번 반영에서는 기존 시작 무기를 유지한다.
+- 동료 성별은 현재 코드값을 유지하지만 원시 표에 근거가 없어 최종 설정으로 확정된 것은 아니다.
+- 신규 종족으로 AGI·STR이 바뀌므로 turn order, 최종 능력치, 인벤토리 용량, 준비 화면과 스프라이트 key를 집중 회귀해야 한다.
+- 기존 profile 자동 변환은 제외했다. 향후 모든 profile의 동료 identity를 강제 통일하려면 overflow를 포함한 별도 migration 설계가 필요하다.

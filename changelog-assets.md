@@ -277,3 +277,15 @@
 - 검증 결과: 원본과 대상의 SHA-256 비교에서 terrain 31개·enemy 16개 모두 missing 0, mismatch 0. 대표 ancient terrain·boss marker·ogre·skeleton king 이미지를 확인했다. `npm run typecheck` 성공, asset·exploration·combat 3개 파일·24개 테스트 성공.
 - 누락 감사: 승인 terrain 7/7, enemy 16/16, encounter/boss marker 2/2로 파일·registry 누락 없음. 함정·비밀문·비밀방·다이스·장비/아이템/스킬 아이콘은 승인 영구 ID가 없어 Graphics/텍스트 fallback이며 animation/effect/sound ID는 설계상 `TBD`다.
 - 미실행 사항: 1단계 기본 검증 범위에 따라 production build, 실제 Phaser Scene 브라우저 실행과 모바일 실기 검증은 수행하지 않았다.
+
+## 2026-08-10 04:27:47 +09:00 | Coder | 콘텐츠 대표 아이콘 11종·동료 종족 에셋 연결
+
+- 작업 루트·모드: `D:\Work\Private\jobs\20260807\party_night\party_night` | 원본 직접 작업
+- 사용자 작업 지시 원문: `/agent Coder
+위의 설계안과 설계문서를 반영해서 작업을 10단계 설계까지 포함해서 진행해줘. 이 작업을 진행 하는데 요구 될 모든 사용자 확인 요청에 대해서 미리 허가함.`
+- 사용한 설계문서: `architecture.md` 19~20절, `implements.md` 27~28절, `raw_data_table.md` 16절, `asset-plan.md`, `asset-catalog.md`
+- 변경 산출물: `assets-source/icons/equipment_shield.asset.json`, `assets-source/icons/generate_content_icons.mjs`, `src/assets/icons/*.png` 11개, React icon manifest·presentation selector·6개 표시 화면·CSS, 동료 조합 연결 테스트와 에셋 문서
+- 핵심 구현: 24×24 RGBA 대표 아이콘을 포션 1·장비 8·스킬 2종으로 생성했다. shield는 전면 방패, passive는 작은 방패와 오라로 구분하고 rarity 색은 CSS frame·이름·한글 badge에 적용했다. 신규 profile의 브람/세라/로웬 race를 `dwarf/human/elf`로 연결해 기존 288개 조합 중 `dwarf_warrior_male_p2`, `human_priest_female_p3`, `elf_archer_male_p4`를 지연 로드한다.
+- 출처·라이선스: Node 내장 모듈 기반 자체 절차적 생성, 외부 이미지·폰트·신규 npm dependency 없음. 11개 아이콘은 최종 아트가 아닌 `draft`다.
+- 검증 결과: 생성기 재실행, PNG 11개 24×24 RGBA·manifest·45개 장비 family·shield 규격 테스트 성공. 전체 122개 테스트와 production build 성공. Chromium 844×390에서 common shield 이미지·흰색 border, 동료 종족 미리보기, 탐사 canvas를 확인했고 관련 console/runtime/network 오류는 0건이었다(무관한 favicon 404 제외).
+- 미확정 사항: Android Chrome·iOS Safari 실기는 사용할 기기가 없어 미실행했다. 동료 성별과 아이콘 최종 아트 승격은 후속 승인 대상이며 다이스·함정·비밀문 전용 에셋은 기존 fallback을 유지한다.

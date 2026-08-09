@@ -34,7 +34,7 @@ describe('common equipment and initial item shop', () => {
     const bought = buySkill(withOffers, offers[0])
     expect(bought.ok).toBe(true)
     if (!bought.ok) return
-    expect(bought.value.gold).toBe(1120)
+    expect(bought.value.gold).toBe(1920)
     expect(bought.value.shop.skillOfferIds).not.toContain(offers[0])
   })
 

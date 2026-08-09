@@ -1,14 +1,48 @@
 import { describe, expect, it } from 'vitest'
+import { QUEST_DATA } from '../game/content'
 import { createProfile } from '../game/gameEngine'
 import { isProfileV2 } from '../app/saveV2'
-import { confirmRewardSelection, createSecretRoomReward, setRewardSelection, settleAncientSite, settleGoblinDen, settleTrainingRuins } from '../game/rewards'
-import type { ItemStack, ProfileV2 } from '../game/types'
+import { confirmRewardSelection, createSecretRoomReward, setRewardSelection, settleAncientSite, settleDeepForestRuins, settleGoblinDen, settleOldCastle, settleTrainingRuins, settleUndergroundDungeon, settleVolcanicCave } from '../game/rewards'
+import type { ItemStack, ProfileV2, QuestId } from '../game/types'
 
 function profile(): ProfileV2 {
   return createProfile({ type: 'CREATE_PROFILE', mainCharacterConfig: { name: '보상테스터', raceId: 'human', classId: 'warrior', gender: '남성' }, profileId: 'reward_test', createdAt: 1, rootSeed: 2 })!
 }
 
 describe('training ruins settlement and overflow', () => {
+  it('uses quest definitions as the single source for all seven settlement gold rewards', () => {
+    const approved: Record<QuestId, number> = {
+      training_ruins_quest: 1100,
+      goblin_den_quest: 1100,
+      ancient_site_quest: 1800,
+      underground_dungeon_quest: 2700,
+      old_castle_quest: 4000,
+      volcanic_cave_quest: 4000,
+      deep_forest_ruins_quest: 4000,
+    }
+    expect(Object.fromEntries(Object.entries(QUEST_DATA).map(([questId, quest]) => [questId, quest?.goldReward]))).toEqual(approved)
+
+    let current = profile()
+    const settlements = [
+      () => settleTrainingRuins(current, 1, 'expedition_1'),
+      () => settleGoblinDen(current, 2, 'expedition_2', []),
+      () => settleAncientSite(current, 3, 'expedition_3', []),
+      () => settleUndergroundDungeon(current, 4, 'expedition_4', []),
+      () => settleOldCastle(current, 5, 'expedition_5', []),
+      () => settleVolcanicCave(current, 6, 'expedition_6', []),
+      () => settleDeepForestRuins(current, 7, 'expedition_7', []),
+    ]
+    for (const settle of settlements) {
+      const beforeGold = current.gold
+      const result = settle()
+      if (!result.ok) throw new Error(result.error)
+      const expectedGold = approved[result.value.summary.questId]
+      expect(result.value.summary.goldGranted).toBe(expectedGold)
+      expect(result.value.profile.gold - beforeGold).toBe(expectedGold)
+      current = result.value.profile
+    }
+  })
+
   it('settles Lv2, unlocks progression, and stores three deterministic unique skills', () => {
     const first = settleTrainingRuins(profile(), 1234, 'expedition_1')
     const second = settleTrainingRuins(profile(), 1234, 'expedition_1')
@@ -17,7 +51,8 @@ describe('training ruins settlement and overflow', () => {
     expect(first.value.rewards.map((reward) => reward.kind === 'skill' && reward.instance.skillId)).toEqual(second.value.rewards.map((reward) => reward.kind === 'skill' && reward.instance.skillId))
     expect(new Set(first.value.rewards.map((reward) => reward.rewardId)).size).toBe(3)
     expect(first.value.rewards.map((reward) => reward.rewardId)).toEqual(['skill_5', 'skill_6', 'skill_7'])
-    expect(first.value.profile).toMatchObject({ gold: 600, pendingReward: null })
+    expect(first.value.profile).toMatchObject({ gold: 1400, pendingReward: null })
+    expect(first.value.summary.goldGranted).toBe(1100)
     expect(first.value.profile.characters.every((character) => character.level === 2 && character.experience === 100)).toBe(true)
     expect(first.value.profile.questProgress).toMatchObject({ completedQuestIds: ['training_ruins_quest'], unlockedQuestIds: ['training_ruins_quest', 'goblin_den_quest'] })
     expect(first.value.profile.shop.unlockedRarities).toEqual(['common', 'uncommon'])
@@ -62,7 +97,8 @@ describe('training ruins settlement and overflow', () => {
     const goblin = settleGoblinDen(secret.profile, 20, 'expedition_2', [secret.reward])
     expect(goblin.ok).toBe(true)
     if (!goblin.ok) return
-    expect(goblin.value.profile.gold).toBe(920)
+    expect(goblin.value.profile.gold).toBe(2500)
+    expect(goblin.value.summary.goldGranted).toBe(1100)
     expect(goblin.value.profile.characters.every((character) => character.level === 3 && character.experience === 200)).toBe(true)
     expect(goblin.value.profile.questProgress.completedQuestIds).toContain('goblin_den_quest')
     expect(goblin.value.profile.questProgress.unlockedQuestIds).toContain('ancient_site_quest')
@@ -80,7 +116,8 @@ describe('training ruins settlement and overflow', () => {
     const ancient = settleAncientSite(secret.profile, 30, 'expedition_3', [secret.reward])
     expect(ancient.ok).toBe(true)
     if (!ancient.ok) return
-    expect(ancient.value.profile.gold).toBe(1420)
+    expect(ancient.value.profile.gold).toBe(4300)
+    expect(ancient.value.summary.goldGranted).toBe(1800)
     expect(ancient.value.profile.characters.every((character) => character.level === 4 && character.experience === 300)).toBe(true)
     expect(ancient.value.profile.questProgress.completedQuestIds).toContain('ancient_site_quest')
     expect(ancient.value.profile.questProgress.unlockedQuestIds).toContain('underground_dungeon_quest')

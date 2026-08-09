@@ -803,7 +803,7 @@ classId → ClassData.modifiers ────┘                         │
 ```
 
 1. 메인 캐릭터는 사용자가 선택한 `raceId`와 `classId`를 사용한다.
-2. 브람·세라·로웬은 현재 Actor·에셋 설정과 동일하게 `human`을 사용한다.
+2. 고정 동료는 `COMPANION_DATA`의 브람 `dwarf`, 세라 `human`, 로웬 `elf`를 사용하며 상세 계약은 28절을 따른다.
 3. `makePartyActor`는 종족 기본값과 직업 보정값을 합산한 후 파생 전투 수치를 계산한다.
 4. 준비 화면도 같은 `combineAttributes`와 `deriveCombatStats`를 호출하며 계산식을 React에 복제하지 않는다.
 5. 퀘스트 시작과 준비 화면 미리보기는 동일 입력에서 동일 값을 생성해야 한다.
@@ -811,7 +811,7 @@ classId → ClassData.modifiers ────┘                         │
 ### 22.8 UI 표시 사양
 
 - 메인 캐릭터 행은 현재 선택된 종족과 직업의 최종 능력치를 즉시 반영한다.
-- 고정 동료 3명은 인간 기본값과 각 직업 보정값의 합을 표시한다.
+- 고정 동료 3명은 각자의 `dwarf/human/elf` 종족 기본값, 직업 보정, 시작 장비를 포함한 최종값을 표시한다.
 - 기본 능력치 행은 `STR … · DEX … · INT … · CON … · AGI … · LUK …` 형식으로 표시한다.
 - `LUCK` 문자열과 `(현재 효과 없음)` 문구를 제거한다.
 - 파생 수치 행의 `HP/ATK/DEF/전투 AGI` 표시는 유지한다.
@@ -827,6 +827,7 @@ classId → ClassData.modifiers ────┘                         │
 - save version 1의 기존 `gender: '기타'`는 읽기 단계에서 `남성`으로 정규화하고 나머지 프로필 값은 유지한다. 다른 임의 문자열은 유효하지 않은 저장으로 처리한다.
 - save version과 저장 키는 변경하지 않는다.
 - Actor와 에셋 로더에는 `male | female`만 전달한다. 기존 `neutral` 에셋 파일은 삭제하지 않지만 신규 런타임 경로에서는 사용하지 않는다.
+- 신규 profile에는 28절의 동료 종족을 적용하고 기존 profile에 저장된 동료 race는 자동 변환하지 않는다.
 
 ### 22.10 자동 테스트
 
@@ -842,6 +843,7 @@ classId → ClassData.modifiers ────┘                         │
 - 기존 전투·탐사·store 테스트가 모두 통과하는지 확인한다.
 - 성별 타입·UI·저장 검증에서 남성·여성만 허용하는지 확인한다.
 - 기존 `기타` 저장을 남성으로 정규화하면서 이름·종족·직업·누적 보상을 보존하는지 확인한다.
+- 신규 profile의 브람·세라·로웬 race가 각각 `dwarf/human/elf`인지, 기존 profile의 저장 race는 유지되는지 확인한다.
 
 ### 22.11 구현 단계
 
@@ -1735,3 +1737,460 @@ neurotoxinsByActor[targetId] = { originalAgi }
 - 약점 노출을 target 행동 기준으로 남기거나 source 사망 즉시 제거하지 않는다.
 - 신규 골드와 보스 수치를 별도 UI literal 또는 settlement별 중복 상수로 다시 분산하지 않는다.
 - 범용 상태 DSL, 범용 경제 설정 시스템과 신규 AI를 추가하지 않는다.
+
+## 27. 아이템·장비·스킬 대표 아이콘과 등급 색상 구현 사양
+
+### 27.1 목표와 범위
+
+- 소비 아이템 1종, 장비 8종, 스킬 2종의 대표 픽셀 아이콘을 만들어 상점·창고·캐릭터·탐사·전투·결과 UI에 일관되게 적용한다.
+- 기존 장비 rarity를 흰색/녹색/파랑색/보라색/노랑색으로 표현하고 한글 등급명을 함께 표시한다.
+- 아이콘·색상은 React 표시 계층에만 추가한다. 구매·장착·사용·전투·보상 규칙, profile version 2와 저장 구조는 변경하지 않는다.
+- 이 절은 `architecture.md` 19절을 구현 기준으로 사용하며 `implements.md` 26절의 밸런스 구현 범위와 독립적으로 적용할 수 있다.
+
+### 27.2 변경·생성 대상
+
+| 파일 | 책임 |
+|---|---|
+| `assets-source/icons/equipment_shield.asset.json` | 실제 방패 에셋 작업에 전달할 비런타임 규격 틀 |
+| `assets-source/icons/generate_content_icons.mjs` | 외부 패키지 없이 11개 24×24 PNG를 결정적으로 생성 |
+| `src/assets/icons/*.png` | 대표 아이콘 런타임 파일 11개 |
+| `src/ui/contentPresentation.ts` | 콘텐츠 ID에서 icon key·rarity·표시명을 파생하는 순수 selector |
+| `src/ui/ContentIcon.tsx` | DOM 이미지 manifest, 크기·대체 배지·접근성 처리 |
+| `src/ui/ShopPanel.tsx` | 상품 세 종류 아이콘과 장비 등급 표시 |
+| `src/ui/StoragePanel.tsx` | 보관 장비·아이템·스킬 표시 |
+| `src/ui/CharacterPanel.tsx` | 직업/커스텀 스킬·장착 장비·개인 아이템 표시 |
+| `src/ui/ExplorationItems.tsx` | 탐사 아이템 대표 아이콘 표시 |
+| `src/ui/BattleCommands.tsx` | 액티브 스킬·전투 아이템 버튼 표시 |
+| `src/ui/ResultScreen.tsx` | 신규 스킬·등급 해금·자동/초과 보상 표시 |
+| `src/styles.css` | 아이콘 레이아웃, pixelated 처리, rarity token과 badge |
+| `src/tests/assets.test.ts` | 아이콘 파일·mapping·fallback·rarity 계약 검증 |
+| `asset-catalog.md`, `asset-plan.md`, `changelog-assets.md` | 실제 에셋 생성·적용 후 상태·재현법·검증 결과 기록 |
+
+다음 파일은 수정하지 않는다.
+
+- `src/game/types.ts`: 영속 instance와 `Rarity` 계약 유지
+- `src/game/content.ts`: 현재 장비 rarity, 아이템, 스킬 데이터 유지
+- `src/app/saveV2.ts`: profile version·validator 유지
+- `src/phaser/**`: React UI 아이콘을 Phaser texture로 중복 등록하지 않음
+- `raw_data_table.md`: 콘텐츠 수치와 승인 원본 유지
+
+### 27.3 대표 아이콘 파일 계약
+
+| icon key | 런타임 파일 | 기본 fallback 글자 |
+|---|---|---|
+| `item_potion` | `src/assets/icons/item_potion.png` | `아` |
+| `equipment_sword` | `src/assets/icons/equipment_sword.png` | `장` |
+| `equipment_club` | `src/assets/icons/equipment_club.png` | `장` |
+| `equipment_dagger` | `src/assets/icons/equipment_dagger.png` | `장` |
+| `equipment_bow` | `src/assets/icons/equipment_bow.png` | `장` |
+| `equipment_staff` | `src/assets/icons/equipment_staff.png` | `장` |
+| `equipment_shield` | `src/assets/icons/equipment_shield.png` | `장` |
+| `equipment_helmet` | `src/assets/icons/equipment_helmet.png` | `장` |
+| `equipment_armor` | `src/assets/icons/equipment_armor.png` | `장` |
+| `skill_active` | `src/assets/icons/skill_active.png` | `액` |
+| `skill_passive` | `src/assets/icons/skill_passive.png` | `패` |
+
+공통 이미지 규격:
+
+- 24×24px, RGBA 투명 배경, 단일 정적 frame
+- 1px 어두운 외곽선과 최소 2단계 내부 명암
+- 이미지 내부에 글자·등급색·수치 없음
+- nearest-neighbor 표시를 전제로 픽셀 경계를 정수 좌표로 작성
+- 생성기는 동일 입력에서 동일 PNG byte를 만들고 외부 이미지·폰트·npm package를 사용하지 않음
+
+도상 기준:
+
+1. `item_potion`: 마개·목·둥근 병과 밝은 액체면
+2. `equipment_sword`: 좌하단 손잡이에서 우상단 칼끝으로 향하는 직선 검
+3. `equipment_club`: 두꺼운 타격부와 짧은 손잡이의 범용 둔기
+4. `equipment_dagger`: 검보다 짧고 넓은 날과 작은 가드
+5. `equipment_bow`: 곡선 활대·시위·중앙 손잡이
+6. `equipment_staff`: 긴 목재 실루엣과 상단 장식
+7. `equipment_shield`: 캔버스 대부분을 채우는 정면 heater/kite 방패, 테두리·중앙 boss·하단 끝점
+8. `equipment_helmet`: 정면 투구, 눈 틈과 측면 보호대
+9. `equipment_armor`: 정면 흉갑과 어깨 보호대
+10. `skill_active`: 중앙 코어에서 바깥으로 뻗는 발동·폭발 표식
+11. `skill_passive`: 장비 방패보다 작은 방패를 분리된 원형 지속 오라가 감싸는 표식
+
+#### `equipment_shield` 후속 에셋 작업 틀
+
+실제 PNG 작업 전에 `assets-source/icons/equipment_shield.asset.json`을 다음 정보 계약으로 생성한다. 이 파일은 제작 handoff이며 런타임 bundle에서 import하지 않는다.
+
+```json
+{
+  "id": "equipment_shield",
+  "kind": "equipment",
+  "sourceFamily": "shield",
+  "status": "spec",
+  "runtimePath": "src/assets/icons/equipment_shield.png",
+  "canvas": { "width": 24, "height": 24, "background": "transparent" },
+  "safeBounds": { "xMin": 4, "xMax": 19, "yMin": 2, "yMax": 21 },
+  "anchor": { "x": 0.5, "y": 0.5 },
+  "symmetryAxisX": 11.5,
+  "paletteRoles": {
+    "outline": "#17131f",
+    "base": "#a8adb7",
+    "shadow": "#626976",
+    "highlight": "#d9dde5",
+    "trim": "#8f7444",
+    "rivet": "#c0a26c"
+  },
+  "fallbackText": "장"
+}
+```
+
+형태 계약:
+
+- 비투명 실루엣은 safe bounds 안에만 두고 1px 외곽 투명 여백을 보존한다.
+- 상단은 좌우가 넓은 완만한 곡선·어깨, 중단은 거의 수직인 측면, 하단은 중심 `(12,21)`으로 모이는 끝점을 사용한다.
+- 외곽 1px은 `outline`, 안쪽 1px rim은 `trim`, 면 중앙은 `base`, 우하단은 `shadow`, 좌상단은 `highlight` 역할을 사용한다.
+- 중앙 boss는 3×3px 이하로 두고 rivet 역할을 사용한다. 문장·문자·문장형 문양은 넣지 않는다.
+- 금속의 구체적 색은 대표 icon의 중립 팔레트이며 common~legendary rarity를 표현하지 않는다. 등급은 CSS frame이 담당한다.
+- `skill_passive`와 혼동되지 않도록 glow·원형 aura·외부 particle을 금지하고 전체 비투명 픽셀 중 방패 본체가 70% 이상을 차지하게 한다.
+- 실제 에셋 작업자는 위 JSON의 ID·경로·크기·bounds·역할명은 유지하고 역할별 색상 미세 조정과 내부 pixel pattern만 변경할 수 있다.
+- PNG 완성 후 상태는 JSON이 아니라 `asset-catalog.md`에서 `draft`와 배선 상태로 기록한다. JSON은 제작 기준값으로 보존한다.
+
+### 27.4 presentation 타입과 selector
+
+`src/ui/contentPresentation.ts`에 게임 판정과 독립적인 표시 타입을 둔다.
+
+```ts
+export type ContentIconKey =
+  | 'item_potion'
+  | 'equipment_sword'
+  | 'equipment_club'
+  | 'equipment_dagger'
+  | 'equipment_bow'
+  | 'equipment_staff'
+  | 'equipment_shield'
+  | 'equipment_helmet'
+  | 'equipment_armor'
+  | 'skill_active'
+  | 'skill_passive'
+
+export type PresentationRarity = Rarity | 'neutral'
+
+export interface ContentPresentation {
+  label: string
+  iconKey: ContentIconKey | null
+  fallbackText: '아' | '장' | '액' | '패'
+  rarity: PresentationRarity
+  rarityLabel: string | null
+}
+```
+
+노출 함수:
+
+```ts
+getEquipmentPresentation(equipmentId: string): ContentPresentation
+getItemPresentation(itemId: string): ContentPresentation
+getSkillPresentation(skillId: string): ContentPresentation
+getRewardPresentation(reward: PendingRewardEntry): ContentPresentation
+getRarityDisplayName(rarity: Rarity): string
+```
+
+장비 family mapping:
+
+```text
+dagger → equipment_dagger
+sword  → equipment_sword
+mace   → equipment_club
+bow    → equipment_bow
+staff  → equipment_staff
+rod    → equipment_staff
+head   → equipment_helmet
+body   → equipment_armor
+shield → equipment_shield
+unknown definition/family → null + `장` fallback
+```
+
+- 장비 `label`, `rarity`는 `EQUIPMENT_DATA[equipmentId]`에서 가져온다. ID prefix를 파싱하지 않는다.
+- rarity 한글명은 `common=일반`, `uncommon=고급`, `rare=희귀`, `heroic=영웅`, `legendary=전설` 단일 map으로 관리한다.
+- 모든 알려진 `ItemId`는 이번 대표 범위에서 `item_potion`, `neutral`, rarityLabel `null`을 반환한다. 알 수 없는 아이템도 표시명 fallback을 유지하되 iconKey는 `null`로 한다.
+- 알려진 스킬은 `SKILLS[skillId].activation`에 따라 `skill_active` 또는 `skill_passive`를 반환하고 rarity는 `neutral`이다. 알 수 없는 스킬은 iconKey `null`, fallback `액` 대신 중립적인 `패`를 사용하지 말고 구현 내부 기본값 `액`을 사용하되 label은 `알 수 없는 스킬`을 유지한다.
+- 보상은 `reward.kind`와 실제 equipmentId/itemId/skillId를 읽어 위 selector 중 하나에 위임한다. reward 자체에 표시 데이터를 저장하지 않는다.
+- 함수는 입력 객체나 콘텐츠 정의를 수정하지 않는 순수 함수로 작성한다.
+
+### 27.5 아이콘 manifest와 React 컴포넌트
+
+`ContentIcon.tsx`는 `import.meta.glob('../assets/icons/*.png', { eager: true, import: 'default' })`로 11개 소형 URL을 읽고 basename을 icon key에 대응시킨다.
+
+```ts
+interface ContentIconProps {
+  iconKey: ContentIconKey | null
+  fallbackText: string
+  label: string
+  rarity?: PresentationRarity
+  size?: 'small' | 'normal'
+}
+```
+
+처리 규칙:
+
+1. iconKey와 URL이 있으면 `<img>`를 렌더링한다.
+2. URL이 없거나 `onError`가 발생하면 같은 24×24 frame 안에 fallbackText를 표시한다.
+3. 이미지와 fallback은 인접 label을 보조하므로 `aria-hidden="true"`로 중복 낭독을 막는다.
+4. wrapper에 `data-rarity={rarity ?? 'neutral'}`와 size class를 둔다.
+5. icon 변경 시 이전 load error 상태가 남지 않도록 iconKey를 상태 reset 기준으로 사용한다.
+6. 이미지 실패는 console을 반복 출력하지 않으며 구매·장착·사용·보상 입력을 막지 않는다.
+
+11개 아이콘은 총량이 작으므로 eager 로드를 허용한다. manifest에 없는 key를 임의 URL 문자열로 조합하지 않는다.
+
+### 27.6 rarity CSS 계약
+
+`styles.css`의 `:root`에 다음 token을 추가한다.
+
+```css
+--rarity-common: #f4f4f4;
+--rarity-uncommon: #62c370;
+--rarity-rare: #5aa9ff;
+--rarity-heroic: #b678f2;
+--rarity-legendary: #ffd45a;
+--rarity-neutral: #8d8397;
+```
+
+- `[data-rarity='common']`부터 `[data-rarity='legendary']`까지 `--content-accent`를 해당 token으로 설정한다.
+- `.content-icon`은 24×24, flex `0 0 auto`, 1px `var(--content-accent)` 테두리, 어두운 반투명 배경을 사용한다.
+- `.content-icon.small`은 20×20이고 원본 이미지를 CSS로만 축소한다.
+- `.content-icon img`는 100% 크기, `object-fit: contain`, `image-rendering: pixelated`를 사용한다.
+- `.content-icon-fallback`은 동일 box 안에서 중앙 정렬하고 10px monospace로 표시한다.
+- `.content-identity`는 `display:flex`, `align-items:center`, 최소 gap 7px를 사용하고 기존 이름·metadata 열을 내부에 유지한다.
+- `.content-name`과 `.rarity-badge`는 `color: var(--content-accent)`를 사용한다. neutral 콘텐츠 이름은 기존 본문색을 유지한다.
+- 장비 행은 `border-left-color: var(--content-accent)`를 사용하되 아이템·스킬 neutral은 기존 목록색을 유지한다.
+- `.rarity-badge`에는 한글 등급명을 표시하고 1px 테두리를 사용한다. 색상만으로 rarity를 전달하지 않는다.
+- 버튼 전체 배경은 rarity 색으로 채우지 않고 현재 hover/disabled/touch 영역을 유지한다.
+
+위 HEX는 임시 팔레트다. 색 조정은 token만 바꾸고 component와 콘텐츠 data를 변경하지 않는다.
+
+### 27.7 화면별 적용 사양
+
+#### 상점과 창고
+
+- `ShopPanel`의 각 상품 `article` 안에서 기존 `<span>`을 `.content-identity`로 교체한다.
+- 장비는 아이콘·색상 이름·`{등급명} · G ...` metadata를 표시하고 article에 rarity를 전달한다.
+- 아이템은 포션 대표 아이콘, 스킬은 activation 대표 아이콘을 표시하되 등급명을 추가하지 않는다.
+- `StoragePanel`은 장비 instance, item stack, skill instance에 같은 selector를 사용한다. instance ID와 수량·직업 제한·동작 버튼은 유지한다.
+- shield 장비는 정상 상태에서 `equipment_shield`를 표시하고 파일 누락·decode 실패 때만 `장` fallback을 사용한다. 두 경우 모두 장착·판매할 수 있어야 한다.
+
+#### 캐릭터 관리
+
+- 직업 스킬의 `.join(' · ')`을 스킬별 `.content-inline-list` 요소로 교체한다. 스킬이 없으면 기존 문장 형태로 `없음`을 표시한다.
+- 커스텀 스킬 slot은 장착된 경우 active/passive 아이콘을 표시하고 빈 slot·잠금 slot에는 아이콘을 만들지 않는다.
+- 장착 장비는 slot 제목을 유지하면서 장비 이름 옆에 대표 아이콘·rarity badge를 표시한다. 빈 slot에는 아이콘을 만들지 않는다.
+- 개인 인벤토리는 포션 대표 아이콘을 표시하고 반환 동작·수량은 유지한다.
+
+#### 탐사와 전투
+
+- `ExplorationItems`의 캐릭터명·아이템명 앞에 normal 포션 아이콘을 둔다. 최대 높이 145px와 대상 버튼 영역을 유지한다.
+- `BattleCommands` active skill 버튼은 `skill_active`, 전투 item 버튼은 `item_potion`을 표시한다. 현재 명령 목록에는 passive가 들어오지 않는 필터를 유지한다.
+- 버튼 안에는 icon과 이름을 같은 첫 행에 놓고 dice/cooldown/수량 metadata는 기존 small 행에 둔다.
+- 대상 선택, 리롤, 취소 버튼에는 콘텐츠 대표 아이콘을 추가하지 않는다.
+
+#### 결과와 보상
+
+- 신규 직업 스킬 `.join(', ')`을 스킬별 small icon 요소로 바꾸고 신규 스킬이 없으면 `없음`을 유지한다.
+- `summary.unlockedRarities`는 공통 rarity label map과 token을 사용하는 badge 목록으로 표시한다.
+- 자동 보관 보상의 `.join(' · ')`을 reward별 icon+name 요소로 변경한다.
+- 초과 보상 checkbox label 안에도 reward presentation을 표시하되 input의 click 영역과 선택 상태를 유지한다.
+- 장비 보상에만 rarity 색과 badge를 적용하고 아이템·스킬 보상은 neutral이다.
+
+### 27.8 fallback·예외·호환성
+
+- icon 파일 하나가 누락되거나 decode에 실패해도 해당 항목만 fallback badge로 바뀌고 다른 아이콘은 정상 표시한다.
+- 정의를 찾지 못하면 기존 안전 표시명과 fallback badge를 사용한다. 원본 ID, 파일 경로와 stack/instance 내부 값은 사용자에게 새로 노출하지 않는다.
+- selector lookup 실패가 버튼 disabled 여부, 가격, 장착 compatibility, 스킬 cooldown, item target, reward selection을 변경해서는 안 된다.
+- 기존 profile은 migration 없이 동일하게 로드한다. 저장 round-trip 결과에 아이콘 URL·rarityLabel·CSS 값이 포함되면 안 된다.
+- 최종 그래픽 교체 시 icon key와 24×24 파일 계약을 유지하면 UI code 변경 없이 PNG만 교체할 수 있어야 한다.
+- `shield`를 `equipment_armor`, `skill_passive` 등 다른 아이콘으로 대체하지 않는다. `equipment_shield` 등록·로드 실패 때만 `장` fallback을 사용한다.
+
+### 27.9 구현 순서
+
+1. `equipment_shield.asset.json` 규격 틀을 먼저 만들고 schema·bounds·palette role을 문서와 대조한다.
+2. 후속 에셋 작업에서 해당 틀을 사용해 `equipment_shield.png`를 포함한 11개 PNG를 만들고 크기·투명 배경·결정적 재생성을 검증한다.
+3. `contentPresentation.ts`의 icon/rarity selector와 fallback을 구현하고 순수 테스트를 먼저 추가한다.
+4. `ContentIcon.tsx`와 CSS token·공통 layout을 구현한다.
+5. `ShopPanel`·`StoragePanel`에 적용해 세 content kind와 5개 rarity를 먼저 확인한다.
+6. `CharacterPanel`의 join 문자열과 장착·인벤토리 표시를 구조화한다.
+7. `ExplorationItems`·`BattleCommands`에 적용하고 640×360 HUD overflow를 확인한다.
+8. `ResultScreen`의 신규 스킬·등급 해금·자동/초과 보상을 구조화한다.
+9. 에셋 카탈로그·계획·에셋 변경 기록을 실제 구현 상태로 갱신한다.
+10. 집중 테스트, typecheck, 전체 test, build, 모바일 가로 수동 검증을 수행한다.
+
+### 27.10 자동 검증
+
+`assets.test.ts` 또는 별도 순수 UI presentation 테스트에서 다음을 확인한다.
+
+1. 승인된 `ContentIconKey` 11개가 각각 정확한 PNG basename과 대응한다.
+2. 모든 PNG가 24×24이며 파일 수가 정확히 11개다.
+3. 45개 `EQUIPMENT_DATA` 항목은 정의의 rarity를 그대로 반환한다.
+4. dagger/sword/mace/bow/staff/rod/shield/head/body mapping이 표와 일치한다.
+5. shield 5종은 iconKey `equipment_shield`, fallback `장`이고 rarity와 이름은 유지한다.
+6. 모든 `ITEM_DATA` ID는 `item_potion`, neutral을 반환한다.
+7. 모든 `SKILLS`는 activation에 따라 active/passive icon을 반환하고 unknown은 안전 fallback을 반환한다.
+8. equipment/item/skill `PendingRewardEntry`가 각각 동일 selector 결과를 재사용한다.
+9. rarity 한글명과 5개 CSS token key가 누락 없이 대응한다.
+10. selector 호출 전후 profile·reward·definition 입력이 변경되지 않는다.
+
+React용 신규 테스트 라이브러리는 추가하지 않는다. component의 이미지 load 실패 fallback은 browser에서 잘못된 URL을 임시 주입하거나 DevTools request blocking으로 수동 확인하고, build가 manifest를 정상 해석하는지 검증한다.
+
+### 27.11 완료 기준
+
+- 제작 규격 JSON이 24×24 canvas, safe bounds, palette role, fallback 계약을 정확히 보존한다.
+- 생성 스크립트 재실행 결과 11개 아이콘이 오류 없이 동일하게 생성된다.
+- `npm run typecheck`, 관련 Vitest, 전체 `npm run test`, `npm run build`가 성공한다.
+- 상점·창고에서 동일 family의 5개 등급이 같은 아이콘과 서로 다른 5색·한글 등급명으로 표시된다.
+- 아이템은 포션, 스킬은 active/passive 대표 아이콘으로 모든 지정 화면에서 표시된다.
+- shield는 정상 파일에서 방패 이미지가 표시되고, 이미지 로드 실패 항목은 깨진 이미지 대신 fallback badge와 이름을 유지한다.
+- 640×360 기준과 760px 이하 모바일 가로 화면에서 상점·창고·전투 명령·결과 보상에 가로 overflow, 이름 겹침과 동작 버튼 축소가 없다.
+- 키보드/터치로 기존 구매·장착·반환·사용·보상 선택을 수행할 수 있고 아이콘 추가 전과 동일한 command가 발생한다.
+- 기존 profile v2 저장을 로드·저장해도 데이터 schema와 판정 결과가 변하지 않는다.
+- `asset-catalog.md`, `asset-plan.md`, `changelog-assets.md`, `changelog.md`가 실제 생성·배선·검증 결과와 일치한다.
+
+### 27.12 금지 범위
+
+- 아이콘·rarity를 영속 instance나 save envelope에 저장하지 않는다.
+- 아이템·스킬 rarity를 가격·해금 시점에서 임의 생성하지 않는다.
+- 장비 ID 문자열에서 rarity를 파싱하지 않고 승인된 definition을 사용한다.
+- 대표 아이콘을 개별 장비 45종·아이템 9종·스킬별 아이콘 제작으로 확대하지 않는다.
+- 효과 애니메이션, hover tooltip 시스템과 신규 UI 라이브러리를 추가하지 않는다.
+- 색상만으로 등급을 전달하거나 아이콘만 남기고 콘텐츠 이름을 제거하지 않는다.
+- React UI 아이콘을 Phaser Scene 또는 순수 게임 엔진에 중복 구현하지 않는다.
+
+## 28. 고정 동료 종족 데이터 동기화 구현 사양
+
+### 28.1 목표와 기준
+
+- `raw_data_table.md` 16절의 사용자 입력 중 `race_id`를 고정 동료 신규 profile 생성 기준에 반영한다.
+- 브람은 `dwarf`, 세라는 `human`, 로웬은 `elf`로 생성하고 해당 종족을 능력치·인벤토리 용량·Actor·캐릭터 에셋 선택에 일관되게 사용한다.
+- 이름, character ID, 직업, 성별, 전열/후열, 파티 slot, 시작 무기와 레벨별 스킬 진행은 유지한다.
+- 기존 profile version 2의 저장 종족을 자동 변경하지 않는다.
+
+### 28.2 대상 파일
+
+| 파일 | 변경 책임 |
+|---|---|
+| `src/game/content.ts` | 동료 단일 정의와 신규 profile 초기 캐릭터 생성 |
+| `src/ui/SetupScreen.tsx` | 같은 동료 정의와 시작 캐릭터 계산을 사용하는 미리보기 |
+| `src/tests/characters.test.ts` | 동료 identity·최종 능력치·파생 수치 |
+| `src/tests/saveV2.test.ts` | 신규 종족 profile round-trip과 기존 profile 보존 |
+| `src/tests/combat.test.ts` | 변경된 AGI·turn order seed 기대값 회귀 |
+| `src/tests/assets.test.ts` | 세 동료 조합의 asset path·texture key 존재 |
+| `asset-plan.md`, `asset-catalog.md` | 실제 구현 후 human 임시값·미확정 설명을 최신값으로 갱신 |
+
+변경하지 않는 범위:
+
+- `src/game/types.ts`: `RaceId`, `PersistentCharacter`, profile schema 유지
+- `src/app/saveV2.ts`: 네 종족 허용 검증과 envelope version 유지
+- 기존 character PNG 288개와 생성기: 필요한 조합이 이미 존재
+- `raw_data_table.md`: 사용자 입력 원본을 다시 수정하지 않음
+
+### 28.3 동료 단일 정의
+
+`content.ts`에 표시와 초기 생성이 함께 참조하는 최소 정의를 둔다.
+
+```ts
+export interface CompanionDefinition {
+  characterId: 'party_warrior' | 'party_priest' | 'party_archer'
+  name: string
+  raceId: RaceId
+  classId: ClassId
+  gender: Gender
+  row: Row
+  partySlot: 2 | 3 | 4
+}
+
+export const COMPANION_DATA: readonly CompanionDefinition[] = [
+  { characterId: 'party_warrior', name: '브람', raceId: 'dwarf', classId: 'warrior', gender: '남성', row: 'front', partySlot: 2 },
+  { characterId: 'party_priest', name: '세라', raceId: 'human', classId: 'priest', gender: '여성', row: 'back', partySlot: 3 },
+  { characterId: 'party_archer', name: '로웬', raceId: 'elf', classId: 'archer', gender: '남성', row: 'back', partySlot: 4 },
+]
+```
+
+- `partySlot`은 배열 index에 의존하는 에셋 색상 변형과 현재 순서를 검증하기 위한 콘텐츠 값이다. 별도 profile 필드로 저장하지 않는다.
+- 성별은 이번 원시 입력에 없으므로 현재 코드값을 보존한다. 종족 변경을 성별 확정으로 해석하지 않는다.
+- skill ID와 equipment ID는 정의에 중복하지 않는다. 기존 class level resolver와 `STARTING_WEAPON_BY_CLASS`를 계속 단일 원본으로 사용한다.
+
+### 28.4 신규 profile 생성
+
+`createInitialCharacters(main)` 처리:
+
+1. 메인 캐릭터는 기존처럼 입력 config로 1P 전열을 생성한다.
+2. `COMPANION_DATA`를 partySlot 오름차순으로 순회한다.
+3. 각 동료는 정의의 race/class/gender/row와 partySlot을 `startingCharacter`에 전달한다.
+4. 시작 무기는 기존 `STARTING_WEAPON_BY_CLASS[classId]`로 장착한다.
+5. 반환 tuple 순서는 `party_main`, `party_warrior`, `party_priest`, `party_archer`를 유지한다.
+6. 동료의 `skillIds`는 profile에 고정 저장하지 않고 기존처럼 Actor 생성 시 레벨·직업으로 계산한다.
+
+Lv1 시작 무기 포함 기대값:
+
+| characterId | 최종 능력치 | 파생 HP/ATK/DEF/AGI | inventory capacity |
+|---|---|---|---:|
+| `party_warrior` | `12/5/3/9/4/5` | `30/6/4/3` | 12 |
+| `party_priest` | `5/7/10/5/6/5` | `22/3/3/4` | 11 |
+| `party_archer` | `3/11/6/4/10/4` | `20/5/2/6` | 10 |
+
+능력치 순서는 STR/DEX/INT/CON/AGI/LUK, 파생 수치는 HP/ATK/DEF/전투 AGI다.
+
+### 28.5 준비 화면 정합화
+
+- `SetupScreen`에 브람·세라·로웬의 race/class literal을 다시 쓰지 않는다.
+- 현재 main config로 `createInitialCharacters`를 호출하거나 같은 초기 캐릭터 순수 helper를 사용해 네 행의 `PersistentCharacter`를 얻는다.
+- `PartyRow`는 `PersistentCharacter`를 받아 `getFinalAttributes`와 `deriveCombatStats`를 호출한다. 시작 장비 modifier를 제외하는 `combineAttributes` 직접 호출을 제거한다.
+- slot 문자열은 main `01 / 전열`, 동료 `partySlot`과 row 표시명으로 만든다. 이름이 비어 있는 main은 화면에서만 `이름 없음`을 사용하고 profile 생성 규칙은 유지한다.
+- 화면 표시와 실제 `CREATE_PROFILE` 결과가 동일한 race, 최종 능력치와 파생 수치를 사용해야 한다.
+
+### 28.6 기존 profile 호환성
+
+- 저장된 `ProfileV2.characters[].raceId`를 로드시 `COMPANION_DATA`로 덮어쓰지 않는다.
+- 기존 인간 브람·인간 로웬 profile은 기존 능력치·인벤토리 용량·스프라이트를 유지한다.
+- 신규 종족은 신규 profile 생성 또는 사용자의 명시적 프로필 초기화 후 적용된다.
+- profile version, key, envelope, save validator와 migration 함수를 추가하지 않는다.
+- 향후 기존 profile 강제 변환이 승인되기 전까지 로웬의 11번째 item stack을 이동·삭제·overflow 처리하지 않는다.
+
+### 28.7 캐릭터 에셋 연결
+
+신규 profile의 목표 경로:
+
+| 동료 | 파일 | texture key |
+|---|---|---|
+| 브람 | `src/assets/characters/dwarf_warrior_male_p2.png` | `party_dwarf_warrior_male_p2` |
+| 세라 | `src/assets/characters/human_priest_female_p3.png` | `party_human_priest_female_p3` |
+| 로웬 | `src/assets/characters/elf_archer_male_p4.png` | `party_elf_archer_male_p4` |
+
+- 세 파일은 현재 존재하므로 PNG·generator·lazy loader를 수정하지 않는다.
+- `createPartyFromCharacters`가 profile race를 `Actor.raceId`로 전달하고 기존 `characterAssets.ts`가 조합 key를 계산하는 흐름을 유지한다.
+- 파일 로드 실패 시 기존 party geometry fallback을 사용한다.
+
+### 28.8 자동 테스트
+
+1. `COMPANION_DATA`의 ID·순서·race/class/gender/row/slot이 정확한지 확인한다.
+2. 신규 profile 초기 캐릭터 race가 `main 입력/dwarf/human/elf` 순서인지 확인한다.
+3. 세 동료의 시작 무기와 Lv1 skill resolver가 기존 규칙을 유지하는지 확인한다. 특히 세라는 Lv1 `heal`, Lv2 `smite`다.
+4. 세 동료의 시작 장비 포함 최종 능력치·파생 수치·inventory capacity가 28.4절 표와 같은지 확인한다.
+5. Setup preview가 사용하는 helper 결과와 실제 `createInitialCharacters` 결과가 같은지 확인한다.
+6. 신규 종족 profile이 save round-trip을 통과하는지 확인한다.
+7. 기존 세 동료가 모두 human인 유효 profile을 읽고 다시 저장해 race가 바뀌지 않는지 확인한다.
+8. 로웬 AGI 6을 포함한 동일 seed turn order를 새 기대값으로 갱신하고 동일 seed 재현성을 유지한다.
+9. 세 캐릭터 asset 파일과 texture key가 registry 계약에 맞는지 확인한다.
+10. 기존 shield·양손·장착·성장·스킬·보상 테스트가 동료 race 변경과 무관하게 회귀한다.
+
+### 28.9 구현 순서
+
+1. `COMPANION_DATA`를 추가하고 `createInitialCharacters`의 동료 literal을 교체한다.
+2. 동료 identity·능력치·인벤토리 단위 테스트를 추가한다.
+3. `SetupScreen`을 동일 초기 캐릭터 계산으로 연결해 preview를 정합화한다.
+4. save round-trip과 기존 profile 비변환 테스트를 추가한다.
+5. asset path와 변경된 turn order 기대값을 갱신한다.
+6. 관련 테스트, typecheck, 전체 test, build와 신규 profile 브라우저 흐름을 검증한다.
+7. 실제 코드·에셋 연결 상태에 맞춰 asset 문서와 changelog를 갱신한다.
+
+### 28.10 완료 기준과 금지 범위
+
+- 신규 profile·준비 화면·거점·전투에서 브람 드워프, 세라 인간, 로웬 엘프가 동일하게 표시·계산된다.
+- 세 동료의 시작 수치와 캐릭터 sprite가 28.4·28.7절과 일치한다.
+- 기존 profile은 자동 변환·저장 거부·아이템 손실 없이 기존 race를 유지한다.
+- `npm run typecheck`, 관련 테스트, 전체 `npm run test`, `npm run build`가 성공한다.
+- raw 표의 세라 `smite`를 Lv1 고정 스킬로 적용하거나 시작 무기를 제거하지 않는다.
+- 동료 gender, 이름, 직업, row, slot을 종족 변경과 함께 임의 수정하지 않는다.
+- profile version을 올리거나 기존 profile race를 load 시 강제 정규화하지 않는다.
+- 캐릭터 PNG를 중복 생성하거나 Phaser에 동료별 별도 분기 코드를 추가하지 않는다.

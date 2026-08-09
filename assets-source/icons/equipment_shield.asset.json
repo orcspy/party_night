@@ -1,0 +1,20 @@
+{
+  "id": "equipment_shield",
+  "kind": "equipment",
+  "sourceFamily": "shield",
+  "status": "spec",
+  "runtimePath": "src/assets/icons/equipment_shield.png",
+  "canvas": { "width": 24, "height": 24, "background": "transparent" },
+  "safeBounds": { "xMin": 4, "xMax": 19, "yMin": 2, "yMax": 21 },
+  "anchor": { "x": 0.5, "y": 0.5 },
+  "symmetryAxisX": 11.5,
+  "paletteRoles": {
+    "outline": "#17131f",
+    "base": "#a8adb7",
+    "shadow": "#626976",
+    "highlight": "#d9dde5",
+    "trim": "#8f7444",
+    "rivet": "#c0a26c"
+  },
+  "fallbackText": "장"
+}

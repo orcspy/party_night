@@ -136,7 +136,7 @@ describe('stage 7 old castle', () => {
     const secretLoot: PendingRewardEntry = { rewardId: 'secret_old_castle_secret_1', kind: 'item', itemId: 'panacea', quantity: 1 }
     const settled = settleOldCastle(before, 5, 'expedition_5', [secretLoot]); if (!settled.ok) throw new Error(settled.error)
     const profile = settled.value.profile
-    expect(profile.gold - before.gold).toBe(1050)
+    expect(profile.gold - before.gold).toBe(4000)
     expect(profile.characters.every((character) => character.level === 6 && character.experience === 500)).toBe(true)
     for (const character of profile.characters) expect(character.growth).toEqual(expectedGrowth(character.classId, 6))
     expect(profile.questProgress.completedQuestIds).toContain('old_castle_quest')
@@ -183,7 +183,7 @@ describe('stage 7 old castle', () => {
     const battleState = { ...entered.state, screen: 'battle' as const, session: { ...entered.state.session!, combat: { ...battle, participants: [...party, boss], turnOrder: [party[0].id], turnIndex: 0, phase: 'awaiting_action' as const, outcome: null } } }
     const selected = reduceGame(battleState, { type: 'SELECT_SKILL', skillId: 'basic_attack' })
     const completed = reduceGame(selected.state, { type: 'SELECT_TARGET', targetId: boss.id })
-    expect(completed.state).toMatchObject({ screen: 'result', result: { outcome: 'victory', gold: 1050, experience: 100 } })
+    expect(completed.state).toMatchObject({ screen: 'result', result: { outcome: 'victory', gold: 4000, experience: 100 } })
     expect(completed.events.some((event) => event.type === 'UNLOCK_GRANTED' && event.message.includes('화산 동굴'))).toBe(true)
     expect(completed.state.profile?.questProgress.unlockedQuestIds).toEqual(expect.arrayContaining(['volcanic_cave_quest', 'deep_forest_ruins_quest']))
     const hub = { ...createInitialGameState(completed.state.profile), screen: 'hub' as const }

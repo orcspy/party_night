@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { applyExperience, expectedGrowth, getUnlockedClassSkillIds } from '../game/characters'
-import { createInitialCharacters } from '../game/content'
+import { COMPANION_DATA, createInitialCharacters, createPartyFromCharacters, getFinalAttributes } from '../game/content'
 import { getDirectionDisplayName, getEquipmentDisplayName, getEquipmentSlotDisplayName, getItemDisplayName, getQuestDisplayName, getRewardDisplayName, getSkillDisplayName } from '../game/displayNames'
+import { getInventoryCapacity } from '../game/inventory'
 import type { ClassId, PendingRewardEntry } from '../game/types'
 
 describe('level 2 growth and class skill unlocks', () => {
@@ -28,6 +29,27 @@ describe('level 2 growth and class skill unlocks', () => {
     expect(getUnlockedClassSkillIds('priest', 1)).toEqual(['heal'])
     expect(getUnlockedClassSkillIds('priest', 2)).toEqual(['heal', 'smite'])
     expect(getUnlockedClassSkillIds('rogue', 2)).toEqual(['quick_stab', 'seek_trap'])
+  })
+
+  it('uses the approved companion identities and race-dependent starting values', () => {
+    expect(COMPANION_DATA).toEqual([
+      { characterId: 'party_warrior', name: '브람', raceId: 'dwarf', classId: 'warrior', gender: '남성', row: 'front', partySlot: 2 },
+      { characterId: 'party_priest', name: '세라', raceId: 'human', classId: 'priest', gender: '여성', row: 'back', partySlot: 3 },
+      { characterId: 'party_archer', name: '로웬', raceId: 'elf', classId: 'archer', gender: '남성', row: 'back', partySlot: 4 },
+    ])
+    const characters = createInitialCharacters({ name: '메인', raceId: 'human', classId: 'warrior', gender: '남성' })
+    expect(characters.map((character) => character.raceId)).toEqual(['human', 'dwarf', 'human', 'elf'])
+    expect(characters.slice(1).map((character) => getFinalAttributes(character))).toEqual([
+      { str: 12, dex: 5, int: 3, con: 9, agi: 4, luck: 5 },
+      { str: 5, dex: 7, int: 10, con: 5, agi: 6, luck: 5 },
+      { str: 3, dex: 11, int: 6, con: 4, agi: 10, luck: 4 },
+    ])
+    expect(characters.slice(1).map(getInventoryCapacity)).toEqual([12, 11, 10])
+    expect(createPartyFromCharacters(characters).slice(1).map((actor) => ({ id: actor.id, hp: actor.maxHp, atk: actor.atk, def: actor.def, agi: actor.agi, skills: actor.skillIds }))).toEqual([
+      { id: 'party_warrior', hp: 30, atk: 6, def: 4, agi: 3, skills: ['basic_attack', 'power_strike'] },
+      { id: 'party_priest', hp: 22, atk: 3, def: 3, agi: 4, skills: ['basic_attack', 'heal'] },
+      { id: 'party_archer', hp: 20, atk: 5, def: 2, agi: 6, skills: ['basic_attack', 'aimed_shot'] },
+    ])
   })
 
   it('applies the approved Lv3 growth and opens exactly one custom slot', () => {

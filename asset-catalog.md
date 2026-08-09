@@ -213,7 +213,7 @@ node assets-source/characters/generate_character_sprites.mjs
 ## Scene 적용 (파티 캐릭터, 완료)
 
 - **`src/game/types.ts`**: `Actor`에 `raceId?: RaceId`·`gender?: string` 필드를 추가했다(선택적, 순수 표시용 메타데이터 — HP/공격/승패 등 게임 판정 계산에는 전혀 사용되지 않는다).
-- **`src/game/content.ts`**: `createParty()`가 메인 캐릭터에는 `MainCharacterConfig.raceId`/`gender`를 그대로 채운다. `MainCharacterConfig.gender`는 `SetupScreen.tsx`의 `<select>`가 저장하는 한글 표시값(`남성`/`여성`/`기타`)을 그대로 담고 있어, 에셋 파일명의 영문 토큰(`male`/`female`/`neutral`)으로 변환하는 `toAssetGender()` 헬퍼를 추가했다. 고정 NPC 3명(브람/세라/로웬)은 종족·성별 설정 UI가 없어 표시용으로 `human`을 부여했고, 성별은 이름의 관용적 어감에 따라 브람=`male`, 세라=`female`, 로웬=`male`로 임의 지정했다(게임 판정 무관, 순수 표시 선택).
+- **`src/game/content.ts`**: `createParty()`가 profile의 `raceId`/`gender`를 Actor와 에셋 선택에 전달한다. 신규 profile의 고정 NPC는 브람=`dwarf/male`, 세라=`human/female`, 로웬=`elf/male`이며 기존 profile은 저장된 race를 유지한다. 종족은 능력치 판정에도 사용되고 성별은 표시용이다.
 - **`src/phaser/assets/characterAssets.ts`(신규)**: `import.meta.glob('../../assets/characters/*.png')`를 **non-eager**로 선언해 288개 URL을 즉시 임포트하지 않고, `queueCharacterAsset(scene, raceId, classId, gender, slot)` 호출 시점에 필요한 그 조합 하나만 동적 `import()`로 resolve한 뒤 `scene.load.image()`에 등록한다. 프로덕션 빌드 시 Vite가 각 조합을 별도의 작은 청크(`dist/assets/<race>_<class>_<gender>_p<slot>-*.js`, 약 0.4~0.6KB)로 code-split해, 실제로 요청되지 않은 조합은 네트워크로 전혀 내려가지 않는다(AGENTS.md 9항: "초기 화면과 무관한 대형 에셋을 무조건 선로딩하지 않는다" 충족).
 - **`src/phaser/BattleScene.ts`**: `create()`에서 기존 사각형으로 즉시 1차 렌더링한 뒤, `loadPartyCharacterAssets()`(신규 비동기 메서드)가 그 전투의 파티원(최대 4명)이 실제로 쓰는 조합만 순회하며 로드를 요청한다. 로드 완료(`Phaser.Loader.Events.COMPLETE`) 시 `renderActors()`를 다시 호출해 사각형을 스프라이트로 교체한다. 스프라이트 파일이 아예 없는 조합(raceId/classId/gender 미설정 또는 파일 없음)은 `actorCard()` 사각형으로 개별 폴백하며 `actor.id`당 1회만 `console.warn`을 남긴다(적 에셋과 동일한 개별 폴백 원칙, AGENTS.md 9항).
 - 파티 슬롯(1P~4P)은 `combat.participants`에서 `side==='party'`인 항목의 배열 인덱스+1로 결정한다(현재 메인=1P, 브람=2P, 세라=3P, 로웬=4P 고정 순서 — 기존 렌더링 순서를 그대로 재사용, 별도 매핑 로직 추가 없음).
@@ -229,7 +229,7 @@ node assets-source/characters/generate_character_sprites.mjs
 
 ## 미확정 사항 (파티 캐릭터 — 후속 확인 필요)
 
-- 고정 NPC 3명(브람/세라/로웬)에게 부여한 종족(`human`)·성별(이름 어감 기반 추정)은 임의 선택이며, 최종 설정으로 확정된 것이 아니다.
+- 고정 NPC 종족은 브람=`dwarf`, 세라=`human`, 로웬=`elf`로 확정 반영됐다. 성별(브람/로웬 male, 세라 female)은 원시 표에 없어 최종 설정 확인이 남아 있다.
 - 어깨띠(대각선 밴드, 폭 비율 0.2) 굵기·엘프 귀 quad 형태는 draft이며 최종 아트 디렉션 승인 전까지 `approved`로 승격하지 않는다.
 - 픽셀아트 디테일(눈 2개+입만 표현 등)은 여전히 draft 단순화 상태다.
 - 마일스톤 검증(전체 test, Android/iOS 실기, `/pn/` production 배포, 저장 데이터 복구 등)은 아직 수행하지 않았다.
@@ -282,3 +282,26 @@ node assets-source/characters/generate_character_sprites.mjs
 - 파일 경로는 모두 `src/assets/enemies/<contentId>.png`다.
 - `enemySpriteKeyFor(contentId)`가 승인 texture key를 반환하며, 향후 encounter가 해당 content ID의 Actor를 만들면 별도 Scene 수정 없이 사용된다.
 - 등록·로딩 실패 시 기존 개별 도형 fallback과 패배 tint를 유지한다.
+
+## 콘텐츠 대표 아이콘 11종
+
+| icon key | 파일 | 대표 대상 | 상태 |
+|---|---|---|---|
+| `item_potion` | `src/assets/icons/item_potion.png` | 소비 아이템 | draft·React 배선 완료 |
+| `equipment_sword` | `src/assets/icons/equipment_sword.png` | sword | draft·React 배선 완료 |
+| `equipment_club` | `src/assets/icons/equipment_club.png` | mace | draft·React 배선 완료 |
+| `equipment_dagger` | `src/assets/icons/equipment_dagger.png` | dagger | draft·React 배선 완료 |
+| `equipment_bow` | `src/assets/icons/equipment_bow.png` | bow | draft·React 배선 완료 |
+| `equipment_staff` | `src/assets/icons/equipment_staff.png` | staff, rod | draft·React 배선 완료 |
+| `equipment_shield` | `src/assets/icons/equipment_shield.png` | shield | draft·React 배선 완료 |
+| `equipment_helmet` | `src/assets/icons/equipment_helmet.png` | head | draft·React 배선 완료 |
+| `equipment_armor` | `src/assets/icons/equipment_armor.png` | body | draft·React 배선 완료 |
+| `skill_active` | `src/assets/icons/skill_active.png` | active skill | draft·React 배선 완료 |
+| `skill_passive` | `src/assets/icons/skill_passive.png` | passive skill | draft·React 배선 완료 |
+
+- 출처/라이선스: `assets-source/icons/generate_content_icons.mjs`의 Node 내장 모듈 기반 절차적 생성 원본, 외부 이미지 없음.
+- 공통 규격: 24×24px RGBA, 투명 배경, 정적 frame, 중앙 배치, DOM pixelated 표시.
+- shield 규격 원본: `assets-source/icons/equipment_shield.asset.json`; 전면 방패와 패시브 오라 실루엣을 구분한다.
+- rarity는 이미지에 굽지 않고 React CSS frame·이름·한글 badge에 적용한다.
+- `ContentIcon.tsx`의 eager manifest가 URL을 관리하고 항목별 누락·decode 실패 시 텍스트 배지를 사용한다.
+- 생성 명령: `node assets-source/icons/generate_content_icons.mjs`.

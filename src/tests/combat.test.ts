@@ -5,11 +5,15 @@ import type { Actor, CombatState } from '../game/types'
 
 const main = { name: '테스터', raceId: 'halfling' as const, classId: 'rogue' as const, gender: '남성' as const }
 
+function actor(id: string, side: Actor['side'], agi: number, skillIds: string[] = ['basic_attack']): Actor {
+  return { id, contentId: id, name: id, side, maxHp: 999, currentHp: 999, atk: 5, def: 1, agi, skillIds }
+}
+
 describe('combat rules', () => {
   it('orders by AGI and deterministically breaks ties', () => {
     const actors = [...createParty(main), ...createEnemies()]
     const first = determineTurnOrder(actors, 55)
-    expect(first.order[0]).toBe('party_main')
+    expect(first.order[0]).toBe('party_archer')
     expect(determineTurnOrder(actors, 55)).toEqual(first)
   })
 
@@ -59,6 +63,150 @@ describe('combat rules', () => {
     expect(advanced.combat.round).toBe(3)
     expect(advanced.combat.cooldownsByActor[actor.id]?.quick_stab).toBeUndefined()
     expect(selectSkill(advanced.combat, 'quick_stab', advanced.rngState).combat.phase).toBe('awaiting_target')
+  })
+
+  it('applies quick stab and neurotoxin to normal targets for every seed and caps repeated bleed', () => {
+    const rogue = actor('rogue', 'party', 10, ['basic_attack', 'quick_stab', 'neurotoxin'])
+    for (const seed of [1, 2, 3, 17, 99, 123456]) {
+      const target = actor(`normal_${seed}`, 'enemy', 8)
+      const started = startCombat([rogue], [target], seed)
+      const ready: CombatState = { ...started.combat, participants: [rogue, target], turnOrder: [rogue.id], turnIndex: 0, phase: 'awaiting_action' }
+      const stabbed = selectTarget(selectSkill(ready, 'quick_stab', seed).combat, target.id, seed)
+      expect(stabbed.combat.bleedStacksByActor?.[target.id]).toBe(1)
+
+      const poisoned = selectTarget(selectSkill(ready, 'neurotoxin', seed).combat, target.id, seed)
+      expect(poisoned.combat.neurotoxinsByActor?.[target.id]).toEqual({ originalAgi: 8 })
+      expect(poisoned.combat.participants.find((item) => item.id === target.id)?.agi).toBe(4)
+      expect(poisoned.combat.bleedStacksByActor?.[target.id]).toBe(1)
+
+      let repeated = poisoned.combat
+      for (let count = 0; count < 6; count++) {
+        repeated = { ...repeated, phase: 'awaiting_action', turnOrder: [rogue.id], turnIndex: 0, cooldownsByActor: {} }
+        const selected = selectSkill(repeated, 'neurotoxin', seed + count + 1)
+        repeated = selectTarget(selected.combat, target.id, selected.rngState).combat
+      }
+      expect(repeated.participants.find((item) => item.id === target.id)?.agi).toBe(4)
+      expect(repeated.neurotoxinsByActor?.[target.id]).toEqual({ originalAgi: 8 })
+      expect(repeated.bleedStacksByActor?.[target.id]).toBe(5)
+    }
+  })
+
+  it('uses deterministic 50 percent boss resistance for rogue status skills', () => {
+    const rogue = actor('rogue', 'party', 10, ['basic_attack', 'quick_stab', 'neurotoxin'])
+    const run = (skillId: 'quick_stab' | 'neurotoxin', seed: number) => {
+      const boss = { ...actor('boss', 'enemy', 8), isBoss: true }
+      const started = startCombat([rogue], [boss], seed)
+      const ready: CombatState = { ...started.combat, participants: [rogue, boss], turnOrder: [rogue.id], turnIndex: 0, phase: 'awaiting_action' }
+      const selected = selectSkill(ready, skillId, seed)
+      const result = selectTarget(selected.combat, boss.id, selected.rngState)
+      return { applied: (result.combat.bleedStacksByActor?.[boss.id] ?? 0) > 0, result }
+    }
+    for (const skillId of ['quick_stab', 'neurotoxin'] as const) {
+      const outcomes = new Set<boolean>()
+      for (let seed = 1; seed <= 100; seed++) outcomes.add(run(skillId, seed).applied)
+      expect(outcomes).toEqual(new Set([true, false]))
+      expect(run(skillId, 42)).toEqual(run(skillId, 42))
+    }
+  })
+
+  it('reorders only the unacted suffix after neurotoxin and fully reorders the next round', () => {
+    const rogue = actor('rogue', 'party', 10, ['basic_attack', 'neurotoxin'])
+    const ally = actor('ally', 'party', 6)
+    const slowAlly = actor('slow_ally', 'party', 2)
+    const target = actor('target', 'enemy', 8)
+    const started = startCombat([rogue, ally, slowAlly], [target], 7)
+    const ready: CombatState = { ...started.combat, participants: [rogue, ally, slowAlly, target], turnOrder: [rogue.id, target.id, ally.id, slowAlly.id], turnIndex: 0, phase: 'awaiting_action' }
+    const poisoned = selectTarget(selectSkill(ready, 'neurotoxin', 7).combat, target.id, 7)
+    expect(poisoned.combat.turnOrder).toEqual([rogue.id, ally.id, target.id, slowAlly.id])
+    expect(poisoned.combat.turnIndex).toBe(1)
+
+    const alreadyActed: CombatState = { ...ready, participants: [rogue, ally, target], turnOrder: [target.id, rogue.id, ally.id], turnIndex: 1 }
+    const latePoison = selectTarget(selectSkill(alreadyActed, 'neurotoxin', 8).combat, target.id, 8)
+    expect(latePoison.combat.turnOrder).toEqual([target.id, rogue.id, ally.id])
+    expect(latePoison.combat.turnIndex).toBe(2)
+    const allyAttack = selectSkill(latePoison.combat, 'basic_attack', latePoison.rngState)
+    const wrapped = selectTarget(allyAttack.combat, target.id, allyAttack.rngState)
+    expect(wrapped.combat.round).toBe(2)
+    expect(wrapped.combat.turnOrder).toEqual([rogue.id, ally.id, target.id])
+    expect(wrapped.combat.turnIndex).toBe(0)
+  })
+
+  it('preserves existing tie order and reorders the suffix when neurotoxin is removed', () => {
+    const rogue = actor('rogue', 'party', 10, ['basic_attack', 'neurotoxin'])
+    const equal = actor('equal', 'party', 4)
+    const target = actor('target', 'enemy', 8)
+    const started = startCombat([rogue, equal], [target], 9)
+    const ready: CombatState = { ...started.combat, participants: [rogue, equal, target], turnOrder: [rogue.id, target.id, equal.id], turnIndex: 0, phase: 'awaiting_action' }
+    const poisoned = selectTarget(selectSkill(ready, 'neurotoxin', 9).combat, target.id, 9)
+    expect(poisoned.combat.turnOrder).toEqual([rogue.id, target.id, equal.id])
+
+    const healer = actor('healer', 'party', 10)
+    const restored = actor('restored', 'party', 2)
+    const middle = actor('middle', 'party', 6)
+    const enemy = actor('enemy', 'enemy', 1)
+    const cleanse: CombatState = {
+      ...started.combat, participants: [healer, restored, middle, enemy], turnOrder: [healer.id, middle.id, restored.id, enemy.id], turnIndex: 0, phase: 'awaiting_action',
+      bleedStacksByActor: { [restored.id]: 1 }, neurotoxinsByActor: { [restored.id]: { originalAgi: 8 } }, removableStatusesByActor: { [restored.id]: ['bleed', 'neurotoxin'] },
+    }
+    const cured = useCombatItem(cleanse, healer.id, 'panacea', restored.id, 10)
+    expect(cured.combat.participants.find((item) => item.id === restored.id)?.agi).toBe(8)
+    expect(cured.combat.turnOrder).toEqual([healer.id, restored.id, middle.id, enemy.id])
+    expect(cured.combat.turnIndex).toBe(1)
+  })
+
+  it('keeps exposure through target actions and removes it after the source next action or skip', () => {
+    const archer = actor('archer', 'party', 10, ['basic_attack', 'find_leak', 'head_shot'])
+    const ally = actor('ally', 'party', 5)
+    const target = actor('target', 'enemy', 8)
+    const started = startCombat([archer, ally], [target], 11)
+    const ready: CombatState = { ...started.combat, participants: [archer, ally, target], turnOrder: [archer.id, target.id, ally.id], turnIndex: 0, phase: 'awaiting_action' }
+    const exposed = selectTarget(selectSkill(ready, 'find_leak', 11).combat, target.id, 11)
+    expect(exposed.combat.exposedByActor?.[target.id]).toMatchObject({ sourceActorId: archer.id, sourceActionsRemaining: 1, appliedRound: 1 })
+    expect(exposed.combat.turnIndex).toBe(2)
+
+    const headShotReady: CombatState = { ...exposed.combat, turnOrder: [archer.id], turnIndex: 0, phase: 'awaiting_action' }
+    const headShot = selectTarget(selectSkill(headShotReady, 'head_shot', 12).combat, target.id, 12)
+    expect(headShot.events.some((event) => event.type === 'ROLL_RESOLVED' && event.skillId === 'head_shot')).toBe(true)
+
+    const nextActionReady: CombatState = { ...exposed.combat, turnOrder: [archer.id, ally.id], turnIndex: 0, phase: 'awaiting_action' }
+    const nextAction = selectTarget(selectSkill(nextActionReady, 'basic_attack', 13).combat, target.id, 13)
+    expect(nextAction.combat.exposedByActor?.[target.id]).toBeUndefined()
+    expect(nextAction.events.some((event) => event.type === 'STATUS_REMOVED' && event.targetId === target.id)).toBe(true)
+    const rejectedHeadShot = selectTarget(selectSkill({ ...nextAction.combat, turnOrder: [archer.id], turnIndex: 0, phase: 'awaiting_action' }, 'head_shot', 14).combat, target.id, 14)
+    expect(rejectedHeadShot.events[0].type).toBe('COMMAND_REJECTED')
+
+    for (const status of ['stun', 'paralysis', 'sleep'] as const) {
+      const skipped: CombatState = {
+        ...exposed.combat, turnOrder: [archer.id, ally.id], turnIndex: 0, phase: 'awaiting_action',
+        stunnedActionsByActor: status === 'stun' ? { [archer.id]: 1 } : {},
+        paralyzedActionsByActor: status === 'paralysis' ? { [archer.id]: 1 } : {},
+        sleepingByActor: status === 'sleep' ? { [archer.id]: true } : {},
+      }
+      expect(advanceToPlayer(skipped, 15).combat.exposedByActor?.[target.id]).toBeUndefined()
+    }
+  })
+
+  it('keeps exposure after source death until round wrap, including bleed death', () => {
+    const archer = actor('archer', 'party', 10)
+    const ally = actor('ally', 'party', 20)
+    const target = actor('target', 'enemy', 1)
+    const started = startCombat([archer, ally], [target], 16)
+    const exposure = { [target.id]: { bonusDamage: 2, sourceActorId: archer.id, sourceActionsRemaining: 1, appliedRound: 1 } }
+    const base: CombatState = { ...started.combat, participants: [archer, ally, target], exposedByActor: exposure, turnOrder: [archer.id, ally.id], turnIndex: 0, phase: 'awaiting_action' }
+
+    for (const bleedDeath of [false, true]) {
+      const dying: CombatState = {
+        ...base,
+        participants: base.participants.map((item) => item.id === archer.id ? { ...item, currentHp: bleedDeath ? 1 : 0 } : item),
+        bleedStacksByActor: bleedDeath ? { [archer.id]: 1 } : {},
+      }
+      const afterDeath = advanceToPlayer(dying, 17)
+      expect(afterDeath.combat.exposedByActor?.[target.id]).toBeDefined()
+      expect(afterDeath.combat.turnIndex).toBe(1)
+      const wrapped = selectTarget(selectSkill(afterDeath.combat, 'basic_attack', afterDeath.rngState).combat, target.id, afterDeath.rngState)
+      expect(wrapped.combat.exposedByActor?.[target.id]).toBeUndefined()
+      expect(wrapped.events.some((event) => event.type === 'STATUS_REMOVED' && event.targetId === target.id)).toBe(true)
+    }
   })
 
   it('cancels target selection without changing RNG, turn, or participants', () => {

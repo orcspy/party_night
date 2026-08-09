@@ -15,6 +15,7 @@
 | 5 | 전투(파티/적/다이스) 에셋 | 부분 진행 — 적(고블린 2종) 배선 완료, 파티(종족×직업×성별×1P~4P, 288종) 제작+배선 완료(`Actor.raceId`/`gender` 최소 인터페이스 추가), 다이스는 미착수 |
 | 6 | v0.2.0 map별 terrain 7종·`marker_boss` | 에셋·registry 완료, 구현된 3개 맵 배선 완료 |
 | 7 | v0.2.0 적 16종 | 에셋·registry 완료, 구현된 5개 enemy 배선 완료 |
+| 8 | 아이템·장비·스킬 대표 아이콘 11종 | 생성·React UI 배선·등급색 적용 완료 |
 
 ## 교체 대상 조사 (기존 상태)
 
@@ -25,8 +26,8 @@
 - 승인 terrain asset ID: 7/7 등록·파일 존재, 누락 없음.
 - 승인 enemy sprite ID: 16/16 등록·파일 존재, 누락 없음.
 - 승인 encounter marker: `marker_encounter`, `marker_boss` 모두 등록·파일 존재, 누락 없음.
-- 현재 구현 콘텐츠의 실제 연결: map 3/3, enemy 5/5 연결. 나머지는 게임 콘텐츠 구현 시 동일 ID로 자동 연결될 registry 준비 상태다.
-- 별도 영구 asset ID가 설계되지 않은 항목: 함정, 비밀문, 비밀방 보상, 다이스, 장비·아이템·스킬 아이콘. 이들은 누락된 승인 파일이 아니라 현재 Graphics/텍스트 fallback 대상이다.
+- 현재 구현 콘텐츠의 실제 연결: map 7/7, enemy 16/16 연결.
+- 별도 영구 asset ID가 설계되지 않은 항목: 함정, 비밀문, 비밀방 보상, 다이스. 아이템·장비·스킬 대표 아이콘 11종은 생성·배선됐고 개별 로드 실패 시 텍스트 배지를 사용한다.
 - `raw_data_table.md` 19절의 animation/effect/sound 연결값은 여전히 `TBD`이며 v0.2.0 완료용 구체 asset ID가 승인되지 않았다.
 
 기존 `ExplorationScene.ts`는 `Phaser.Graphics` 벡터 도형(`fillRect`/`fillTriangle`/`strokeRect`/`lineBetween`)만으로 원근 복도를 그리며, 실제 이미지 에셋은 0개다(별도 조사 결과, 앞선 대화 참조). `E`(조우)·`X`(출구) 셀에는 시각 마커가 전혀 없다.
@@ -185,6 +186,17 @@ P1(벽/바닥/천장 타일)은 기존 시야 프레임 3단 구조를 그대로
 
 ### 미확정 / 후속 확인 필요
 
-- 브람/세라/로웬에게 부여한 종족(`human`)·성별(이름 어감 기반 추정) 배정이 최종안인지 확인 필요.
+- 브람/세라/로웬 종족은 각각 `dwarf/human/elf`로 반영됐다. 성별(남성/여성/남성)은 원시 표에 근거가 없어 여전히 후속 확인 대상이다.
+
+## 대상 범위: 콘텐츠 대표 아이콘 11종
+
+- 원본 생성기: `assets-source/icons/generate_content_icons.mjs`
+- shield 제작 규격: `assets-source/icons/equipment_shield.asset.json`
+- 런타임 경로: `src/assets/icons/*.png`
+- 규격: 24×24 RGBA 투명 배경, 단일 정적 픽셀 이미지, React DOM에서 `image-rendering: pixelated`
+- 종류: 포션 1, 검·몽둥이·단검·활·지팡이·방패·투구·갑옷 8, 액티브·패시브 2
+- 등급색: PNG와 분리된 CSS token으로 일반 흰색, 고급 녹색, 희귀 파랑색, 영웅 보라색, 전설 노랑색을 적용한다.
+- fallback: manifest 누락·decode 실패 항목만 `아/장/액/패` 배지로 대체하고 이름과 게임 동작은 유지한다.
+- 상태: 11개 draft 생성·상점/창고/캐릭터/탐사/전투/결과 UI 배선 완료. 최종 아트 디렉션 승격은 별도다.
 - 어깨띠 폭 비율(0.2), 엘프 귀 quad 형태는 draft이며 최종 승인 전까지 `approved`로 승격하지 않는다.
 - 마일스톤 검증(전체 test, Android/iOS 실기, `/pn/` production 배포, 저장 데이터 복구)은 아직 수행하지 않았다.

@@ -24,6 +24,22 @@ function statusList(combat: CombatState, actorId: string, status: 'bleed' | 'neu
   return { ...(combat.removableStatusesByActor ?? {}), [actorId]: statuses }
 }
 
+function stableOrderByCurrentAgi(combat: CombatState, actorIds: string[]): string[] {
+  const actors = new Map(combat.participants.map((actor) => [actor.id, actor]))
+  const previousIndex = new Map(actorIds.map((actorId, index) => [actorId, index]))
+  return [...actorIds].sort((leftId, rightId) => {
+    const left = actors.get(leftId)
+    const right = actors.get(rightId)
+    return (right?.agi ?? 0) - (left?.agi ?? 0) || previousIndex.get(leftId)! - previousIndex.get(rightId)!
+  })
+}
+
+function reorderAfterNeurotoxinChange(combat: CombatState): CombatState {
+  const prefix = combat.turnOrder.slice(0, combat.turnIndex + 1)
+  const suffix = stableOrderByCurrentAgi(combat, combat.turnOrder.slice(combat.turnIndex + 1))
+  return { ...combat, turnOrder: [...prefix, ...suffix], refreshTurnOrderAtRoundEnd: true }
+}
+
 function applyStatus(combat: CombatState, target: Actor, status: 'stun' | 'bleed' | 'paralysis' | 'neurotoxin' | 'sleep', source: Actor, skillId: string, events: GameEvent[]): CombatState {
   events.push({ type: 'STATUS_APPLIED', message: `${target.name}에게 ${status === 'stun' ? '기절' : status === 'bleed' ? '출혈' : status === 'paralysis' ? '마비' : status === 'neurotoxin' ? '신경독' : '수면'}을(를) 적용했다.`, actorId: source.id, targetId: target.id, skillId })
   if (status === 'stun') return { ...combat, stunnedActionsByActor: { ...combat.stunnedActionsByActor, [target.id]: (combat.stunnedActionsByActor[target.id] ?? 0) + 1 } }
@@ -33,7 +49,8 @@ function applyStatus(combat: CombatState, target: Actor, status: 'stun' | 'bleed
   const existing = combat.neurotoxinsByActor?.[target.id]
   const changed = existing ? target : { ...target, agi: Math.max(1, Math.floor(target.agi * 0.5)) }
   const poisoned = applyStatus({ ...combat, participants: combat.participants.map((item) => item.id === target.id ? changed : item) }, changed, 'bleed', source, skillId, events)
-  return { ...poisoned, neurotoxinsByActor: { ...(combat.neurotoxinsByActor ?? {}), [target.id]: existing ?? { originalAgi: target.agi } }, removableStatusesByActor: statusList(poisoned, target.id, 'neurotoxin', true) }
+  const applied = { ...poisoned, neurotoxinsByActor: { ...(combat.neurotoxinsByActor ?? {}), [target.id]: existing ?? { originalAgi: target.agi } }, removableStatusesByActor: statusList(poisoned, target.id, 'neurotoxin', true) }
+  return existing ? applied : reorderAfterNeurotoxinChange(applied)
 }
 
 function removeStatus(combat: CombatState, actorId: string, status: 'bleed' | 'neurotoxin' | 'paralysis' | 'sleep' | 'attribute_decrease', events: GameEvent[]): CombatState {
@@ -45,7 +62,8 @@ function removeStatus(combat: CombatState, actorId: string, status: 'bleed' | 'n
   if (status === 'neurotoxin') {
     const original = combat.neurotoxinsByActor?.[actorId]?.originalAgi
     const neurotoxinsByActor = { ...(combat.neurotoxinsByActor ?? {}) }; delete neurotoxinsByActor[actorId]
-    return { ...combat, participants: original && actor ? combat.participants.map((item) => item.id === actorId ? { ...item, agi: original } : item) : combat.participants, neurotoxinsByActor, removableStatusesByActor: statusList(combat, actorId, status, false) }
+    const restored = { ...combat, participants: original && actor ? combat.participants.map((item) => item.id === actorId ? { ...item, agi: original } : item) : combat.participants, neurotoxinsByActor, removableStatusesByActor: statusList(combat, actorId, status, false) }
+    return original && actor ? reorderAfterNeurotoxinChange(restored) : restored
   }
   if (status === 'paralysis') {
     const paralyzedActionsByActor = { ...(combat.paralyzedActionsByActor ?? {}) }; delete paralyzedActionsByActor[actorId]
@@ -281,20 +299,20 @@ function resolvePending(combat: CombatState, rngState: number, events: GameEvent
     for (const damagedTarget of damagedTargets) if (next.sleepingByActor?.[damagedTarget.id] && damagedTarget.currentHp < (combat.participants.find((item) => item.id === damagedTarget.id)?.currentHp ?? damagedTarget.currentHp)) next = removeStatus(next, damagedTarget.id, 'sleep', events)
   }
   if (pending.skillId === 'wound_break') next = removeStatus(next, target.id, 'bleed', events)
-  if (pending.skillId === 'find_leak') next = { ...next, exposedByActor: { ...(next.exposedByActor ?? {}), [target.id]: { bonusDamage: Math.max(1, rollTotal), remainingActions: 1 } } }
+  if (pending.skillId === 'find_leak') next = { ...next, exposedByActor: { ...(next.exposedByActor ?? {}), [target.id]: { bonusDamage: Math.max(1, rollTotal), sourceActorId: actor.id, sourceActionsRemaining: 2, appliedRound: combat.round } } }
   if (pending.skillId === 'ability_reinforcement') next = { ...next, attributeChangesByActor: { ...(next.attributeChangesByActor ?? {}), [actor.id]: { effectId: pending.skillId, delta: 5, remainingActions: 4, phase: 'increase' } } }
   if (pending.skillId === 'bless') next = { ...next, attributeChangesByActor: { ...(next.attributeChangesByActor ?? {}), [target.id]: { effectId: pending.skillId, delta: 2, remainingActions: target.id === actor.id ? 4 : 3, keys: ['str', 'dex', 'int'] } } }
   if (pending.skillId === 'sacred_rage') next = { ...next, sacredRageByActor: { ...(next.sacredRageByActor ?? {}), [actor.id]: { remainingActions: 4 } } }
   const chanceBySkill: Record<string, { percent: number; status: 'stun' | 'bleed' | 'paralysis' | 'neurotoxin' | 'sleep' }> = {
-    power_strike: { percent: 50, status: 'stun' }, quick_stab: { percent: 50, status: 'bleed' }, ogre_smash: { percent: 25, status: 'stun' },
-    rending_bite: { percent: 50, status: 'bleed' }, minotaur_gore: { percent: 50, status: 'stun' }, lightning_bolt: { percent: 100, status: 'paralysis' },
-    paralyzing_claw: { percent: 50, status: 'paralysis' }, neurotoxin: { percent: 50, status: 'neurotoxin' }, sleep: { percent: 50, status: 'sleep' },
-    crushing_blow: { percent: 50, status: 'stun' },
+    power_strike: { percent: 50, status: 'stun' }, quick_stab: { percent: 100, status: 'bleed' }, ogre_smash: { percent: 25, status: 'stun' },
+    rending_bite: { percent: 50, status: 'bleed' }, minotaur_gore: { percent: 40, status: 'stun' }, lightning_bolt: { percent: 100, status: 'paralysis' },
+    paralyzing_claw: { percent: 50, status: 'paralysis' }, neurotoxin: { percent: 100, status: 'neurotoxin' }, sleep: { percent: 50, status: 'sleep' },
+    crushing_blow: { percent: 40, status: 'stun' },
   }
   const chance = chanceBySkill[pending.skillId]
   if (chance && hp > 0) {
     const roll = randomIndex(nextRngState, 100); nextRngState = roll.state
-    const bossAdjusted = target.isBoss && pending.skillId !== 'minotaur_gore' ? Math.floor(chance.percent / 2) : chance.percent
+    const bossAdjusted = target.isBoss ? Math.floor(chance.percent / 2) : chance.percent
     const currentTarget = next.participants.find((item) => item.id === target.id) ?? target
     if (roll.value < bossAdjusted) next = applyStatus(next, currentTarget, chance.status, actor, pending.skillId, events)
   }
@@ -346,7 +364,17 @@ function stepTurn(combat: CombatState, events: GameEvent[]): CombatState {
       if (actor) participants = participants.map((item) => item.id === actorId ? actor! : item)
       if (remaining.might || remaining.haste) itemBuffsByActor[actorId] = remaining
     }
-    combat = { ...combat, cooldownsByActor, itemBuffsByActor, participants }
+    let exposedByActor = combat.exposedByActor
+    for (const [targetId, exposed] of Object.entries(combat.exposedByActor ?? {})) {
+      const source = participants.find((actor) => actor.id === exposed.sourceActorId)
+      if (source && source.currentHp <= 0) {
+        exposedByActor = { ...(exposedByActor ?? {}) }
+        delete exposedByActor[targetId]
+        events.push({ type: 'STATUS_REMOVED', message: `${source.name}이(가) 쓰러져 약점 노출이 사라졌다.`, actorId: source.id, targetId })
+      }
+    }
+    const turnOrder = combat.refreshTurnOrderAtRoundEnd ? stableOrderByCurrentAgi({ ...combat, participants }, combat.turnOrder) : combat.turnOrder
+    combat = { ...combat, cooldownsByActor, itemBuffsByActor, participants, exposedByActor, turnOrder, refreshTurnOrderAtRoundEnd: false }
     events.push({ type: 'ROUND_STARTED', message: `라운드 ${round}` })
   }
   return { ...combat, turnIndex: index, round, phase: 'awaiting_action' }
@@ -451,10 +479,17 @@ function applyAttributeDelta(actor: Actor, key: 'str' | 'agi', delta: number): A
 function finishActionStatuses(combat: CombatState, actorId: string | undefined, events: GameEvent[]): CombatState {
   if (!actorId) return combat
   let next = combat
-  const exposed = next.exposedByActor?.[actorId]
-  if (exposed) {
-    const exposedByActor = { ...(next.exposedByActor ?? {}) }
-    if (exposed.remainingActions <= 1) delete exposedByActor[actorId]; else exposedByActor[actorId] = { ...exposed, remainingActions: exposed.remainingActions - 1 }
+  const actorAtActionEnd = next.participants.find((item) => item.id === actorId)
+  if (actorAtActionEnd?.currentHp && actorAtActionEnd.currentHp > 0) {
+    let exposedByActor = next.exposedByActor
+    for (const [targetId, exposed] of Object.entries(next.exposedByActor ?? {})) {
+      if (exposed.sourceActorId !== actorId) continue
+      exposedByActor = { ...(exposedByActor ?? {}) }
+      if (exposed.sourceActionsRemaining <= 1) {
+        delete exposedByActor[targetId]
+        events.push({ type: 'STATUS_REMOVED', message: `${actorAtActionEnd.name}의 약점 노출이 끝났다.`, actorId, targetId })
+      } else exposedByActor[targetId] = { ...exposed, sourceActionsRemaining: exposed.sourceActionsRemaining - 1 }
+    }
     next = { ...next, exposedByActor }
   }
   const rage = next.sacredRageByActor?.[actorId]

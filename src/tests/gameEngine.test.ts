@@ -47,6 +47,33 @@ describe('pure game engine profile and expedition flow', () => {
     expect(rejected.events[0].type).toBe('COMMAND_REJECTED')
   })
 
+  it('requires explicit confirmation when storage has two or fewer free slots', () => {
+    const state = createdState()
+    const crowded: GameState = {
+      ...state,
+      profile: {
+        ...state.profile!,
+        storage: {
+          ...state.profile!.storage,
+          itemStacks: Array.from({ length: 98 }, (_, index) => ({ stackId: `item_stack_${100 + index}`, itemId: 'bandage', quantity: 10 })),
+        },
+      },
+    }
+    const warned = reduceGame(crowded, { type: 'REQUEST_QUEST_ENTRY', questId: 'training_ruins_quest' })
+    expect(warned.state).toMatchObject({ screen: 'hub', session: null, pendingQuestEntry: 'training_ruins_quest' })
+    expect(warned.events[0]).toMatchObject({ type: 'QUEST_ENTRY_WARNING' })
+    expect(warned.persistence).toBe('none')
+    expect(reduceGame(warned.state, { type: 'CONTINUE_QUEST_ENTRY', questId: 'goblin_den_quest' }).events[0].type).toBe('COMMAND_REJECTED')
+
+    const continued = reduceGame(warned.state, { type: 'CONTINUE_QUEST_ENTRY', questId: 'training_ruins_quest' })
+    expect(continued.state).toMatchObject({ screen: 'exploration', pendingQuestEntry: null })
+    expect(continued.state.session?.questId).toBe('training_ruins_quest')
+
+    const returned = reduceGame(warned.state, { type: 'RETURN_TO_STORAGE' })
+    expect(returned.state).toMatchObject({ screen: 'hub', session: null, pendingQuestEntry: null })
+    expect(returned.persistence).toBe('none')
+  })
+
   it('applies shop, storage transfer, and equipment commands only in the hub', () => {
     let state = createdState()
     const boughtItem = reduceGame(state, { type: 'BUY_ITEM', itemId: 'bandage', quantity: 2 })
@@ -90,7 +117,9 @@ describe('pure game engine profile and expedition flow', () => {
     const settled = reduceGame(state, { type: 'SELECT_TARGET', targetId: enemy.id })
     expect(settled.state.screen).toBe('result')
     expect(settled.state.session).toBeNull()
-    expect(settled.state.profile?.gold).toBe(600)
+    expect(settled.state.profile?.gold).toBe(1400)
+    expect(settled.state.result).toMatchObject({ gold: 1100, settlement: { goldGranted: 1100 } })
+    expect(settled.events.find((event) => event.type === 'REWARD_GRANTED')?.message).toContain('골드 1100')
     expect(settled.state.profile?.characters.every((character) => character.level === 2)).toBe(true)
     expect(settled.state.profile?.questProgress.completedQuestIds).toContain('training_ruins_quest')
     expect(settled.persistence).toBe('save_profile')

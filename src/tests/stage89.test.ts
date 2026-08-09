@@ -60,10 +60,10 @@ describe('stage 8 and 9 repeat quests', () => {
   it('creates approved enemies, boss and undead flags, skills, and assets', () => {
     expect(createEncounterEnemies('volcanic_cave_encounter_1')[0]).toMatchObject({ contentId: 'imp', maxHp: 34, atk: 8, def: 4, agi: 7, isBoss: false, skillIds: ['basic_attack'] })
     expect(createEncounterEnemies('volcanic_cave_midboss')[0]).toMatchObject({ contentId: 'ogre', isBoss: false })
-    expect(createEncounterEnemies('volcanic_cave_boss')[0]).toMatchObject({ contentId: 'cyclops_boss', maxHp: 150, atk: 11, def: 7, agi: 2, isBoss: true, skillIds: ['crushing_blow'] })
+    expect(createEncounterEnemies('volcanic_cave_boss')[0]).toMatchObject({ contentId: 'cyclops_boss', maxHp: 150, atk: 10, def: 7, agi: 2, isBoss: true, skillIds: ['crushing_blow'] })
     expect(createEncounterEnemies('deep_forest_ruins_midboss')[0]).toMatchObject({ contentId: 'wraith', maxHp: 86, atk: 10, def: 7, agi: 8, isBoss: false, isUndead: true, skillIds: ['drain_touch'] })
-    expect(createEncounterEnemies('deep_forest_ruins_boss')[0]).toMatchObject({ contentId: 'skeleton_king_boss', maxHp: 155, atk: 11, def: 8, agi: 5, isBoss: true, isUndead: true, skillIds: ['royal_cleave'] })
-    expect(SKILLS.crushing_blow).toMatchObject({ diceCount: 4, fixedModifier: 4 }); expect(SKILLS.drain_touch).toMatchObject({ diceCount: 3, fixedModifier: 0 }); expect(SKILLS.royal_cleave).toMatchObject({ diceCount: 3, targetMode: 'all_enemies' })
+    expect(createEncounterEnemies('deep_forest_ruins_boss')[0]).toMatchObject({ contentId: 'skeleton_king_boss', maxHp: 145, atk: 9, def: 7, agi: 5, isBoss: true, isUndead: true, skillIds: ['royal_cleave'] })
+    expect(SKILLS.crushing_blow).toMatchObject({ diceCount: 3, fixedModifier: 4 }); expect(SKILLS.drain_touch).toMatchObject({ diceCount: 3, fixedModifier: 0 }); expect(SKILLS.royal_cleave).toMatchObject({ diceCount: 2, targetMode: 'all_enemies' })
     for (const id of ['imp','cyclops_boss','wraith','skeleton_king_boss']) { expect(REGISTERED_ENEMY_CONTENT_IDS).toContain(id); expect(enemySpriteKeyFor(id)).toBe(`enemy_${id}`) }
   })
 
@@ -72,8 +72,15 @@ describe('stage 8 and 9 repeat quests', () => {
     const cyclops = createEncounterEnemies('volcanic_cave_boss')[0]
     expect(enemyTurn(cyclops, party, 321)).toEqual(enemyTurn(cyclops, party, 321))
     const stunResults = new Set<boolean>()
-    for (let seed = 1; seed <= 100; seed++) stunResults.add(enemyTurn(cyclops, party, Math.imul(seed, 0x9e3779b1)).events.some((event) => event.type === 'STATUS_APPLIED' && event.skillId === 'crushing_blow'))
+    let stunCount = 0
+    for (let seed = 1; seed <= 100; seed++) {
+      const stunned = enemyTurn(cyclops, party, Math.imul(seed, 0x9e3779b1)).events.some((event) => event.type === 'STATUS_APPLIED' && event.skillId === 'crushing_blow')
+      stunResults.add(stunned)
+      stunCount += stunned ? 1 : 0
+    }
     expect(stunResults).toEqual(new Set([true, false]))
+    expect(stunCount).toBeGreaterThanOrEqual(25)
+    expect(stunCount).toBeLessThanOrEqual(55)
 
     const target = { ...party[0], currentHp: 5, maxHp: 5 }
     const wraith = { ...createEncounterEnemies('deep_forest_ruins_midboss')[0], currentHp: 40, maxHp: 86 }
@@ -122,7 +129,7 @@ describe('stage 8 and 9 repeat quests', () => {
     expect(profile.characters.every((character) => character.level === 10 && character.experience === 1000)).toBe(true)
     expect(profile.questProgress.repeatCompletionCounts).toEqual({ volcanic_cave_quest: 3, deep_forest_ruins_quest: 2 })
     expect(profile.questProgress.completedQuestIds.filter((id) => id === 'volcanic_cave_quest')).toHaveLength(1)
-    expect(profile.gold - initialGold).toBe(3 * 760 + 2 * 820); expect(profile.random.shopRevision).toBe(initialRevision + 5); expect(profile.shop.skillOfferIds).toHaveLength(3)
+    expect(profile.gold - initialGold).toBe(4000 * 5); expect(profile.random.shopRevision).toBe(initialRevision + 5); expect(profile.shop.skillOfferIds).toHaveLength(3)
     const unlimited = settleVolcanicCave(profile, 300, 'volcanic_4', []); if (!unlimited.ok) throw new Error(unlimited.error)
     expect(unlimited.value.profile.characters.every((character) => character.experience === 1000)).toBe(true); expect(unlimited.value.profile.questProgress.repeatCompletionCounts.volcanic_cave_quest).toBe(4)
 
@@ -157,7 +164,7 @@ describe('stage 8 and 9 repeat quests', () => {
   })
 
   it('connects both bosses to settlement, permits repeated entry, and rejects malformed repeat saves', () => {
-    for (const [questId, bossEncounterId, gold] of [['volcanic_cave_quest','volcanic_cave_boss',760],['deep_forest_ruins_quest','deep_forest_ruins_boss',820]] as const) {
+    for (const [questId, bossEncounterId, gold] of [['volcanic_cave_quest','volcanic_cave_boss',4000],['deep_forest_ruins_quest','deep_forest_ruins_boss',4000]] as const) {
       const ready = repeatReady(); const entered = reduceGame({ ...createInitialGameState(ready), screen: 'hub' }, { type: 'REQUEST_QUEST_ENTRY', questId })
       const party = entered.state.session!.party.map((actor, index) => index === 0 ? { ...actor, atk: 999 } : actor); const boss = { ...createEncounterEnemies(bossEncounterId)[0], currentHp: 1 }
       const started = startCombat(party, [boss], entered.state.session!.rngState, bossEncounterId)

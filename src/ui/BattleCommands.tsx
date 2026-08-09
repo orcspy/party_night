@@ -4,6 +4,8 @@ import { ITEM_DATA } from '../game/content'
 import { getItemDisplayName } from '../game/displayNames'
 import { currentActor, getSkillAvailability } from '../game/combat'
 import type { GameCommand, GameState, ItemId } from '../game/types'
+import { ContentIcon } from './ContentIcon'
+import { getItemPresentation, getSkillPresentation } from './contentPresentation'
 
 export function BattleCommands({ state, dispatch }: { state: GameState; dispatch: (command: GameCommand) => void }) {
   const [selectedItemStackId, setSelectedItemStackId] = useState<string | null>(null)
@@ -27,12 +29,14 @@ export function BattleCommands({ state, dispatch }: { state: GameState; dispatch
       <h2>{actor.name} / 스킬</h2>
       <div className="command-grid">{activeSkills.map((skill) => {
         const availability = getSkillAvailability(combat, actor.id, skill.id)
-        return <button key={skill.id} disabled={!availability.available} onClick={() => dispatch({ type: 'SELECT_SKILL', skillId: skill.id })}>{skill.name}<small>{availability.remainingCooldown > 0 ? `쿨다운 ${availability.remainingCooldown}` : skill.resolution === 'taunt' ? '모든 적 도발' : `${skill.diceCount}d6 ${skill.fixedModifier ? `${skill.fixedModifier > 0 ? '+' : ''}${skill.fixedModifier}` : ''}`}</small></button>
+        const presentation = getSkillPresentation(skill.id)
+        return <button key={skill.id} disabled={!availability.available} onClick={() => dispatch({ type: 'SELECT_SKILL', skillId: skill.id })}><span className="command-content-name"><ContentIcon {...presentation} size="small" />{skill.name}</span><small>{availability.remainingCooldown > 0 ? `쿨다운 ${availability.remainingCooldown}` : skill.resolution === 'taunt' ? '모든 적 도발' : `${skill.diceCount}d6 ${skill.fixedModifier ? `${skill.fixedModifier > 0 ? '+' : ''}${skill.fixedModifier}` : ''}`}</small></button>
       })}</div>
       {battleItems.length > 0 && <><h2 className="item-heading">아이템</h2><div className="command-grid">{battleItems.map((stack) => {
         const item = ITEM_DATA[stack.itemId as ItemId]
         const useSelf = item.targetMode === 'self'
-        return <button key={stack.stackId} onClick={() => useSelf ? dispatch({ type: 'USE_ITEM', characterId: actor.id, stackId: stack.stackId, targetId: actor.id }) : setSelectedItemStackId(stack.stackId)}>{getItemDisplayName(stack.itemId)}<small>{stack.quantity}개 · {item.turnCost === 'free' ? '행동 무료' : '행동 소비'}</small></button>
+        const presentation = getItemPresentation(stack.itemId)
+        return <button key={stack.stackId} onClick={() => useSelf ? dispatch({ type: 'USE_ITEM', characterId: actor.id, stackId: stack.stackId, targetId: actor.id }) : setSelectedItemStackId(stack.stackId)}><span className="command-content-name"><ContentIcon {...presentation} size="small" />{getItemDisplayName(stack.itemId)}</span><small>{stack.quantity}개 · {item.turnCost === 'free' ? '행동 무료' : '행동 소비'}</small></button>
       })}</div></>}
     </section>
   )

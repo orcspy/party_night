@@ -324,9 +324,9 @@ TBD
 
 | companion_id | 표시 이름 | race_id | class_id | 시작 레벨 | 전열/후열 | 고정 장비 ID | 고정 스킬 ID | 모집 비용 | 계약 규칙 | 상태 |
 |---|---|---|---|---:|---|---|---|---:|---|---|
-| `party_warrior` | 브람 | `TBD` | warrior | 1 | 전열 | `N/A` | `basic_attack,power_strike` | 0 | 고정 동료 | current |
-| `party_priest` | 세라 | `TBD` | priest | 1 | 후열 | `N/A` | `basic_attack,smite` | 0 | 고정 동료 | current |
-| `party_archer` | 로웬 | `TBD` | archer | 1 | 후열 | `N/A` | `basic_attack,aimed_shot` | 0 | 고정 동료 | current |
+| `party_warrior` | 브람 | `dwarf` | warrior | 1 | 전열 | `N/A` | `basic_attack,power_strike` | 0 | 고정 동료 | current |
+| `party_priest` | 세라 | `human` | priest | 1 | 후열 | `N/A` | `basic_attack,smite` | 0 | 고정 동료 | current |
+| `party_archer` | 로웬 | `elf` | archer | 1 | 후열 | `N/A` | `basic_attack,aimed_shot` | 0 | 고정 동료 | current |
 | `TBD` | `TBD` | `TBD` | `TBD` | `TBD` | `TBD` | `TBD` | `TBD` | `TBD` | `TBD` | input |
 
 ## 17. 상점 운영 설정

@@ -2,7 +2,7 @@ import { createEncounterEnemies, createInitialCharacters, createPartyFromCharact
 import { cancelSkillSelection, rerollDie, selectSkill, selectTarget, skipReroll, startCombat, useCombatItem, type CombatUpdate } from './combat'
 import { getDirectionDisplayName, getQuestDisplayName, getRewardDisplayName } from './displayNames'
 import { createExploration, discoverNearbyPlacements, move, turn } from './exploration'
-import { consumeCharacterItem, equipCustomSkill, equipEquipment, moveItemToCharacter, returnItemToStorage, unequipCustomSkill, unequipEquipment, type RuleResult } from './inventory'
+import { consumeCharacterItem, equipCustomSkill, equipEquipment, moveItemToCharacter, returnItemToStorage, unequipCustomSkill, unequipEquipment, usedStorageSlots, type RuleResult } from './inventory'
 import { normalizeSeed } from './rng'
 import { confirmRewardSelection, createSecretRoomReward, setRewardSelection, settleAncientSite, settleDeepForestRuins, settleGoblinDen, settleOldCastle, settleTrainingRuins, settleUndergroundDungeon, settleVolcanicCave } from './rewards'
 import { buyEquipment, buyItem, buySkill, sellEquipment, sellItem, sellSkill } from './shop'
@@ -17,7 +17,7 @@ export interface EngineResult {
 }
 
 export function createInitialGameState(profile: ProfileV2 | null = null): GameState {
-  return { screen: 'start', profile, session: null, result: null }
+  return { screen: 'start', profile, session: null, result: null, pendingQuestEntry: null }
 }
 
 function validConfig(value: unknown): value is MainCharacterConfig {
@@ -117,6 +117,23 @@ function beginExpedition(profile: ProfileV2, questId: QuestId): { profile: Profi
   }
 }
 
+function questEntryError(state: GameState, questId: QuestId): string | null {
+  if (state.screen !== 'hub' || !state.profile || state.session || state.profile.pendingReward) return '현재 퀘스트에 입장할 수 없다.'
+  if (!getQuestDefinition(questId) || !state.profile.questProgress.unlockedQuestIds.includes(questId)) return '현재 플레이할 수 없는 퀘스트다.'
+  const repeatQuest = questId === 'volcanic_cave_quest' || questId === 'deep_forest_ruins_quest'
+  if (!repeatQuest && state.profile.questProgress.completedQuestIds.includes(questId)) return '이미 완료한 퀘스트다.'
+  return null
+}
+
+function startQuestEntry(state: GameState & { profile: ProfileV2 }, questId: QuestId): EngineResult {
+  const started = beginExpedition(state.profile, questId)
+  return {
+    state: { ...state, screen: 'exploration', profile: started.profile, session: started.session, result: null, pendingQuestEntry: null },
+    events: started.events,
+    persistence: 'save_profile',
+  }
+}
+
 function applyCombatUpdate(state: GameState, command: GameCommand, update: CombatUpdate): EngineResult {
   if (!state.session) return reject(state, command, '진행 중인 원정이 없다.')
   if (update.events.length === 1 && update.events[0].type === 'COMMAND_REJECTED') {
@@ -150,15 +167,16 @@ function applyCombatUpdate(state: GameState, command: GameCommand, update: Comba
                   ? settleVolcanicCave(state.profile, session.seed, session.expeditionId, session.pendingLoot)
                   : settleDeepForestRuins(state.profile, session.seed, session.expeditionId, session.pendingLoot)
       if (!settled.ok) return reject(state, command, settled.error)
+      const { goldGranted, experiencePerCharacter } = settled.value.summary
       const settlementEvents: GameEvent[] = [
         ...update.events,
         { type: 'QUEST_COMPLETED', message: `${quest.name}을 완료했다.` },
         { type: 'GROWTH_APPLIED', message: `파티 전원이 Lv${settled.value.profile.characters[0].level}로 성장했다.` },
         ...(settled.value.summary.unlockedQuestIds.length > 0 ? [{ type: 'UNLOCK_GRANTED' as const, message: `${settled.value.summary.unlockedQuestIds.map(getQuestDisplayName).join(', ')} 해금` }] : []),
-        { type: 'REWARD_GRANTED', message: `골드 ${quest.goldReward}, 캐릭터당 EXP ${quest.experiencePerCharacter}, 원정 보상을 획득했다.` },
+        { type: 'REWARD_GRANTED', message: `골드 ${goldGranted}, 캐릭터당 EXP ${experiencePerCharacter}, 원정 보상을 획득했다.` },
       ]
       return {
-        state: { ...state, screen: 'result', profile: settled.value.profile, session: null, result: { outcome: 'victory', gold: quest.goldReward, experience: quest.experiencePerCharacter, settlement: settled.value.summary, rewardEntries: settled.value.rewards } },
+        state: { ...state, screen: 'result', profile: settled.value.profile, session: null, result: { outcome: 'victory', gold: goldGranted, experience: experiencePerCharacter, settlement: settled.value.summary, rewardEntries: settled.value.rewards } },
         events: settlementEvents,
         persistence: 'save_profile',
       }
@@ -184,7 +202,7 @@ export function reduceGame(state: GameState, command: GameCommand): EngineResult
     if (state.screen !== 'profile_create' || state.profile) return reject(state, command, '프로필을 생성할 수 없는 상태다.')
     const profile = createProfile(command)
     if (!profile) return reject(state, command, '이름과 캐릭터 설정을 확인해야 한다.')
-    return { state: { screen: 'hub', profile, session: null, result: null }, events: [{ type: 'SCREEN_CHANGED', message: '거점에 도착했다.' }], persistence: 'save_profile' }
+    return { state: { screen: 'hub', profile, session: null, result: null, pendingQuestEntry: null }, events: [{ type: 'SCREEN_CHANGED', message: '거점에 도착했다.' }], persistence: 'save_profile' }
   }
   if (command.type === 'LOAD_PROFILE') {
     if (state.screen !== 'start' || !state.profile) return reject(state, command, '불러올 프로필이 없다.')
@@ -198,15 +216,30 @@ export function reduceGame(state: GameState, command: GameCommand): EngineResult
     return { state: createInitialGameState(), events: [{ type: 'SCREEN_CHANGED', message: '프로필을 초기화했다.' }], persistence: 'clear_profile' }
   }
   if (command.type === 'REQUEST_QUEST_ENTRY') {
-    if (state.screen !== 'hub' || !state.profile || state.session || state.profile.pendingReward) return reject(state, command, '현재 퀘스트에 입장할 수 없다.')
-    if (!getQuestDefinition(command.questId) || !state.profile.questProgress.unlockedQuestIds.includes(command.questId)) return reject(state, command, '현재 플레이할 수 없는 퀘스트다.')
-    const repeatQuest = command.questId === 'volcanic_cave_quest' || command.questId === 'deep_forest_ruins_quest'
-    if (!repeatQuest && state.profile.questProgress.completedQuestIds.includes(command.questId)) return reject(state, command, '이미 완료한 퀘스트다.')
-    const started = beginExpedition(state.profile, command.questId)
+    const error = questEntryError(state, command.questId)
+    if (error || !state.profile) return reject(state, command, error ?? '현재 퀘스트에 입장할 수 없다.')
+    const freeSlots = state.profile.storage.capacity - usedStorageSlots(state.profile)
+    if (freeSlots <= 2) {
+      return {
+        state: { ...state, pendingQuestEntry: command.questId },
+        events: [{ type: 'QUEST_ENTRY_WARNING', message: `창고 빈칸이 ${freeSlots}칸이다. 보상 일부를 포기할 수 있다.` }],
+        persistence: 'none',
+      }
+    }
+    return startQuestEntry(state as GameState & { profile: ProfileV2 }, command.questId)
+  }
+  if (command.type === 'CONTINUE_QUEST_ENTRY') {
+    if (state.pendingQuestEntry !== command.questId) return reject(state, command, '확인 중인 퀘스트와 일치하지 않는다.')
+    const error = questEntryError(state, command.questId)
+    if (error || !state.profile) return reject(state, command, error ?? '현재 퀘스트에 입장할 수 없다.')
+    return startQuestEntry(state as GameState & { profile: ProfileV2 }, command.questId)
+  }
+  if (command.type === 'RETURN_TO_STORAGE') {
+    if (state.screen !== 'hub' || !state.pendingQuestEntry) return reject(state, command, '창고로 돌아갈 퀘스트 확인이 없다.')
     return {
-      state: { ...state, screen: 'exploration', profile: started.profile, session: started.session, result: null },
-      events: started.events,
-      persistence: 'save_profile',
+      state: { ...state, pendingQuestEntry: null },
+      events: [{ type: 'SCREEN_CHANGED', message: '퀘스트 진입을 취소하고 창고로 돌아갔다.' }],
+      persistence: 'none',
     }
   }
   if (command.type === 'RETURN_TO_HUB') {

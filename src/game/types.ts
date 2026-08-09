@@ -248,8 +248,9 @@ export interface CombatState {
   bleedStacksByActor?: Record<string, number>
   paralyzedActionsByActor?: Record<string, number>
   sleepingByActor?: Record<string, boolean>
-  exposedByActor?: Record<string, { bonusDamage: number; remainingActions: number }>
+  exposedByActor?: Record<string, { bonusDamage: number; sourceActorId: string; sourceActionsRemaining: number; appliedRound: number }>
   neurotoxinsByActor?: Record<string, { originalAgi: number }>
+  refreshTurnOrderAtRoundEnd?: boolean
   attributeChangesByActor?: Record<string, { effectId: string; delta: number; remainingActions: number; keys?: (keyof BaseAttributes)[]; phase?: 'increase' | 'decrease' }>
   sacredRageByActor?: Record<string, { remainingActions: number }>
   resourcesByActor?: Record<string, { holyPower: number; mana: number }>
@@ -296,6 +297,7 @@ export interface GameState {
   profile: ProfileV2 | null
   session: ExpeditionSession | null
   result: GameResult | null
+  pendingQuestEntry?: QuestId | null
 }
 
 export type GameCommand =
@@ -303,6 +305,8 @@ export type GameCommand =
   | { type: 'CREATE_PROFILE'; mainCharacterConfig: MainCharacterConfig; profileId: string; createdAt: number; rootSeed: number }
   | { type: 'LOAD_PROFILE' }
   | { type: 'REQUEST_QUEST_ENTRY'; questId: QuestId }
+  | { type: 'CONTINUE_QUEST_ENTRY'; questId: QuestId }
+  | { type: 'RETURN_TO_STORAGE' }
   | { type: 'EQUIP_ITEM'; characterId: string; equipmentInstanceId: string }
   | { type: 'UNEQUIP_ITEM'; characterId: string; slot: EquipmentSlot; equipmentInstanceId: string }
   | { type: 'MOVE_ITEM_TO_CHARACTER'; characterId: string; stackId: string; quantity: number }
@@ -342,6 +346,7 @@ export type GameEventType =
   | 'TRAP_DISCOVERED' | 'SECRET_ROOM_DISCOVERED' | 'TRAP_TRIGGERED'
   | 'ITEM_USED' | 'TURN_SKIPPED' | 'BUFF_APPLIED' | 'BUFF_EXPIRED'
   | 'STATUS_REMOVED'
+  | 'QUEST_ENTRY_WARNING'
 
 export interface GameEvent {
   type: GameEventType

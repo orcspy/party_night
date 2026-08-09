@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { CLASS_DATA, combineAttributes, deriveCombatStats, RACE_DATA } from '../game/content'
-import type { ClassId, GameCommand, GameState, Gender, MainCharacterConfig, RaceId } from '../game/types'
+import { CLASS_DATA, createInitialCharacters, deriveCombatStats, getFinalAttributes, RACE_DATA } from '../game/content'
+import type { ClassId, GameCommand, GameState, Gender, MainCharacterConfig, PersistentCharacter, RaceId } from '../game/types'
 
 interface Props {
   state: GameState
@@ -26,6 +26,7 @@ export function SetupScreen({ state, dispatch }: Props) {
 
   const update = <K extends keyof MainCharacterConfig>(key: K, value: MainCharacterConfig[K]) => setConfig((current) => ({ ...current, [key]: value }))
   const valid = config.name.trim().length >= 1 && config.name.trim().length <= 12
+  const previewCharacters = createInitialCharacters({ ...config, name: config.name.trim() || '이름 없음' })
   return (
     <main className="menu-screen setup-screen">
       <header className="setup-header">
@@ -42,10 +43,7 @@ export function SetupScreen({ state, dispatch }: Props) {
         </section>
         <section className="card party-preview">
           <h2>고정 파티</h2>
-          <PartyRow slot="01 / 전열" name={config.name.trim() || '이름 없음'} raceId={config.raceId} classId={config.classId} />
-          <PartyRow slot="02 / 전열" name="브람" raceId="human" classId="warrior" />
-          <PartyRow slot="03 / 후열" name="세라" raceId="human" classId="priest" />
-          <PartyRow slot="04 / 후열" name="로웬" raceId="human" classId="archer" />
+          {previewCharacters.map((character, index) => <PartyRow key={character.characterId} slot={index + 1} character={character} />)}
         </section>
       </div>
       <button className="primary quest-button" disabled={!valid} onClick={() => {
@@ -60,13 +58,14 @@ export function SetupScreen({ state, dispatch }: Props) {
   )
 }
 
-function PartyRow({ slot, name, raceId, classId }: { slot: string; name: string; raceId: RaceId; classId: ClassId }) {
-  const classData = CLASS_DATA[classId]
-  const attributes = combineAttributes(RACE_DATA[raceId].baseAttributes, classData.attributeModifiers)
+function PartyRow({ slot, character }: { slot: number; character: PersistentCharacter }) {
+  const classData = CLASS_DATA[character.classId]
+  const attributes = getFinalAttributes(character)
   const stats = deriveCombatStats(attributes, classData.derivation)
+  const rowName = character.row === 'front' ? '전열' : '후열'
   return (
     <div className="party-row">
-      <span className="slot">{slot}</span><strong>{name}</strong><span>{classData.name}</span>
+      <span className="slot">{String(slot).padStart(2, '0')} / {rowName}</span><strong>{character.name}</strong><span>{RACE_DATA[character.raceId].name} · {classData.name}</span>
       <small>STR {attributes.str} · DEX {attributes.dex} · INT {attributes.int} · CON {attributes.con} · AGI {attributes.agi} · LUK {attributes.luck}</small>
       <small>HP {stats.maxHp} · ATK {stats.atk} · DEF {stats.def} · 전투 AGI {stats.agi}</small>
     </div>

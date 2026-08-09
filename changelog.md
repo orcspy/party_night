@@ -714,3 +714,61 @@
 - 호환성·의존성 변경: 소스·dependency·lock·profile version 변경 없음. Git 이력 재작성과 force push를 사용하지 않았다.
 - 검증 결과: staged diff 4개 파일·291줄 추가·17줄 삭제와 `git diff --cached --check` 공백 오류 없음을 확인했다. `6db1b2a..c5467e9 main -> main`으로 `https://github.com/orcspy/party_night.git`에 push하는 데 성공했다.
 - 실패·미확정 사항: 실제 코드와 테스트는 아직 신규 설계값을 적용하지 않았다. 본 작업 기록 커밋을 추가로 `origin/main`에 일반 push한다.
+
+## 2026-08-10 03:53:21 +09:00 | Planner | 아이템·장비·스킬 대표 아이콘 및 등급 색상 적용 설계
+
+- 작업 루트·모드: `D:\Work\Private\jobs\20260807\party_night\party_night` | 원본 직접 작업의 분석·설계
+- 사용자 작업 지시 원문:
+
+```text
+/agent Planner
+아이템 / 장비 아이콘 추가, 등급별 색상 적용. ( 흰색/녹색/파랑색/보라색/노랑색 )
+아이템 : 포션
+장비 : 검, 몽둥이, 단검, 활, 지팡이, 투구, 갑옷
+스킬 : 액티브 / 패시브
+의 아이템/장비/스킬 대표 아이콘에 대한 적용 설계를 작업 할 것.
+```
+
+- 사용한 기준 문서: 루트 `AGENTS.md`, `architecture.md` 15절, `implements.md` 23절, `raw_data_table.md` 22.5~22.6절, `asset-plan.md`, `asset-catalog.md`
+- 조사 범위: `src/game/{types,content,displayNames}.ts`, `src/ui/{ShopPanel,StoragePanel,CharacterPanel,ExplorationItems,BattleCommands,ResultScreen}.tsx`, `src/styles.css`, `src/tests/assets.test.ts`, 현재 `src/assets`·`assets-source` 구조; rarity·family·activation 원본, ProfileV2 저장 경계, React 표시 지점, Phaser 에셋 fallback 관례와 모바일 행·버튼 크기
+- 생성·갱신 문서: `architecture.md` 19절, `implements.md` 27절, `changelog.md`; 코드·설정·테스트·에셋과 원본 데이터 문서는 수정하지 않음
+- 결정 근거: 장비에만 기존 5단계 rarity가 있고 아이템·스킬에는 등급이 없으므로 존재하지 않는 등급을 추론하지 않는다. 저장 instance에는 콘텐츠 ID만 유지하고 UI selector가 `EquipmentData.family/rarity`, `Skill.activation`, item ID에서 표시 정보를 파생해 profile version 2를 보존한다. 10개 소형 아이콘은 React DOM 전용 manifest와 항목별 fallback을 사용해 Phaser와 게임 엔진 의존성을 늘리지 않는다.
+- 핵심 결과: 포션, 검, 몽둥이, 단검, 활, 지팡이, 투구, 갑옷, 액티브, 패시브 10개 24×24 대표 아이콘 계약과 파일명·도상을 정했다. `mace→club`, `staff/rod→staff`, 아이템 전체→포션, 스킬 activation→active/passive로 매핑한다. 장비는 common/uncommon/rare/heroic/legendary를 흰/녹/파랑/보라/노랑 token과 한글 배지로 표시하고 아이템·스킬은 neutral로 유지한다. 상점·창고·캐릭터·탐사·전투·결과 화면의 적용 순서, fallback, 접근성, 테스트·완료 기준을 확정했다.
+- 위험·미확정 사항: 정확한 HEX가 지정되지 않아 `#f4f4f4/#62c370/#5aa9ff/#b678f2/#ffd45a`를 교체 가능한 임시 CSS token으로 제시했다. 요청 목록에 없는 `shield`는 잘못된 아이콘을 재사용하지 않고 `장` 배지로 fallback하며 방패 그림은 별도 승인 대상이다. 포션은 비포션 소비 아이템까지 포함하는 카테고리 대표이므로 개별 물체 식별은 이름에 의존한다. 실제 아이콘 생성·코드·테스트·빌드·모바일 검증은 Coder 작업 범위다.
+
+## 2026-08-10 04:10:48 +09:00 | Planner | shield 대표 아이콘·고정 동료 종족 데이터 반영 설계
+
+- 작업 루트·모드: `D:\Work\Private\jobs\20260807\party_night\party_night` | 원본 직접 작업의 분석·설계
+- 사용자 작업 지시 원문:
+
+```text
+shield 장비 아이콘 추가 설계 할 것. 관련 에셋 틀을 생성 후 해당 에셋 정보를 이용하여 실제 에셋 작업을 따로 진행 예정.
+raw_data_table.md파일에 동료 관련 종족 데이터 수동 추가완료. 해당 부분도 설계에 추가 반영 할 것.
+```
+
+- 사용한 기준 문서: 루트 `AGENTS.md`, 사용자가 수동 갱신한 `raw_data_table.md` 16절의 동료 `race_id`, `architecture.md` 13·19절, `implements.md` 22·27절, `asset-plan.md`, `asset-catalog.md`
+- 조사 범위: `src/game/{types,content,characters,inventory}.ts`, `src/app/saveV2.ts`, `src/ui/SetupScreen.tsx`, `src/phaser/assets/characterAssets.ts`, 캐릭터 조합 PNG, 관련 능력치·저장·전투·에셋 테스트; shield 5종 장비 family, 직전 10개 아이콘 계약과 fallback, 동료 종족의 능력치·인벤토리·turn order·sprite 영향
+- 생성·갱신 문서: `architecture.md` 13절 일부·19절·신규 20절, `implements.md` 22절 일부·27절·신규 28절, `changelog.md`; `raw_data_table.md`, 코드·설정·테스트·PNG·에셋 생성기는 수정하지 않음
+- 결정 근거: 사용자가 shield를 정식 아이콘 범위로 추가해 기존 의도적 fallback을 `equipment_shield`로 대체하고, 실제 에셋 작업과 구현을 분리할 수 있도록 비런타임 JSON 규격 틀을 정의했다. 동료 종족은 사용자가 명시한 race 열만 최신 기준으로 채택하고 같은 원시 행의 스킬·장비 열은 기존 승인 진행 규칙과 충돌하므로 변경 범위에서 제외했다. 종족은 profile에 저장된 판정 입력이므로 신규 profile에 적용하되 기존 profile은 로웬 인벤토리 용량 축소 위험을 피하도록 비파괴 보존한다.
+- 핵심 결과: 대표 아이콘을 11개로 확장하고 `shield→equipment_shield` mapping, `src/assets/icons/equipment_shield.png`, 24×24 전면 heater/kite 실루엣, 장비 방패와 패시브 오라의 구분 기준을 확정했다. `assets-source/icons/equipment_shield.asset.json`의 canvas·safe bounds·anchor·팔레트 역할·fallback handoff 계약을 작성했다. 동료는 브람 `dwarf`, 세라 `human`, 로웬 `elf`로 신규 profile을 생성하며 `COMPANION_DATA`를 프로필 생성과 준비 화면의 단일 원본으로 사용한다. 시작 무기 포함 목표 수치, 기존 profile 보존, 기존 조합 PNG 재사용과 테스트·완료 기준을 기록했다.
+- 위험·미확정 사항: 방패 내부 pixel pattern과 팔레트 미세 조정은 후속 실제 에셋 작업 대상이며 rarity 색은 PNG가 아닌 CSS가 담당한다. 동료 성별은 원시 표에 없어 기존 임시값을 유지한다. 원시 표의 세라 `smite`와 고정 장비 `N/A`는 기존 Lv1 `heal`·시작 무기 규칙과 충돌하지만 이번 요청은 race에 한정해 적용하지 않는다. 기존 profile을 신규 race로 강제 변환하는 migration은 제외했으며 필요 시 로웬 inventory overflow 정책을 별도 승인해야 한다. 실제 JSON/PNG 생성·코드·테스트·빌드·브라우저 검증은 Coder 및 후속 에셋 작업 범위다.
+
+## 2026-08-10 04:27:47 +09:00 | Coder | v0.2.0 설계 26~28절 구현·단계 10 풀 검증
+
+- 작업 루트·모드: `D:\Work\Private\jobs\20260807\party_night\party_night` | 원본 직접 작업
+- 사용자 작업 지시 원문:
+
+```text
+/agent Coder
+위의 설계안과 설계문서를 반영해서 작업을 10단계 설계까지 포함해서 진행해줘. 이 작업을 진행 하는데 요구 될 모든 사용자 확인 요청에 대해서 미리 허가함.
+```
+
+- 사용한 설계문서: `implements.md` 23.13절·26~28절 최우선, `architecture.md` 15.13절·18~20절, 사용자 갱신 `raw_data_table.md` 16절·22.5~22.12절, 루트 `AGENTS.md`, `asset-plan.md`, `asset-catalog.md`
+- 조사 범위: 전투 상태 확률·신경독 행동 순서·약점 노출 수명, 7개 퀘스트 골드와 후반 보스, 장비/아이템/스킬 표시 전 화면과 에셋 생성 경로, 동료 identity·능력치·저장·스프라이트, 창고 2칸 이하 진입 경고, 전체 저장/overflow/100회 반복/모바일 가로·세로 흐름
+- 검증 단계: 3단계 풀 검증
+- 변경 파일: `package.json`, `package-lock.json`, `assets-source/icons/{equipment_shield.asset.json,generate_content_icons.mjs}`, `src/assets/icons/*.png` 11개, `src/game/{types,content,combat,rewards,gameEngine}.ts`, `src/ui/{ContentIcon,contentPresentation,ShopPanel,StoragePanel,CharacterPanel,ExplorationItems,BattleCommands,ResultScreen,SetupScreen,HubScreen}`, `src/styles.css`, `src/tests/{assets,characters,combat,gameEngine,rewards,saveV2,shop,stage6,stage7,stage89,stage10}.test.ts`, `README.md`, `asset-plan.md`, `asset-catalog.md`, `changelog-assets.md`, `changelog.md`
+- 결정 근거: 밸런스 수치는 승인 원시표와 implements 26절을 단일 기준으로 적용하고 quest definition을 골드 원본으로 통합했다. 표시용 아이콘·rarity는 profile에 저장하지 않고 React presentation 계층에서 파생했다. 동료 종족은 신규 profile에 적용하되 기존 profile race는 로웬 개인 인벤토리 축소에 따른 손실을 막기 위해 보존했다. 설계 대조에서 누락된 창고 빈칸 2칸 이하 진입 확인도 단계 10 전에 명령·상태·UI로 완성했다.
+- 핵심 구현: `quick_stab/neurotoxin` 일반100%·boss50%, 신경독 AGI 절반과 미행동 suffix/다음 round 안정 재정렬, source 행동 기준 약점 노출, 보스 3종·7개 골드 최신값을 적용했다. 포션·장비 8종·active/passive 11개 아이콘과 5등급 색·한글 badge를 6개 UI 흐름에 연결했다. `COMPANION_DATA`로 브람 dwarf·세라 human·로웬 elf를 단일 원본화하고 시작 장비 포함 준비 화면과 Actor 수치를 정합화했다. `REQUEST_QUEST_ENTRY → CONTINUE_QUEST_ENTRY/RETURN_TO_STORAGE` 경고 흐름과 100회 혼합 반복 stage10 테스트를 추가했다. package version은 `0.2.0`으로 갱신했다.
+- 호환성·의존성 변경: profile version 2·저장 키·기존 profile race·public 콘텐츠 ID를 유지했다. 신규 애플리케이션 dependency는 없고 기존 lock의 dependency 버전도 변경하지 않았다. 초기 `node_modules`가 없어 승인 범위에서 기존 lock 기준 패키지가 설치됐다. 브라우저 검증을 위해 npx Playwright 1.55.0 Chromium 설치를 시도했으나 프로젝트 dependency에는 등록하지 않았고, 실제 검증은 기존 로컬 Chromium 1228 실행 파일을 CDP로 사용했다.
+- 검증 결과: 아이콘 생성기 11개 재생성 성공. `npm run typecheck` 성공. `npm run test`에서 16개 파일·122개 테스트 전부 성공. `npm run build` 성공(Vite 408 modules, CSS 13.22kB, main JS 1,892.26kB). stage10 테스트에서 반복 퀘스트 100회, EXP1000/Lv10 cap, 골드 +400,000, 각 반복 50회, 10회 간격 save round-trip, reward overflow 포기를 확인했다. Chromium 844×390에서 가로 overflow 없음, 드워프 브람·엘프 로웬 미리보기, common shield 이미지·흰색 border, 프로필 생성→거점→상점→탐사 canvas를 확인했고 390×844에서 회전 안내가 표시됐다. favicon 404를 제외한 runtime·console·network 오류 0건이었다.
+- 실패·미확정 사항: Playwright Chromium 신규 다운로드는 148.9MiB 수신 후 두 차례 timeout되어 설치 완료로 간주하지 않았으며 로컬 npx/browser cache가 남을 수 있다. Android Chrome·iOS Safari 실기와 실제 배포 서버 검증은 사용 가능한 기기·배포 환경이 없어 미실행했다. production build는 main chunk가 500kB 기준을 넘는 Vite 경고를 출력했으나 빌드는 성공했다. 최종 아이콘 아트, 동료 성별, 임시 map 배치와 다이스·함정·비밀문 전용 에셋은 기존 deferred/draft 상태다.

@@ -14,6 +14,16 @@ export interface ClassData {
   skillId: string
 }
 
+export interface CompanionDefinition {
+  characterId: 'party_warrior' | 'party_priest' | 'party_archer'
+  name: string
+  raceId: RaceId
+  classId: ClassId
+  gender: Gender
+  row: Row
+  partySlot: 2 | 3 | 4
+}
+
 export interface EquipmentData {
   name: string
   family: EquipmentFamily
@@ -49,6 +59,12 @@ export const CLASS_DATA: Record<ClassId, ClassData> = {
   priest: { name: '사제', attributeModifiers: { str: 0, dex: 2, int: 4, con: 0, agi: 0, luck: 0 }, derivation: { attackBasis: 'int', attackModifier: -2, defenseModifier: 1 }, skillId: 'heal' },
   mage: { name: '마법사', attributeModifiers: { str: -1, dex: 0, int: 5, con: 0, agi: 1, luck: 1 }, derivation: { attackBasis: 'int', attackModifier: 1, defenseModifier: 0 }, skillId: 'arcane_bolt' },
 }
+
+export const COMPANION_DATA = [
+  { characterId: 'party_warrior', name: '브람', raceId: 'dwarf', classId: 'warrior', gender: '남성', row: 'front', partySlot: 2 },
+  { characterId: 'party_priest', name: '세라', raceId: 'human', classId: 'priest', gender: '여성', row: 'back', partySlot: 3 },
+  { characterId: 'party_archer', name: '로웬', raceId: 'elf', classId: 'archer', gender: '남성', row: 'back', partySlot: 4 },
+] as const satisfies readonly CompanionDefinition[]
 
 export const EQUIPMENT_DATA: Record<string, EquipmentData> = {
   common_dagger: { name: '낡은 단검', family: 'dagger', rarity: 'common', slot: 'weapon', twoHanded: false, modifiers: { str: 0, dex: 1, int: 0, con: 0, agi: 0, luck: 0 }, allowedClasses: ['warrior', 'rogue'], buyPrice: 80 },
@@ -199,12 +215,12 @@ export const SKILLS: Record<string, Skill> = {
   ogre_smash: activeDamage('ogre_smash', '오우거 강타', 3, 2),
   first_aid: { ...activeDamage('first_aid', '응급 치료', 1, 2, 0, 2), targetMode: 'self', resolution: 'heal' },
   rending_bite: activeDamage('rending_bite', '찢는 물기', 2, 2),
-  minotaur_gore: activeDamage('minotaur_gore', '미노타우르스 돌진', 4, 0),
+  minotaur_gore: activeDamage('minotaur_gore', '미노타우르스 돌진', 3, 2),
   paralyzing_claw: activeDamage('paralyzing_claw', '마비 발톱', 2, 2),
   death_bolt: activeDamage('death_bolt', '죽음의 화살', 3, 4),
-  crushing_blow: activeDamage('crushing_blow', '분쇄의 일격', 4, 4),
+  crushing_blow: activeDamage('crushing_blow', '분쇄의 일격', 3, 4),
   drain_touch: activeDamage('drain_touch', '생명력 흡수', 3, 0),
-  royal_cleave: { ...activeDamage('royal_cleave', '왕의 휩쓸기', 3, 0), targetMode: 'all_enemies' },
+  royal_cleave: { ...activeDamage('royal_cleave', '왕의 휩쓸기', 2, 0), targetMode: 'all_enemies' },
   ability_reinforcement: { id: 'ability_reinforcement', name: '능력 강화', diceCount: 0, fixedModifier: 0, rerolls: 0, activation: 'active', targetMode: 'self', resolution: 'buff', useLimit: { type: 'cooldown', rounds: 5 } },
   wound_break: activeDamage('wound_break', '상처 가르기', 3, 5, 0, 5),
   head_shot: activeDamage('head_shot', '헤드 샷', 5, 5, 0, 5),
@@ -342,13 +358,13 @@ export const MAP_DATA: Record<string, MapDefinition> = {
 export const MAP_ROWS = MAP_DATA.training_ruins.rows
 
 export const QUEST_DATA: Partial<Record<QuestId, QuestDefinition>> = {
-  training_ruins_quest: { questId: 'training_ruins_quest', name: '훈련 폐허', mapId: 'training_ruins', completionEncounterId: 'training_ruins_encounter_3', goldReward: 300, experiencePerCharacter: 100, nextQuestId: 'goblin_den_quest' },
-  goblin_den_quest: { questId: 'goblin_den_quest', name: '고블린 소굴', mapId: 'goblin_den', completionEncounterId: 'goblin_den_boss', goldReward: 320, experiencePerCharacter: 100, nextQuestId: 'ancient_site_quest' },
-  ancient_site_quest: { questId: 'ancient_site_quest', name: '유적지', mapId: 'ancient_site', completionEncounterId: 'ancient_site_boss', goldReward: 500, experiencePerCharacter: 100, nextQuestId: 'underground_dungeon_quest' },
-  underground_dungeon_quest: { questId: 'underground_dungeon_quest', name: '지하 던전', mapId: 'underground_dungeon', completionEncounterId: 'underground_dungeon_boss', goldReward: 720, experiencePerCharacter: 100, nextQuestId: 'old_castle_quest' },
-  old_castle_quest: { questId: 'old_castle_quest', name: '옛 고성', mapId: 'old_castle', completionEncounterId: 'old_castle_boss', goldReward: 1050, experiencePerCharacter: 100, nextQuestId: null },
-  volcanic_cave_quest: { questId: 'volcanic_cave_quest', name: '화산 동굴', mapId: 'volcanic_cave', completionEncounterId: 'volcanic_cave_boss', goldReward: 760, experiencePerCharacter: 100, nextQuestId: null },
-  deep_forest_ruins_quest: { questId: 'deep_forest_ruins_quest', name: '깊은 숲 폐허', mapId: 'deep_forest_ruins', completionEncounterId: 'deep_forest_ruins_boss', goldReward: 820, experiencePerCharacter: 100, nextQuestId: null },
+  training_ruins_quest: { questId: 'training_ruins_quest', name: '훈련 폐허', mapId: 'training_ruins', completionEncounterId: 'training_ruins_encounter_3', goldReward: 1100, experiencePerCharacter: 100, nextQuestId: 'goblin_den_quest' },
+  goblin_den_quest: { questId: 'goblin_den_quest', name: '고블린 소굴', mapId: 'goblin_den', completionEncounterId: 'goblin_den_boss', goldReward: 1100, experiencePerCharacter: 100, nextQuestId: 'ancient_site_quest' },
+  ancient_site_quest: { questId: 'ancient_site_quest', name: '유적지', mapId: 'ancient_site', completionEncounterId: 'ancient_site_boss', goldReward: 1800, experiencePerCharacter: 100, nextQuestId: 'underground_dungeon_quest' },
+  underground_dungeon_quest: { questId: 'underground_dungeon_quest', name: '지하 던전', mapId: 'underground_dungeon', completionEncounterId: 'underground_dungeon_boss', goldReward: 2700, experiencePerCharacter: 100, nextQuestId: 'old_castle_quest' },
+  old_castle_quest: { questId: 'old_castle_quest', name: '옛 고성', mapId: 'old_castle', completionEncounterId: 'old_castle_boss', goldReward: 4000, experiencePerCharacter: 100, nextQuestId: null },
+  volcanic_cave_quest: { questId: 'volcanic_cave_quest', name: '화산 동굴', mapId: 'volcanic_cave', completionEncounterId: 'volcanic_cave_boss', goldReward: 4000, experiencePerCharacter: 100, nextQuestId: null },
+  deep_forest_ruins_quest: { questId: 'deep_forest_ruins_quest', name: '깊은 숲 폐허', mapId: 'deep_forest_ruins', completionEncounterId: 'deep_forest_ruins_boss', goldReward: 4000, experiencePerCharacter: 100, nextQuestId: null },
 }
 
 export function getQuestDefinition(questId: QuestId): QuestDefinition | null { return QUEST_DATA[questId] ?? null }
@@ -415,12 +431,23 @@ function startingCharacter(characterId: string, name: string, raceId: RaceId, cl
 }
 
 export function createInitialCharacters(main: MainCharacterConfig): [PersistentCharacter, PersistentCharacter, PersistentCharacter, PersistentCharacter] {
+  const companions = [...COMPANION_DATA]
+    .sort((left, right) => left.partySlot - right.partySlot)
+    .map((companion) => startingCharacter(
+      companion.characterId,
+      companion.name,
+      companion.raceId,
+      companion.classId,
+      companion.gender,
+      companion.row,
+      companion.partySlot,
+    ))
+  if (companions.length !== 3) throw new Error('고정 동료는 정확히 3명이어야 한다.')
   return [
     startingCharacter('party_main', main.name.trim(), main.raceId, main.classId, main.gender, 'front', 1),
-    // TODO(v0.2.0): 고정 동료의 종족·직업·성별 콘텐츠를 별도 승인 데이터로 교체할 때 이 초기값을 갱신한다.
-    startingCharacter('party_warrior', '브람', 'human', 'warrior', '남성', 'front', 2),
-    startingCharacter('party_priest', '세라', 'human', 'priest', '여성', 'back', 3),
-    startingCharacter('party_archer', '로웬', 'human', 'archer', '남성', 'back', 4),
+    companions[0],
+    companions[1],
+    companions[2],
   ]
 }
 
@@ -448,15 +475,15 @@ export function createEncounterEnemies(encounterId: string): Actor[] {
       ogre: { name: '오우거', maxHp: 92, atk: 7, def: 5, agi: 1, skillId: 'ogre_smash' },
       kobold_skirmisher: { name: '코볼트 척후병', maxHp: 25, atk: 5, def: 3, agi: 6, skillId: 'basic_attack' },
       gnoll_brute: { name: '놀 투사', maxHp: 74, atk: 7, def: 5, agi: 5, skillId: 'rending_bite' },
-      minotaur_boss: { name: '미노타우르스', maxHp: 120, atk: 9, def: 6, agi: 4, skillId: 'minotaur_gore' },
+      minotaur_boss: { name: '미노타우르스', maxHp: 120, atk: 8, def: 6, agi: 4, skillId: 'minotaur_gore' },
       skeleton_soldier: { name: '스켈레톤 병사', maxHp: 30, atk: 6, def: 5, agi: 3, skillId: 'basic_attack', isUndead: true },
       zombie: { name: '좀비', maxHp: 42, atk: 7, def: 3, agi: 1, skillId: 'basic_attack', isUndead: true },
       ghoul: { name: '구울', maxHp: 82, atk: 8, def: 5, agi: 6, skillId: 'paralyzing_claw', isUndead: true },
       lich_boss: { name: '리치', maxHp: 125, atk: 10, def: 7, agi: 6, skillId: 'death_bolt', isUndead: true },
       imp: { name: '임프', maxHp: 34, atk: 8, def: 4, agi: 7, skillId: 'basic_attack' },
-      cyclops_boss: { name: '사이클롭스', maxHp: 150, atk: 11, def: 7, agi: 2, skillId: 'crushing_blow' },
+      cyclops_boss: { name: '사이클롭스', maxHp: 150, atk: 10, def: 7, agi: 2, skillId: 'crushing_blow' },
       wraith: { name: '레이스', maxHp: 86, atk: 10, def: 7, agi: 8, skillId: 'drain_touch', isUndead: true },
-      skeleton_king_boss: { name: '스켈레톤 킹', maxHp: 155, atk: 11, def: 8, agi: 5, skillId: 'royal_cleave', isUndead: true },
+      skeleton_king_boss: { name: '스켈레톤 킹', maxHp: 145, atk: 9, def: 7, agi: 5, skillId: 'royal_cleave', isUndead: true },
     } as const
     const definition = definitions[enemyId]
     return {
