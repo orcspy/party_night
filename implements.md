@@ -2194,3 +2194,166 @@ Lv1 시작 무기 포함 기대값:
 - 동료 gender, 이름, 직업, row, slot을 종족 변경과 함께 임의 수정하지 않는다.
 - profile version을 올리거나 기존 profile race를 load 시 강제 정규화하지 않는다.
 - 캐릭터 PNG를 중복 생성하거나 Phaser에 동료별 별도 분기 코드를 추가하지 않는다.
+
+## 29. 퀘스트 결과 화면 모바일 overflow 개선 사양
+
+### 29.1 목표와 범위
+
+- 성공·실패 결과 정보가 모바일 landscape viewport보다 길어져도 모든 내용을 터치로 확인할 수 있게 한다.
+- 창고 초과 여부와 관계없이 현재 단계의 필수 action을 화면 안에 항상 유지한다.
+- 결과 정산 데이터, reward 선택 규칙, command와 저장 schema는 변경하지 않는다.
+- 적용 화면은 React `ResultScreen`으로 한정하고 시작·거점·탐사·전투의 overflow 정책은 유지한다.
+
+### 29.2 대상 파일
+
+| 파일 | 변경 책임 |
+|---|---|
+| `src/ui/ResultScreen.tsx` | 결과 정보 scroll 영역과 고정 action footer로 DOM 책임 분리 |
+| `src/styles.css` | `100dvh` 결과 shell, 내부 touch scroll, 비축소 footer, 낮은 landscape compact 규칙 |
+| `src/tests/gameEngine.test.ts` | 기존 결과 command guard가 부족한 경우에만 pending 확정→거점 복귀 흐름 회귀 보강 |
+| `changelog.md` | 실제 구현·검증 결과 기록 |
+
+변경하지 않는 파일과 계약:
+
+- `src/game/types.ts`: `GameState`, `GameCommand`, result·pending reward 타입 유지
+- `src/game/gameEngine.ts`: `RETURN_TO_HUB`, `SET_REWARD_SELECTION`, `CONFIRM_REWARD_SELECTION` 처리 유지
+- `src/game/rewards.ts`, `src/app/saveV2.ts`: 정산·선택·저장 규칙 유지
+- 콘텐츠 수치, 표시 이름, 아이콘·rarity selector와 profile version 2 유지
+
+### 29.3 ResultScreen DOM 사양
+
+최상위 class와 성공/실패 class는 보존하고 내부를 다음 구조로 바꾼다.
+
+```tsx
+<main className={`menu-screen result-screen ${victory ? 'victory' : 'defeat'}`}>
+  <div className="result-scroll-region" aria-label="원정 결과 상세">
+    <div className="result-content">
+      {/* 현재 eyebrow부터 reward-selection 목록까지 순서대로 유지 */}
+    </div>
+  </div>
+  <footer className="result-actions" aria-label="결과 화면 동작">
+    {pending
+      ? <button className="danger">선택 보관·나머지 포기</button>
+      : <button className="primary">거점으로</button>}
+  </footer>
+</main>
+```
+
+- 현재 `reward-selection` 내부의 확정 버튼만 `result-actions`로 이동한다. 제목, 창고 사용량, checkbox label 목록은 `result-content`에 남긴다.
+- pending action은 기존과 동일하게 `{ type: 'CONFIRM_REWARD_SELECTION', confirmDiscardUnselected: true }`를 dispatch한다.
+- 일반 action은 기존과 동일하게 `{ type: 'RETURN_TO_HUB' }`를 dispatch한다.
+- 선택이 0개인 상태에서도 전체 포기를 허용하는 현재 규칙과 button enabled 상태를 임의로 바꾸지 않는다.
+- 확정 dispatch 후 pending이 해소되면 별도 local state 없이 React state 갱신으로 footer가 `거점으로` action으로 교체되어야 한다.
+- 결과 표시 조건과 순서, `ContentIcon`, display-name selector와 `selectedIds` 계산은 그대로 유지한다.
+
+### 29.4 CSS 사양
+
+기본 구조:
+
+```css
+.result-screen {
+  width: 100%;
+  height: 100dvh;
+  min-height: 0;
+  max-height: 100dvh;
+  justify-content: flex-start;
+  overflow: hidden;
+}
+
+.result-scroll-region {
+  width: 100%;
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+}
+
+.result-content {
+  width: 100%;
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding-bottom: 8px;
+}
+
+.result-actions {
+  width: min(720px, 95%);
+  flex: 0 0 auto;
+  align-self: center;
+  padding-top: 8px;
+}
+
+.result-actions button { width: 100%; }
+```
+
+- 기존 `.result-screen` 색·정렬, `.settlement-details`, `.reward-selection`, `.reward-card` 규칙은 재사용한다.
+- `.result-content`가 scroll viewport보다 짧을 때만 중앙에 오고, 길 때는 자체 높이가 늘어나 상단부터 시작해야 한다. 구현 브라우저에서 flex 중앙 정렬이 긴 콘텐츠 상단을 자르면 낮은 화면 media query에서 `justify-content: flex-start`를 명시한다.
+- `@media (max-height: 500px)` 안에서 result 상하 padding을 각각 `max(8px, env(safe-area-inset-top/bottom))`으로 지정해 기존 10px override가 safe area를 제거하지 않게 한다.
+- 같은 media query에서 `.result-content { justify-content: flex-start; }`, 결과 h1 크기, `.reward-card` margin·padding을 축소하되 10px 상세 텍스트와 44px action 버튼 최소 높이는 유지한다.
+- `body`, 전체 `.menu-screen`, `.game-shell`의 overflow를 변경하지 않는다. footer에 `position: fixed`를 사용하지 않고 결과 shell의 flex 높이 계산 안에 둔다.
+- scrollbar를 강제로 숨기지 않으며 scroll region 위의 수직 swipe가 checkbox toggle이나 footer tap으로 오인되지 않게 네이티브 scroll 동작을 유지한다.
+
+### 29.5 상태별 동작 기준
+
+| 상태 | scroll 영역 | 고정 action | dispatch 후 결과 |
+|---|---|---|---|
+| 성공·pending 없음 | 성장·해금·자동 보상 전체 | `거점으로` | hub, session/result 정리, profile 저장 |
+| 성공·pending 있음 | 성장·해금·보상 checkbox 전체 | `선택 보관·나머지 포기` | pending 해소, 같은 결과 화면에서 `거점으로` 노출 |
+| 실패 | 패배 설명·0 보상 요약 | `거점으로` | hub 복귀 |
+
+- `pendingReward`가 있으면 `RETURN_TO_HUB`를 먼저 노출하거나 우회 dispatch하지 않는다.
+- footer를 항상 표시하기 위해 정보 항목을 접거나 생략하지 않는다.
+- scroll 위치는 표시 전용 UI 상태이며 profile·session에 저장하지 않는다.
+
+### 29.6 검증 사양
+
+정적·자동 검증:
+
+1. `npm run typecheck`와 전체 기존 테스트가 성공한다.
+2. 필요 시 engine 회귀 테스트에서 pending 상태의 조기 `RETURN_TO_HUB` 거부, reward 확정 후 `RETURN_TO_HUB` 성공을 확인한다.
+3. 신규 UI 테스트 dependency는 추가하지 않는다. CSS 실제 배치는 responsive browser에서 검증한다.
+
+브라우저 검증 viewport:
+
+- `640×360` landscape 기준
+- `760px` 이하 너비의 landscape
+- 기존 단계 10 기준인 `844×390` landscape
+- portrait에서 기존 회전 안내 유지
+
+각 landscape에서 다음 세 fixture 또는 실제 상태를 확인한다.
+
+1. 4인 성장, 신규 스킬·커스텀 슬롯, 퀘스트·등급 해금, 다수 자동 보상이 함께 있는 긴 성공 결과
+2. 다수 checkbox가 있는 창고 overflow 성공 결과
+3. 실패 결과
+
+브라우저 완료 조건:
+
+- body/document 자체에는 세로 스크롤이 생기지 않고 `result-scroll-region`만 필요할 때 스크롤된다.
+- scrollTop을 처음·중간·끝으로 이동해 모든 결과 항목을 읽을 수 있다.
+- 스크롤 전후 action footer의 bounding box가 visual viewport와 safe area 안에 있고 44px 이상이며 정보와 겹치지 않는다.
+- overflow 상태에서 목록을 스크롤하며 항목을 선택할 수 있고 action을 터치하면 pending이 해소되어 `거점으로`가 같은 위치에 나타난다.
+- `거점으로` 터치 후 hub로 복귀하고 저장·보상·성장 결과가 유지된다.
+- Android Chrome과 iOS Safari에서는 한 손가락 관성 스크롤, 주소창 변화, 하단 safe area를 확인한다. 실기 미확보 시 responsive Chromium 결과와 미실행 실기 범위를 구분해 기록한다.
+
+### 29.7 구현 순서
+
+1. `ResultScreen`에서 현재 결과 정보와 두 action을 scroll content/footer로 분리한다.
+2. result 전용 viewport flex·touch scroll·safe-area CSS를 추가한다.
+3. 500px 이하 높이에서 제목·reward card를 compact 처리하되 정보·action을 유지한다.
+4. typecheck와 기존 result/reward/engine 관련 테스트를 수행한다.
+5. 긴 성공·overflow·실패 상태를 640×360, 760px 이하, 844×390 browser에서 검증한다.
+6. 전체 테스트와 production build 후 실제 변경·검증 결과를 `changelog.md`에 기록한다.
+
+### 29.8 완료 기준과 금지 범위
+
+- 지원 landscape viewport에서 결과 길이와 관계없이 현재 단계의 action을 터치할 수 있다.
+- 모든 결과 정보와 overflow 선택 항목에 내부 터치 스크롤로 접근할 수 있다.
+- 성공·실패·pending reward command와 저장 결과가 기존과 동일하다.
+- safe area, portrait 회전 안내, 탐사·전투 스크롤 차단이 회귀하지 않는다.
+- 결과를 축약·삭제하거나 자동으로 hub에 이동해 접근 문제를 우회하지 않는다.
+- game engine·저장 schema·정산 규칙·콘텐츠 수치를 UI overflow 수정과 함께 변경하지 않는다.
+- 전역 body 스크롤 허용, 신규 modal·페이지·UI 라이브러리 또는 production 전용 test/cheat 경로를 추가하지 않는다.

@@ -1482,3 +1482,69 @@ COMPANION_DATA.raceId
 - 동료 성별은 현재 코드값을 유지하지만 원시 표에 근거가 없어 최종 설정으로 확정된 것은 아니다.
 - 신규 종족으로 AGI·STR이 바뀌므로 turn order, 최종 능력치, 인벤토리 용량, 준비 화면과 스프라이트 key를 집중 회귀해야 한다.
 - 기존 profile 자동 변환은 제외했다. 향후 모든 profile의 동료 identity를 강제 통일하려면 overflow를 포함한 별도 migration 설계가 필요하다.
+
+## 21. 퀘스트 결과 화면 모바일 세로 overflow 분석
+
+### 21.1 현상과 분석 근거
+
+- 사용자 확인 현상은 모바일 가로 화면에서 퀘스트 성공·실패 결과 정보가 viewport 높이를 넘어가고, 맨 아래의 확인 동작에 접근할 수 없어 거점 복귀 또는 보상 확정을 진행하지 못하는 것이다.
+- `src/ui/ResultScreen.tsx`는 제목, 골드·EXP, 4인 성장·스킬·슬롯 해금, 퀘스트·등급 해금, 자동 보상 또는 창고 초과 보상 목록을 하나의 `main.menu-screen.result-screen` 세로 흐름에 모두 배치한다.
+- 일반 결과의 `거점으로`와 overflow 결과의 `선택 보관·나머지 포기` 버튼도 정보 영역의 마지막 자식이다. 따라서 앞선 정보 높이가 증가하면 두 버튼이 함께 viewport 아래로 밀린다.
+- `src/styles.css`의 `body`는 게임 화면 스크롤을 막기 위해 `overflow: hidden`이고, `.menu-screen`은 `min-height: 100dvh`, 세로 중앙 정렬을 사용한다. 가로 방향의 `.result-screen`에는 별도 높이 제한·스크롤 영역이 없다.
+- `.menu-screen { overflow: auto; }`는 portrait media query에만 존재하며 portrait에서는 회전 안내가 결과 화면을 덮는다. 실제 지원 방향인 landscape에서는 넘친 결과를 body 또는 결과 화면 어디에서도 터치 스크롤할 수 없다.
+- `architecture.md` 19.7절에서 아이콘·개별 보상 DOM 전환이 모바일 결과 높이를 증가시킬 위험을 이미 기록했으나, 단계 10 브라우저 검증은 프로필 생성→거점→탐사까지였고 최대 정보량의 결과 화면은 확인하지 않았다.
+
+### 21.2 원인 경계
+
+이 결함은 정산 데이터나 화면 전환 명령의 문제가 아니라 React 결과 문서 구조와 CSS overflow 소유권의 문제다.
+
+```text
+GameState.result / profile.pendingReward
+→ ResultScreen이 모든 결과 정보를 세로 렌더링
+→ body overflow:hidden + landscape 결과 내부 scroll 부재
+→ 마지막 action이 viewport 밖으로 이동
+→ RETURN_TO_HUB 또는 CONFIRM_REWARD_SELECTION을 터치할 수 없음
+```
+
+- `RETURN_TO_HUB`는 결과 화면이며 `pendingReward`가 없을 때만 허용되고, `CONFIRM_REWARD_SELECTION`은 pending reward를 확정한다. 두 command guard는 정상이며 변경 대상이 아니다.
+- 결과 내용, 성장·보상 정산 순서, 선택값과 저장 처리는 유지한다. UI가 정산 결과를 축약하거나 일부 항목을 숨기는 방식으로 해결하지 않는다.
+- 전역 `body` 또는 모든 `.menu-screen`에 스크롤을 허용하면 탐사·전투의 제스처 차단과 시작·거점 화면 레이아웃에 영향을 줄 수 있으므로 결과 화면만 overflow를 소유해야 한다.
+
+### 21.3 목표 구조와 동작
+
+결과 화면을 viewport 안의 두 영역으로 분리한다.
+
+```text
+result-screen: 100dvh, overflow hidden
+├─ result-scroll-region: 남은 높이, touch 세로 스크롤
+│  └─ result-content
+│     ├─ 성공/실패 제목과 설명
+│     ├─ 골드·EXP·합계
+│     ├─ 성장·해금
+│     └─ 자동 보상 또는 overflow 선택 목록
+└─ result-actions: 고정 비스크롤 영역 + bottom safe area
+   └─ pending이면 보상 확정 / 아니면 거점으로
+```
+
+- 정보가 짧으면 `result-content`를 기존처럼 화면 중심에 배치하고, 길면 콘텐츠 높이만큼 자연스럽게 확장해 처음부터 끝까지 스크롤한다.
+- action 영역은 scroll region의 형제가 되어 정보 스크롤 위치와 무관하게 항상 viewport 안에 남는다. `position: fixed`로 전역 좌표를 사용하는 대신 결과 화면 flex 레이아웃의 비축소 footer로 둔다.
+- pending reward 상태에서는 `선택 보관·나머지 포기`를 footer에 표시한다. 확정 후 `pendingReward`가 사라지면 같은 자리의 action이 `거점으로`로 바뀌는 기존 2단계 흐름을 유지한다.
+- pending이 없는 성공과 실패 결과는 모두 `거점으로`를 표시한다. 버튼은 기존 command payload와 최소 44px 터치 높이를 유지한다.
+- 결과 정보의 시각적 순서인 성공/실패 → 골드/EXP → 성장·해금 → 보상/선택은 변경하지 않는다.
+
+### 21.4 모바일 레이아웃·입력 제약
+
+- `.result-screen`은 `height/max-height: 100dvh`, `min-height: 0`, `overflow: hidden`, `justify-content: flex-start`로 viewport 경계를 확정한다.
+- scroll region은 `min-height: 0`, `flex: 1`, `overflow-y: auto`, `overscroll-behavior: contain`, `-webkit-overflow-scrolling: touch`, `touch-action: pan-y`를 사용해 결과 정보에서만 네이티브 터치 스크롤을 허용한다.
+- action footer는 `flex: 0 0 auto`로 축소되지 않아야 하며 결과 정보 폭과 맞추고 버튼을 가용 폭 전체에 배치한다. 하단 safe area는 기존 `.menu-screen` padding 안에 포함한다.
+- 현재 `max-height: 500px` media query가 `.menu-screen`의 상하 padding을 10px로 덮으므로 result 전용 규칙에서 `env(safe-area-inset-top/bottom)`을 다시 보존한다.
+- 낮은 landscape에서는 제목, reward card margin·padding을 줄일 수 있으나 텍스트·보상 항목을 제거하지 않는다. 공간 최적화와 무관하게 scroll+footer 구조가 접근 가능성을 보장해야 한다.
+- portrait 회전 안내, `body`의 전역 스크롤 차단, 게임 화면의 확대·선택 방지 정책은 유지한다.
+
+### 21.5 위험과 검증 공백
+
+- scroll 영역과 footer에 `min-height: 0`·비축소 설정이 빠지면 flex item 기본 최소 높이 때문에 main이 다시 viewport보다 커질 수 있다.
+- action을 scroll 영역 안에서 `sticky`로만 처리하면 부모 overflow·Safari 동작에 의존하므로 형제 footer 구조보다 회귀 위험이 높다.
+- overflow 선택 목록을 스크롤 영역 밖으로 옮기면 checkbox는 보이지만 항목을 읽지 못하거나 footer와 겹칠 수 있다. 선택 목록은 정보 scroll 영역에 유지하고 확정 버튼만 분리한다.
+- 긴 결과의 기준은 4인 성장 결과, 신규 스킬·커스텀 슬롯, 퀘스트·등급 해금과 다수 보상이 동시에 있는 성공 상태다. 일반 성공만 검증하면 재발 가능성이 있다.
+- 실제 Android Chrome과 iOS Safari의 주소창 변화·safe area·관성 스크롤은 문서·Node 테스트만으로 확정할 수 없어 모바일 실기 또는 동일 엔진의 responsive browser 검증이 필요하다.

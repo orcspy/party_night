@@ -786,3 +786,40 @@ raw_data_table.md파일에 동료 관련 종족 데이터 수동 추가완료. �
 - 호환성·의존성 변경: Git 이력 재작성·force push·원격 설정 변경 없음. 신규 애플리케이션 dependency 없음.
 - 검증 결과: staged diff 50개 파일·1,886줄 추가·139줄 삭제, `git diff --cached --check` 공백 오류 없음. `614a58c..f590730 main -> main`으로 `https://github.com/orcspy/party_night.git` push 성공.
 - 실패·미확정 사항: push 과정에서 Git for Windows `fstab_read_flags: invalid fstab option - 'defaults'` 경고가 2회 출력됐으나 commit·원격 push는 정상 완료됐다. 본 기록 커밋을 추가로 일반 push한다.
+
+## 2026-08-10 06:00:08 +09:00 | Planner | 퀘스트 결과 화면 모바일 overflow 개선 설계
+
+- 대상: `D:\Work\Private\jobs\20260807\party_night\party_night`의 성공·실패·창고 초과 퀘스트 결과 화면
+- 사용자 작업 지시 원문:
+
+```text
+/agent Planner
+퀘스트 성공/실패 화면에서 퀘스트 완료 시 표시되는 정보들이 모바일 환경에서 화면 하단까지 길게 표시가 되어 다음 단계로 진입이 불가(확인 버튼 터치 불가)한 상태이다. 해당 현상에 대해서 개선 설계를 진행 할 것.
+```
+
+- 사용한 기준 문서: 루트 `AGENTS.md`, `architecture.md` 19절·20절, `implements.md` 27절·28절; 현재 코드 `src/ui/ResultScreen.tsx`, `src/styles.css`, `src/app/App.tsx`, `src/game/gameEngine.ts`
+- 조사 범위: 결과 정보와 action DOM 순서, 성공·실패·pending reward 표시 분기, `RETURN_TO_HUB`·`CONFIRM_REWARD_SELECTION` guard, body/menu/result overflow·100dvh·safe area·portrait/landscape media query, 단계 10 모바일 검증 범위
+- 생성·갱신 문서: `architecture.md` 신규 21절, `implements.md` 신규 29절, `changelog.md`; 원본 코드·설정·테스트는 수정하지 않음
+- 결정 근거: 결과 데이터가 하나의 세로 flex 흐름에 있고 두 필수 action도 마지막 자식인 반면, landscape에서는 `body overflow:hidden` 아래 결과 전용 scroll container가 없다. 전역 스크롤을 허용하면 게임 제스처와 다른 화면에 영향을 주므로 결과 shell만 `100dvh`로 제한하고 정보 scroll 영역과 비축소 action footer를 형제로 분리하는 최소 구조를 선택했다.
+- 핵심 결과: 성공/실패·정산·해금·보상/checkbox 전체는 touch scroll 영역에 유지하고, pending이면 `선택 보관·나머지 포기`, 아니면 `거점으로`를 safe area 안의 고정 flex footer에 표시하도록 설계했다. `min-height:0`, `overflow-y:auto`, `touch-action:pan-y`, 낮은 landscape compact 규칙, 기존 command·저장 비변경, 긴 성공·overflow·실패 상태의 640×360·760px 이하·844×390 검증 기준을 확정했다.
+- 위험·미확정 사항: flex 최소 높이 또는 safe-area override가 누락되면 footer가 다시 밀릴 수 있다. 실제 Android Chrome·iOS Safari의 관성 스크롤, 주소창 변화와 safe area는 구현 후 실기 검증이 필요하다. Planner 작업이므로 코드·테스트·build·브라우저 실행은 수행하지 않았다.
+
+## 2026-08-10 06:05:15 +09:00 | Coder | 퀘스트 결과 화면 모바일 overflow 수정
+
+- 작업 루트·모드: `D:\Work\Private\jobs\20260807\party_night\party_night` | 원본 직접 작업
+- 사용자 작업 지시 원문:
+
+```text
+/agent Coder
+위의 수정 설계안과 설계 문서에 기반하여 수정 작업을 진행 할 것.
+```
+
+- 사용한 설계문서: `implements.md` 29절 최우선, `architecture.md` 21절, 루트 `AGENTS.md`
+- 조사 범위: `ResultScreen`의 성공·실패·pending reward DOM, 결과 action dispatch, result/menu/body 높이·overflow, 500px 이하 landscape와 safe area 규칙, 기존 결과·보상 테스트
+- 검증 단계: 1단계 기본 검증
+- 변경 파일: `src/ui/ResultScreen.tsx`, `src/styles.css`, `changelog.md`; 선행 Planner의 `architecture.md`, `implements.md` 변경은 그대로 보존
+- 결정 근거: 전역 body 스크롤을 열지 않고 결과 화면 내부에만 스크롤 책임을 두어 탐사·전투 입력을 보존했다. action을 scroll 영역의 형제 footer로 분리해 긴 정보의 scroll 위치와 무관하게 필수 다음 단계 버튼이 viewport 안에 남도록 했다.
+- 핵심 구현: 기존 결과 정보를 `result-scroll-region > result-content`로 감싸고 `거점으로`와 `선택 보관·나머지 포기`를 비축소 `result-actions` footer로 이동했다. 결과 shell을 `100dvh`·`min-height:0`·`overflow:hidden`으로 제한하고 내부에 touch 세로 스크롤·overscroll containment를 적용했다. 500px 이하 높이에서는 safe area를 보존하면서 제목·보상 카드 여백을 줄이고 콘텐츠를 상단 정렬한다.
+- 호환성·의존성 변경: `RETURN_TO_HUB`, `SET_REWARD_SELECTION`, `CONFIRM_REWARD_SELECTION` payload와 결과·정산·profile v2 저장 계약을 유지했다. 신규 패키지와 dependency·lock 변경 없음.
+- 검증 결과: `npm run typecheck` 성공. `npm test -- src/tests/gameStore.test.ts src/tests/rewards.test.ts`에서 2개 파일·9개 테스트 성공. 패배 결과→거점 복귀와 일반·overflow reward 정산/선택 회귀를 확인했다. `git diff --check` 공백 오류 없음.
+- 실패·미확정 사항: 1단계 범위에 따라 전체 테스트, production build, 640×360·844×390 responsive browser와 Android Chrome·iOS Safari 실기 touch/safe-area 검증은 수행하지 않았다.
