@@ -772,3 +772,17 @@ raw_data_table.md파일에 동료 관련 종족 데이터 수동 추가완료. �
 - 호환성·의존성 변경: profile version 2·저장 키·기존 profile race·public 콘텐츠 ID를 유지했다. 신규 애플리케이션 dependency는 없고 기존 lock의 dependency 버전도 변경하지 않았다. 초기 `node_modules`가 없어 승인 범위에서 기존 lock 기준 패키지가 설치됐다. 브라우저 검증을 위해 npx Playwright 1.55.0 Chromium 설치를 시도했으나 프로젝트 dependency에는 등록하지 않았고, 실제 검증은 기존 로컬 Chromium 1228 실행 파일을 CDP로 사용했다.
 - 검증 결과: 아이콘 생성기 11개 재생성 성공. `npm run typecheck` 성공. `npm run test`에서 16개 파일·122개 테스트 전부 성공. `npm run build` 성공(Vite 408 modules, CSS 13.22kB, main JS 1,892.26kB). stage10 테스트에서 반복 퀘스트 100회, EXP1000/Lv10 cap, 골드 +400,000, 각 반복 50회, 10회 간격 save round-trip, reward overflow 포기를 확인했다. Chromium 844×390에서 가로 overflow 없음, 드워프 브람·엘프 로웬 미리보기, common shield 이미지·흰색 border, 프로필 생성→거점→상점→탐사 canvas를 확인했고 390×844에서 회전 안내가 표시됐다. favicon 404를 제외한 runtime·console·network 오류 0건이었다.
 - 실패·미확정 사항: Playwright Chromium 신규 다운로드는 148.9MiB 수신 후 두 차례 timeout되어 설치 완료로 간주하지 않았으며 로컬 npx/browser cache가 남을 수 있다. Android Chrome·iOS Safari 실기와 실제 배포 서버 검증은 사용 가능한 기기·배포 환경이 없어 미실행했다. production build는 main chunk가 500kB 기준을 넘는 Vite 경고를 출력했으나 빌드는 성공했다. 최종 아이콘 아트, 동료 성별, 임시 map 배치와 다이스·함정·비밀문 전용 에셋은 기존 deferred/draft 상태다.
+
+## 2026-08-10 05:09:15 +09:00 | Coder | v0.2.0 단계 10 전체 작업 Git 반영·원격 push
+
+- 작업 루트·모드: `D:\Work\Private\jobs\20260807\party_night\party_night` | 원본 직접 작업
+- 사용자 작업 지시 원문: `현재 작업내역을 전부 push할 것.`
+- 사용한 설계문서: 구현에 적용된 `implements.md` 23.13절·26~28절, `architecture.md` 18~20절, `raw_data_table.md`, 루트 `AGENTS.md`; 본 push 작업에서 설계문서 내용 변경 없음
+- 조사 범위: 전체 working tree 50개 변경 파일, staged diff, 최근 커밋 10개, `main`의 `origin/main` 추적 상태, 원격 URL, 민감 파일명·일반적인 비밀정보 패턴
+- 검증 단계: 1단계 Git 반영 검증; 직전 3단계 풀 검증의 typecheck·전체 122개 테스트·production build·Chromium 시나리오 성공 결과 재사용
+- 변경 파일: v0.2.0 밸런스·아이콘·동료 종족·퀘스트 진입 경고·단계 10 테스트·문서 50개를 `f590730`에 반영하고, 본 push 기록으로 `changelog.md` 추가 변경
+- 결정 근거: 사용자가 현재 working tree 전체의 commit·push를 명시적으로 승인했다. 변경은 사용자 갱신 원시 데이터, Planner 설계, 해당 Coder 구현·검증·문서로 구성되며 비밀정보와 의도하지 않은 cache·build 산출물은 staged 목록에서 확인되지 않았다.
+- 핵심 구현: 전체 변경을 `f590730` (`Complete v0.2.0 stage 10`)으로 커밋하고 `origin/main`에 일반 push했다.
+- 호환성·의존성 변경: Git 이력 재작성·force push·원격 설정 변경 없음. 신규 애플리케이션 dependency 없음.
+- 검증 결과: staged diff 50개 파일·1,886줄 추가·139줄 삭제, `git diff --cached --check` 공백 오류 없음. `614a58c..f590730 main -> main`으로 `https://github.com/orcspy/party_night.git` push 성공.
+- 실패·미확정 사항: push 과정에서 Git for Windows `fstab_read_flags: invalid fstab option - 'defaults'` 경고가 2회 출력됐으나 commit·원격 push는 정상 완료됐다. 본 기록 커밋을 추가로 일반 push한다.
