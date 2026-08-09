@@ -626,3 +626,17 @@
 - 호환성·의존성 변경: 신규 패키지·dependency·lock·profile version 변경 없음. 기존 public command 흐름과 통합 terrain/enemy registry를 유지했다. 지하 던전 map row·함정·비밀방은 승인 메타데이터를 만족하는 임시 콘텐츠다.
 - 검증 결과: `npm run typecheck` 성공. `npx vitest run src/tests/stage6.test.ts`에서 1개 파일·9개 테스트 성공. 지하 던전 순서·적 수치·상태 확률 재현·출혈/수면/치료·CD5·Lv5 resolver·정산/재입장 거부와 비전 화살·약점 노출·희생 경계를 확인했다. 대상 파일 `git diff --check` 공백 오류 없음; LF→CRLF 변환 예고만 확인했다.
 - 실패·미확정 사항: 1단계 범위에 따라 전체 테스트, production build, 패키징, 실제 브라우저 실행과 Android Chrome/iOS Safari 수동 검증은 수행하지 않았다. 최종 지하 던전 동선·함정·비밀방 배치는 향후 콘텐츠 승인 시 교체 대상이다.
+
+## 2026-08-09 21:28:40 +09:00 | Coder | 현재 작업 전체 Git 반영·원격 push
+
+- 작업 루트·모드: `E:\Work\20260806\party_night` | 원본 직접 작업
+- 사용자 작업 지시 원문: `현재까지 작업된 부분에 대해서 push를 진행 할 것.`
+- 사용한 설계문서: 기존 구현에 적용된 `implements.md`, `architecture.md`, `raw_data_table.md`, `AGENTS.md`; 본 작업에서는 설계문서 내용 수정 없음
+- 조사 범위: 전체 working tree, staged 395개 파일, 최근 커밋 10개, `main`의 `origin/main` 추적 상태, 원격 URL, 민감 파일명·일반적인 비밀정보 패턴
+- 검증 단계: 1단계 기본 검증; 직전 단계 6의 `npm run typecheck`와 `src/tests/stage6.test.ts` 9개 성공 결과 재사용
+- 변경 파일: 현재까지 누적된 v0.2.0 설계·profile v2·게임 엔진·UI·테스트·절차 생성 에셋·registry 395개와 본 기록의 `changelog.md`
+- 결정 근거: 사용자가 현재까지 작업된 전체 범위의 push를 명시적으로 승인했다. working tree의 변경은 v0.2.0 단계 0~6과 통합 에셋 작업으로 구성되며 `.env`, 개인 키, credential·token 파일과 일반적인 비밀정보 문자열은 확인되지 않았다.
+- 핵심 구현: 누적 변경을 `30b5693` (`Implement v0.2.0 through underground dungeon`)으로 커밋하고 `origin/main`에 push했다. README의 구현 상태를 단계 6 완료 기준으로 동기화했다.
+- 호환성·의존성 변경: 신규 dependency·lock 변경 없음. Git 원격 설정과 이력은 재작성하지 않았고 force push를 사용하지 않았다.
+- 검증 결과: staged diff 395개 파일·9,566줄 추가·634줄 삭제를 확인했고 `git diff --cached --check`에서 공백 오류가 없었다. 커밋 `30b5693`을 `69182d5..30b5693 main -> main`으로 `https://github.com/orcspy/party_night.git`에 push하는 데 성공했다.
+- 실패·미확정 사항: 없음. 본 작업 기록 커밋을 추가로 `origin/main`에 일반 push한다.
