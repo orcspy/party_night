@@ -823,3 +823,17 @@ raw_data_table.md파일에 동료 관련 종족 데이터 수동 추가완료. �
 - 호환성·의존성 변경: `RETURN_TO_HUB`, `SET_REWARD_SELECTION`, `CONFIRM_REWARD_SELECTION` payload와 결과·정산·profile v2 저장 계약을 유지했다. 신규 패키지와 dependency·lock 변경 없음.
 - 검증 결과: `npm run typecheck` 성공. `npm test -- src/tests/gameStore.test.ts src/tests/rewards.test.ts`에서 2개 파일·9개 테스트 성공. 패배 결과→거점 복귀와 일반·overflow reward 정산/선택 회귀를 확인했다. `git diff --check` 공백 오류 없음.
 - 실패·미확정 사항: 1단계 범위에 따라 전체 테스트, production build, 640×360·844×390 responsive browser와 Android Chrome·iOS Safari 실기 touch/safe-area 검증은 수행하지 않았다.
+
+## 2026-08-10 06:22:39 +09:00 | Coder | 모바일 결과 화면 수정 main push
+
+- 작업 루트·모드: `D:\Work\Private\jobs\20260807\party_night\party_night` | 원본 직접 작업
+- 사용자 작업 지시 원문: `메인 브렌치에 push 할 것.`
+- 사용한 설계문서: `implements.md` 29절, `architecture.md` 21절, 루트 `AGENTS.md`
+- 조사 범위: 현재 main 작업 트리 5개 변경 파일의 전체 diff·최근 커밋 10개·origin/main 추적·원격 URL·민감정보 패턴, 직전 1단계 검증 결과
+- 검증 단계: 1단계 Git 반영 검증; 직전 `npm run typecheck`와 결과·보상 관련 9개 테스트 성공 결과 재사용
+- 변경 파일: 결과 화면 설계·구현·작업 기록 5개 파일을 `66d5d5e`에 반영하고, 본 push 이력으로 `changelog.md` 추가 변경
+- 결정 근거: 사용자가 main branch push를 명시적으로 요청했다. 변경은 직전 Planner 설계, Coder 구현·검증과 이력으로 한정되며 dependency·lock·비밀정보·의도하지 않은 산출물이 포함되지 않았다.
+- 핵심 결과: `66d5d5e` (`Fix mobile result overflow`)를 생성하고 `origin/main`에 일반 push했다.
+- 호환성·의존성 변경: Git 이력 재작성·force push·원격 설정 변경과 dependency 변경 없음.
+- 검증 결과: staged diff 5개 파일·352줄 추가·25줄 삭제, `git diff --cached --check` 공백 오류 없음. `7164460..66d5d5e main -> main` push 성공.
+- 실패·미확정 사항: push 과정에서 Git for Windows `fstab_read_flags: invalid fstab option - 'defaults'` 경고가 2회 출력됐으나 원격 반영은 성공했다. 전체 테스트·build·모바일 브라우저 검증 미실행 범위는 직전 구현 기록과 동일하다.
