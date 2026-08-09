@@ -179,14 +179,14 @@ battleAgi = max(1, floor((AGI + 2) / 2))
 |---|---|---|---|---:|---|---|---:|---|---:|---:|---|---|
 | `basic_attack` | 기본 공격 | all | active | 1 | single_enemy | 2d6 | 0 | none | 0 | 0 | 기본 피해식 | current |
 | `power_strike` | 강타 | warrior | active | 1 | single_enemy | 3d6 | 0 | cooldown_2 | 0 | 0 | 50% 확률로 적 1턴 기절 | current |
-| `quick_stab` | 빠른 찌르기 | rogue | active | 1 | single_enemy | 2d6 | 2 | cooldown_2 | 0 | 0 | 50% 확률로 적 출혈(1dmg per turn), 누적 가능 | current |
+| `quick_stab` | 빠른 찌르기 | rogue | active | 1 | single_enemy | 2d6 | 2 | cooldown_2 | 0 | 0 | 100% 확률로 적 출혈(1dmg per turn), 누적 가능 | current |
 | `aimed_shot` | 조준 사격 | archer | active | 1 | single_enemy | 3d6 | 0 | cooldown_2 | 0 | 1 | 다이스 하나 선택 리롤 | current |
 | `holy_strike` | 신성한 일격 | paladin | active | 1 | single_enemy | 2d6 | 2 | cooldown_2 | 0 | 0 | 언데드에 2배 효과 | current |
 | `heal` | 성스러운 치료 | priest | active | 1 | single_ally | 2d6 | 1 | none | 0 | 0 | 아군 한명 치료, 성력 1 축적(버프로 취급) | current |
 | `arcane_bolt` | 비전 화살 | mage | active | 1 | single_enemy | 3d6 | 1 | cooldown_2 | 0 | 0 | overkill데미지 이전(임의의 남은 적), 마력1 축적 | current |
 | `taunt` | 도발 | warrior | active | 2 | all_enemies | none | 0 | cooldown_2 | 0 | 0 | 1턴간 적이 50%확률로 자신을 공격 | input |
 | `seek_trap` | 함정간파 | rogue | passive | 2 | self | none | 0 | none | 0 | 0 | 함정 및 숨겨진 문 발견 | input |
-| `find_leak` | 약점노출 | archer | active | 2 | single_enemy | 1d6 | -3 | cooldown_2 | 0 | 0 | 지정대상은 다음 1턴까지 대상이 받는 피해 증가(dice 값) | input |
+| `find_leak` | 약점노출 | archer | active | 2 | single_enemy | 1d6 | -3 | cooldown_2 | 0 | 0 | 지정대상은 다음 궁수 차례가 끝날때까지 대상이 받는 피해 증가(dice 값) | input |
 | `protection_pledge` | 보호 서약 | paladin | passive | 2 | all_allies | none | 0 | none | 0 | 0 | 모든 아군이 받는 최종 피해 -1 | input |
 | `smite` | 징벌 | priest | active | 2 | single_enemy | 2d6 | 1 | cooldown_2 | 0 | 0 | 언데드에 2배 효과, 성력 1축적 | input |
 | `lightning_bolt` | 전격 화살 | mage | active | 2 | single_enemy | 2d6 | 3 | cooldown_2 | 0 | 0 | 100% 확률로 적 1턴 마비, 마력 1축적 | input |
@@ -211,7 +211,7 @@ battleAgi = max(1, floor((AGI + 2) / 2))
 | `bone_crusher` | 본 크러셔 | all | passive | 5 | self | none | 0 | none | 0 | 0 | 스켈레톤 대상 대미지 +3, 보스 대상시 +1 | input |
 | `cutlery_expert` | 날붙이 전문가 | warrior | passive | 5 | self | none | 0 | none | 0 | 0 | 날붙이 무기류 +1 대미지 | input |
 | `club_expert` | 몽둥이 전문가 | warrior | passive | 5 | self | none | 0 | none | 0 | 0 | 비 날붙이 무기류 +1 대미지 | input |
-| `neurotoxin` | 신경독 | rogue | active | 5 | self | 2d6 | 2 | cooldown_2 | 0 | 0 | 누적 가능 50% 확률로 적 신경독 중독(agi 50% down)+출혈 | input |
+| `neurotoxin` | 신경독 | rogue | active | 5 | self | 2d6 | 2 | cooldown_2 | 0 | 0 | 누적 가능 100% 확률로 적 신경독 중독(대상의 전투 agi 50% down 중복 불가)+출혈(누적가능) | input |
 | `breathing_control` | 호흡 조절 | archer | passive | 5 | self | none | 0 | none | 0 | 0 | 사격 대미지 + 2 | input |
 | `sacrifice` | 희생 | paladin | active | 5 | single_ally | 2d6 | 2 | cooldown_4 | 0 | 0 | 아군에게 치료, 치료된 1/2만큼 hp소모 | current |
 | `bless` | 축복 | priest | active | 5 | single_ally | 1d6 | 0 | none | 0 | 0 | 아군 한명 str, dex, int 2씩 증가, 성력 1 축적 | current |
@@ -495,12 +495,12 @@ TBD
 - 7.2절 직업 스킬 ID와 Lv1/2/5는 유지한다.
 - `basic_attack`은 슬롯 밖 상시 명령이다.
 - `power_strike`: 3d6, CD2, 피해 후 기절 일반50%/보스25%.
-- `quick_stab`: 2d6+2, CD2, 피해 후 bleed +1 일반50%/보스25%.
+- `quick_stab`: 2d6+2, CD2, 피해 후 bleed +1 일반100%/보스50%.
 - `heal`: 2d6+1 회복, 성력+1.
 - `arcane_bolt`: 3d6+1, 초과 피해를 다른 적 1명에게 1회 이전, 마력+1.
 - `taunt`: CD2, 모든 적에 도발 일반50%/보스25%, 1회 행동.
 - `seek_trap`: 살아 있는 보유자가 있으면 함정·비밀문 자동 발견.
-- `find_leak`: `max(1,1d6-3)` 받는 직접 피해 증가, 대상 다음 행동 종료까지.
+- `find_leak`: `max(1,1d6-3)` 받는 직접 피해 증가, 궁수의 다음 행동 종료까지. 궁수가 다음 행동 종료전 사망 시 해당 라운드까지만 유지.
 - `protection_pledge`: 생존 중 아군 직접 최종 피해 -1.
 - `smite`: 2d6+1, 언데드×2, 성력+1, CD2.
 - `lightning_bolt`: 2d6+3, 마비 일반100%/보스50%, 마력+1, CD2.
@@ -514,7 +514,7 @@ TBD
 7.3절 커스텀 스킬은 모두 장착 요구 Lv3으로 정규화한다. 추가 실행값:
 
 - `first_aid`: 붕대 1개, 자신 1d6+2 회복, CD2.
-- `neurotoxin`: 대상 `single_enemy`, 2d6+2 후 일반50%/보스25%로 AGI50% 감소+bleed1, CD2.
+- `neurotoxin`: 대상 `single_enemy`, 2d6+2 후 일반100%/보스50%로 전투 AGI50% 감소(중첩 불가)+bleed1, CD2.
 - `sacrifice`: 실제 회복량 절반을 시전자 HP에서 차감, CD4.
 - `bless`: STR/DEX/INT +2, 3회 행동, 성력+1.
 - `sleep`: 다이스 없음, 일반50%/보스25%, 직접 공격 피격까지, CD2, 마력+1.
@@ -524,13 +524,13 @@ TBD
 
 | 순서 | quest_id | 이름 | 권장 Lv | map_id | 완료 | 골드 | 파티 EXP | 반복 | 해금 |
 |---:|---|---|---:|---|---|---:|---:|---|---|
-| 1 | `training_ruins_quest` | 훈련 폐허 | 1 | `training_ruins` | 3번째 조우 | 300 | 400 | false | 기본 |
-| 2 | `goblin_den_quest` | 고블린 소굴 | 2 | `goblin_den` | 홉고블린 | 320 | 400 | false | Q1 |
-| 3 | `ancient_site_quest` | 유적지 | 3 | `ancient_site` | 오우거 | 500 | 400 | false | Q2 |
-| 4 | `underground_dungeon_quest` | 지하 던전 | 4 | `underground_dungeon` | 미노타우르스 | 720 | 400 | false | Q3 |
-| 5 | `old_castle_quest` | 옛 고성 | 5 | `old_castle` | 리치 | 1050 | 400 | false | Q4 |
-| - | `volcanic_cave_quest` | 화산 동굴 | 6~8 | `volcanic_cave` | 사이클롭스 | 760 | 400 | true | Q5 |
-| - | `deep_forest_ruins_quest` | 깊은 숲 폐허 | 8~10 | `deep_forest_ruins` | 스켈레톤 킹 | 820 | 400 | true | Q5 |
+| 1 | `training_ruins_quest` | 훈련 폐허 | 1 | `training_ruins` | 3번째 조우 | 1100 | 400 | false | 기본 |
+| 2 | `goblin_den_quest` | 고블린 소굴 | 2 | `goblin_den` | 홉고블린 | 1100 | 400 | false | Q1 |
+| 3 | `ancient_site_quest` | 유적지 | 3 | `ancient_site` | 오우거 | 1800 | 400 | false | Q2 |
+| 4 | `underground_dungeon_quest` | 지하 던전 | 4 | `underground_dungeon` | 미노타우르스 | 2700 | 400 | false | Q3 |
+| 5 | `old_castle_quest` | 옛 고성 | 5 | `old_castle` | 리치 | 4000 | 400 | false | Q4 |
+| - | `volcanic_cave_quest` | 화산 동굴 | 6~8 | `volcanic_cave` | 사이클롭스 | 4000 | 400 | true | Q5 |
+| - | `deep_forest_ruins_quest` | 깊은 숲 폐허 | 8~10 | `deep_forest_ruins` | 스켈레톤 킹 | 4000 | 400 | true | Q5 |
 
 ### 22.9 적 데이터
 
@@ -543,17 +543,17 @@ TBD
 | `ogre` | 오우거 | boss/midboss | 92 | 7 | 5 | 1 | ogre_smash | enemy_ogre |
 | `kobold_skirmisher` | 코볼트 척후병 | 일반 | 25 | 5 | 3 | 6 | basic_attack | enemy_kobold_skirmisher |
 | `gnoll_brute` | 놀 투사 | midboss | 74 | 7 | 5 | 5 | rending_bite | enemy_gnoll_brute |
-| `minotaur_boss` | 미노타우르스 | boss | 120 | 9 | 6 | 4 | minotaur_gore | enemy_minotaur_boss |
+| `minotaur_boss` | 미노타우르스 | boss | 120 | 8 | 6 | 4 | minotaur_gore | enemy_minotaur_boss |
 | `skeleton_soldier` | 스켈레톤 병사 | 일반/undead | 30 | 6 | 5 | 3 | basic_attack | enemy_skeleton_soldier |
 | `zombie` | 좀비 | 일반/undead | 42 | 7 | 3 | 1 | basic_attack | enemy_zombie |
 | `ghoul` | 구울 | midboss/undead | 82 | 8 | 5 | 6 | paralyzing_claw | enemy_ghoul |
 | `lich_boss` | 리치 | boss/undead | 125 | 10 | 7 | 6 | death_bolt | enemy_lich_boss |
 | `imp` | 임프 | 일반 | 34 | 8 | 4 | 7 | basic_attack | enemy_imp |
-| `cyclops_boss` | 사이클롭스 | boss | 150 | 11 | 7 | 2 | crushing_blow | enemy_cyclops_boss |
+| `cyclops_boss` | 사이클롭스 | boss | 150 | 10 | 7 | 2 | crushing_blow | enemy_cyclops_boss |
 | `wraith` | 레이스 | midboss/undead | 86 | 10 | 7 | 8 | drain_touch | enemy_wraith |
-| `skeleton_king_boss` | 스켈레톤 킹 | boss/undead | 155 | 11 | 8 | 5 | royal_cleave | enemy_skeleton_king_boss |
+| `skeleton_king_boss` | 스켈레톤 킹 | boss/undead | 145 | 9 | 7 | 5 | royal_cleave | enemy_skeleton_king_boss |
 
-적 특수 스킬은 첫 해당 퀘스트 단계에서 단순 resolver로 추가한다: `commanding_strike` 3d6, `ogre_smash` 3d6+2·기절25%, `rending_bite` 2d6+2·bleed1 50%, `minotaur_gore` 4d6·기절 일반50%/보스 자신과 무관, `paralyzing_claw` 2d6+2·마비50%, `death_bolt` 3d6+4, `crushing_blow` 4d6+4·기절50%, `drain_touch` 3d6·실피해 절반 회복, `royal_cleave` 모든 아군 3d6.
+적 특수 스킬은 첫 해당 퀘스트 단계에서 단순 resolver로 추가한다: `commanding_strike` 3d6, `ogre_smash` 3d6+2·기절25%, `rending_bite` 2d6+2·bleed1 50%, `minotaur_gore` 3d6+2·기절40%, `paralyzing_claw` 2d6+2·마비50%, `death_bolt` 3d6+4, `crushing_blow` 3d6+4·기절40%, `drain_touch` 3d6·실피해 절반 회복, `royal_cleave` 모든 아군 2d6.
 
 ### 22.10 조우 순서
 

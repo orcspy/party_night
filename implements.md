@@ -1560,3 +1560,178 @@ damage?: number
 - 패시브를 active command로 되돌리거나 발견을 확률 판정으로 변경하지 않는다.
 - 탐사 위치 접근 기반 탐지 범위, 수동 탐색 command, 범용 탐지 시스템을 추가하지 않는다.
 - profile version, map placement와 보상 수치를 변경하지 않는다.
+
+## 26. 수동 밸런스 데이터 동기화 구현 사양
+
+### 26.1 목표와 우선순위
+
+- 사용자가 직접 수정한 `raw_data_table.md`의 출혈 확률, 신경독 전투 AGI, 약점 노출 수명, 퀘스트 골드와 후반 보스 수치를 현재 단계 9 코드에 동기화한다.
+- 이 절은 `23.9`의 `exposed` 수명, 기존 단계별 골드 literal, 미노타우르스·사이클롭스·스켈레톤 킹의 기존 수치를 대체한다.
+- ID, profile version 2, 퀘스트 순서, EXP, 성장, 장비 가격, 상태 제거 우선순위와 boss 공통 확률 절반 규칙은 유지한다.
+
+### 26.2 대상 파일
+
+| 파일 | 변경 책임 |
+|---|---|
+| `src/game/types.ts` | source 기준 `exposedByActor` 상태 계약과 필요 시 turn-order 갱신 표지 |
+| `src/game/content.ts` | 7개 퀘스트 골드, 후반 보스 능력치, 보스 스킬 dice metadata |
+| `src/game/combat.ts` | 출혈 확률, 신경독 AGI·행동 순서, 약점 노출 만료, 보스 기절 확률 |
+| `src/game/rewards.ts` | quest definition 기반 실제 골드 지급·summary 생성 |
+| `src/game/gameEngine.ts` | 동일 quest gold가 결과와 이벤트에 전달되는지 확인; 별도 계산 금지 |
+| `src/tests/combat.test.ts` | 100% bleed, AGI 순서, source 기준 exposed 단위 테스트 |
+| `src/tests/stage6.test.ts` | 미노타우르스·도적 스킬·지하 던전 골드 회귀 |
+| `src/tests/stage7.test.ts` | 옛 고성 신규 골드와 리치 불변 회귀 |
+| `src/tests/stage89.test.ts` | 사이클롭스·스켈레톤 킹·반복 골드 회귀 |
+| `src/tests/rewards.test.ts`, `src/tests/gameEngine.test.ts` | 7개 퀘스트 실제 지급액·결과 payload·저장 골드 |
+
+### 26.3 스킬 확률
+
+`chanceBySkill`의 일반 확률:
+
+| skillId | 일반 | boss | 상태 |
+|---|---:|---:|---|
+| `quick_stab` | 100 | 50 | bleed +1 |
+| `neurotoxin` | 100 | 50 | neurotoxin 최초 적용 + bleed +1 |
+
+- boss 값은 별도 하드코딩하지 않고 기존 `normalChance / 2` 규칙으로 산출한다.
+- 확률 판정은 기존 시드 RNG를 사용한다. 일반 대상에서도 판정용 RNG를 계속 소비할지 여부는 기존 공통 resolver 흐름을 유지해 명령 시퀀스 재현성을 보존한다.
+- `quick_stab` 성공은 현재 stack에 1을 더하고 최대 5를 유지한다.
+- `neurotoxin` 재적용 성공은 AGI를 다시 감소시키지 않고 bleed만 1 추가한다.
+- boss 판정 실패 시 피해만 적용하고 bleed·neurotoxin·AGI를 모두 변경하지 않는다.
+
+### 26.4 신경독과 행동 순서
+
+최초 적용:
+
+```text
+originalAgi = target.agi
+target.agi = max(1, floor(target.agi * 0.5))
+neurotoxinsByActor[targetId] = { originalAgi }
+```
+
+행동 순서 갱신:
+
+1. 신경독이 현재 actor의 공격 결과로 적용되면 현재 `turnIndex`까지의 ID는 고정한다.
+2. 아직 행동하지 않은 suffix를 participant의 현재 `agi` 내림차순으로 안정 정렬한다.
+3. AGI 동률은 기존 `turnOrder`에서 앞선 actor를 먼저 둔다.
+4. 라운드가 끝나면 전체 turn order를 같은 기준으로 안정 정렬한다.
+5. 현재 actor의 다음 index는 재정렬된 suffix의 첫 항목을 가리켜야 하며 actor를 중복 실행하거나 누락하지 않는다.
+6. 신경독 제거 시 `originalAgi`를 복원하고 동일한 재정렬 절차를 사용한다.
+
+- 추가 RNG를 굴리지 않는다. 전투 시작 때 정해진 seed 기반 tie 순서를 보존한다.
+- 죽은 actor는 기존처럼 turn order에 남아 skip될 수 있으며 승패 처리 순서는 변경하지 않는다.
+- `haste_tonic`, `ability_reinforcement`, `bless` 등 다른 AGI 변화가 turn order를 재정렬하지 않는 기존 승인 결정은 유지한다.
+- 신경독 상태와 cooldown은 전투 종료 시 기존과 같이 제거된다.
+
+### 26.5 약점 노출 상태 계약
+
+`CombatState.exposedByActor[targetId]`:
+
+```ts
+{
+  bonusDamage: number
+  sourceActorId: string
+  sourceActionsRemaining: number
+  appliedRound: number
+}
+```
+
+적용과 만료:
+
+1. `find_leak` 성공 시 `bonusDamage = max(1, rollTotal)`, source는 시전자 궁수, `sourceActionsRemaining = 2`, `appliedRound = combat.round`로 저장한다.
+2. 스킬을 사용한 현재 궁수 행동 종료에서 remaining을 1로 감소시킨다.
+3. 같은 궁수의 다음 행동 기회 종료에서 0으로 감소시키고 상태를 제거한다.
+4. 다음 행동 기회가 기절·마비·수면으로 skip돼도 차례 종료로 간주해 제거한다.
+5. source가 다음 행동 전 HP 0이 되면 source action count로 제거하지 않는다. 사망한 현재 round의 나머지 행동 동안 유지하고 round wrap에서 제거한다.
+6. source가 출혈 tick으로 자기 차례 시작에 쓰러져도 같은 사망 round 종료 규칙을 적용한다.
+7. source가 살아 있으면 target 행동·target skip·target AGI와 관계없이 만료하지 않는다.
+8. 같은 target 재적용은 중첩하지 않고 최신 상태로 교체한다.
+
+- `directDamageFor`의 보너스 적용과 `head_shot` 선행 조건은 state 존재 여부를 계속 사용한다.
+- 상태 제거와 라운드 만료는 구조화 event를 사용하며 message 파싱으로 판단하지 않는다.
+- 전투 종료 시 상태를 영속 profile에 저장하지 않는다.
+
+### 26.6 퀘스트 골드
+
+| questId | 신규 골드 |
+|---|---:|
+| `training_ruins_quest` | 1100 |
+| `goblin_den_quest` | 1100 |
+| `ancient_site_quest` | 1800 |
+| `underground_dungeon_quest` | 2700 |
+| `old_castle_quest` | 4000 |
+| `volcanic_cave_quest` | 4000 |
+| `deep_forest_ruins_quest` | 4000 |
+
+- `QUEST_DATA[questId].goldReward`를 런타임 단일 원본으로 사용한다.
+- 각 settlement는 quest ID로 definition을 조회하고 다음 항목에 같은 값을 사용한다.
+  - `profile.gold` 증가
+  - `QuestSettlementSummary.goldGranted`
+  - `GameResult.gold`
+  - `REWARD_GRANTED` event message
+- 반복 퀘스트도 settlement 함수 parameter의 별도 literal을 제거하고 quest definition을 사용한다.
+- 기존 profile의 gold를 보정·차감·소급 지급하지 않는다.
+- 실패 골드 0, overflow와 무관한 골드 선지급, 정수 안전성 규칙은 유지한다.
+
+### 26.7 후반 보스 데이터
+
+| contentId | HP | ATK | DEF | AGI | 스킬 |
+|---|---:|---:|---:|---:|---|
+| `minotaur_boss` | 120 | 8 | 6 | 4 | `minotaur_gore`: 3d6+2, stun 40% |
+| `lich_boss` | 125 | 10 | 7 | 6 | `death_bolt`: 3d6+4, 변경 없음 |
+| `cyclops_boss` | 150 | 10 | 7 | 2 | `crushing_blow`: 3d6+4, stun 40% |
+| `skeleton_king_boss` | 145 | 9 | 7 | 5 | `royal_cleave`: 모든 생존 아군 공통 2d6 |
+
+- `minotaur_gore`와 `crushing_blow`의 40%는 enemy가 party를 공격할 때 적용되는 명시 확률이다. party actor는 boss가 아니므로 별도 절반 변환 없이 40%다.
+- 기존 `minotaur_gore`의 확률 예외는 더 이상 수치 50을 전제로 설명하지 않고, enemy skill 자체의 승인 확률 40을 그대로 사용하도록 정리한다.
+- `royal_cleave`는 dice count만 2로 바꾸고 공통 한 번 굴림, 전체 생존 party 적용, 보호 서약, 처치 event와 전멸 판정을 유지한다.
+- 적 asset ID, boss/undead flag, 조우 구성과 map은 변경하지 않는다.
+
+### 26.8 구현 순서
+
+1. `types.ts`의 exposed 상태를 source 기준 계약으로 변경한다.
+2. `content.ts`의 quest·boss·skill 승인 데이터를 갱신한다.
+3. `combat.ts`의 확률과 exposed 수명부터 수정하고 단위 테스트한다.
+4. 신경독 적용·제거 시 현재 round suffix와 다음 round 전체 순서를 재정렬한다.
+5. `rewards.ts`의 골드 literal을 quest definition 단일 원본으로 교체한다.
+6. stage 6~9·reward·engine assertion을 신규 값으로 갱신한다.
+7. 전체 관련 테스트 후 typecheck·전체 test·build와 모바일 후반 보스 플레이를 검증한다.
+
+### 26.9 자동 테스트
+
+전투 상태:
+
+- 일반 대상 `quick_stab`과 `neurotoxin`은 여러 seed 모두 100% 상태를 적용한다.
+- boss 대상은 충분한 고정 seed 표본에서 성공·실패가 모두 나오고 동일 seed 결과가 재현된다.
+- bleed는 최대 5를 넘지 않으며 neurotoxin 재적용은 AGI를 추가 감소시키지 않는다.
+- 신경독 대상이 현재 라운드에 아직 행동하지 않았으면 suffix에서 낮아진 AGI 위치로 이동한다.
+- 이미 행동한 대상은 현재 라운드에 다시 행동하지 않고 다음 라운드부터 낮아진 AGI 순서를 사용한다.
+- 동률 actor 상대 순서, 명령별 RNG 상태와 행동 횟수가 재현된다.
+
+약점 노출:
+
+- target이 먼저 행동해도 상태가 유지된다.
+- source 궁수의 적용 행동 직후 유지되고 다음 정상 행동 종료 후 제거된다.
+- source의 다음 행동이 stun/paralysis/sleep skip이어도 제거된다.
+- source가 다음 차례 전에 사망하면 사망 round의 다른 actor 행동 동안 유지되고 round wrap에서 제거된다.
+- source가 출혈로 다음 차례 시작에 사망하는 경로도 round wrap까지 유지된다.
+- 상태가 유지되는 동안 `head_shot`을 사용할 수 있고 제거 후에는 거부된다.
+
+경제·보스:
+
+- 7개 quest definition, 실제 profile gold 증가, summary와 game result가 각각 승인 골드와 같다.
+- 반복 퀘스트 N회 후 gold는 `initial + 4000 × N`이며 EXP1000 cap과 repeat count는 기존대로다.
+- minotaur/cyclops/skeleton king의 신규 능력치와 dice metadata를 정확히 검증한다.
+- minotaur와 cyclops stun 40%가 동일 seed에서 재현되고, skeleton king은 2d6 한 번으로 모든 생존 party를 공격한다.
+- 리치와 unrelated 일반 적·중간보스 수치, EXP·해금·보상·overflow는 회귀한다.
+
+### 26.10 완료 기준과 금지 범위
+
+- `npm run typecheck`, 전체 `npm run test`, `npm run build`가 성공한다.
+- Android Chrome·iOS Safari 가로 화면에서 도적 상태 표시, 궁수 약점 노출·헤드 샷, 신규 골드 결과와 후반 보스 3종을 확인한다.
+- 상태·행동 순서·골드·보스 피해를 React 또는 Phaser에서 계산하지 않는다.
+- profile version을 올리거나 기존 profile gold를 소급 조정하지 않는다.
+- 신경독 외 AGI buff까지 turn-order 재정렬 대상으로 확대하지 않는다.
+- 약점 노출을 target 행동 기준으로 남기거나 source 사망 즉시 제거하지 않는다.
+- 신규 골드와 보스 수치를 별도 UI literal 또는 settlement별 중복 상수로 다시 분산하지 않는다.
+- 범용 상태 DSL, 범용 경제 설정 시스템과 신규 AI를 추가하지 않는다.

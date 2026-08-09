@@ -1231,3 +1231,86 @@ content ID / instance ID / command type
 - session 초기 로그에 메시지를 직접 넣고 같은 이벤트를 다시 `appendEvents`하면 중복되므로 단일 경로만 사용해야 한다.
 - 함정 발동을 `TRAP_TRIGGERED`로 교체할 때 기존 피해 화면 연출이 `DAMAGE_APPLIED`만 조회한다면 연출이 사라질 수 있다. Phaser가 두 type을 모두 직접 피해 연출 대상으로 처리하거나, 피해 이벤트와 발동 이벤트를 분리하되 사용자 로그 중복을 막아야 한다.
 - 현재 profile 저장 형식과 발견 ID 배열 구조는 변경할 필요가 없다.
+
+## 18. 수동 밸런스 변경과 전투 상태 수명 분석
+
+### 18.1 분석 범위와 기준
+
+- 기준 자료는 사용자가 직접 갱신한 `raw_data_table.md` 7.2~7.3절과 22.7~22.9절이다.
+- 현재 구현 비교 대상은 `src/game/{types,content,combat,rewards,gameEngine}.ts`와 `src/tests/{combat,stage6,stage7,stage89}.test.ts`다.
+- 이번 변경은 전투 판정·경제 수치의 교체이며 profile version, 콘텐츠 ID, 퀘스트 진행 순서와 에셋 registry는 변경하지 않는다.
+- `raw_data_table.md`는 원본 승인 데이터로 보존하며 실제 구현은 후속 Coder 작업이다.
+
+### 18.2 승인 데이터와 현재 코드 차이
+
+| 영역 | 수동 승인값 | 현재 코드 상태 | 영향 |
+|---|---|---|---|
+| `quick_stab` | 일반 bleed 100%, boss 50% | 일반 50%, boss 25% | 상태 확률 resolver·결정론 테스트 수정 |
+| `neurotoxin` | 일반 100%, boss 50%; 전투 AGI 50% 감소, 비중첩 | 일반 50%, boss 25%; Actor AGI 값은 감소하지만 고정 turn order에는 반영되지 않음 | 확률·행동 순서 갱신 경계 수정 |
+| `find_leak` | 궁수의 다음 행동 종료까지; 그 전에 사망하면 사망 라운드 종료까지 | 대상의 다음 행동 종료 시 만료 | 상태 소유자를 target이 아니라 source 수명과 연결 |
+| 퀘스트 골드 | 1100/1100/1800/2700/4000/4000/4000 | 300/320/500/720/1050/760/820 | 콘텐츠·정산·결과·경제 테스트 동기화 |
+| 미노타우르스 | ATK8, `3d6+2`, 기절40% | ATK9, `4d6`, 기절50% | 적 정의·스킬 metadata·확률 테스트 수정 |
+| 사이클롭스 | ATK10, `3d6+4`, 기절40% | ATK11, `4d6+4`, 기절50% | 적 정의·스킬 metadata·확률 테스트 수정 |
+| 스켈레톤 킹 | HP145/ATK9/DEF7, 전체 `2d6` | HP155/ATK11/DEF8, 전체 `3d6` | 적 정의·전체 공격 회귀 테스트 수정 |
+| 리치 | HP125/ATK10/DEF7/AGI6, `3d6+4` | 승인값과 동일 | 변경 불필요, 회귀만 유지 |
+
+확인된 코드 상태:
+
+- 상태 확률은 `chanceBySkill`의 일반 확률을 읽고 target이 boss이면 절반으로 변환한다. 따라서 두 도적 스킬의 일반값만 100으로 교체하면 승인된 boss 50%도 같은 공통 규칙으로 얻는다.
+- 신경독은 최초 적용 때 `Actor.agi = max(1, floor(agi × 0.5))`를 저장하고 제거 시 `originalAgi`로 복원한다. 수치 자체는 전투 AGI 필드에 반영되지만 `turnOrder`가 전투 시작 후 고정되어 행동 순서 효과가 발생하지 않는다.
+- 약점 노출은 target ID 아래 `{ bonusDamage, remainingActions }`만 저장하고 target의 행동 종료 때 감소한다. source 궁수 ID와 적용 라운드 정보가 없어 신규 수명을 표현할 수 없다.
+- 골드는 `QUEST_DATA.goldReward`와 각 settlement 함수에 중복된 literal로 존재한다. 한쪽만 변경하면 결과 화면 표시와 실제 profile 지급액이 달라질 수 있다.
+
+### 18.3 신경독과 전투 AGI 흐름
+
+신경독은 파생 기본 능력치를 다시 계산하는 장비·버프가 아니라 현재 전투의 행동 AGI에 직접 적용하는 상태다.
+
+```text
+신경독 성공
+→ 대상 current battle AGI를 max(1, floor(current AGI × 0.5))로 변경
+→ 같은 신경독 재적용은 AGI를 다시 절반으로 만들지 않고 bleed만 +1
+→ 아직 행동하지 않은 현재 라운드 tail을 현재 AGI 기준으로 안정 정렬
+→ 다음 라운드 시작 시 전체 turn order를 현재 AGI 기준으로 안정 정렬
+→ 치료 시 original battle AGI 복원 후 같은 순서 갱신 규칙 적용
+```
+
+- 이미 행동을 끝낸 actor를 현재 라운드에서 다시 행동시키거나 건너뛰게 해서는 안 된다. 현재 `turnIndex`까지의 prefix는 고정하고 아직 행동하지 않은 suffix만 재정렬한다.
+- 라운드 경계에서는 전체 turn order를 재정렬한다. AGI 동률은 전투 시작 시 시드 RNG로 결정된 기존 상대 순서를 안정 tie-break로 재사용해 추가 RNG 소비 없이 재현성을 유지한다.
+- 기존 승인에 따라 근력·민첩 강장제와 능력 강화는 turn order를 재정렬하지 않는다. 순서 갱신 trigger는 신경독 적용·해제에 한정한다.
+- 신경독 적용 실패 시 AGI와 bleed 모두 변경하지 않는다. 일반 적은 100%라 항상 성공하고 boss는 공통 저항 적용 후 50%다.
+
+### 18.4 약점 노출 소유권과 만료
+
+신규 상태는 다음 정보를 가져야 한다.
+
+```text
+ExposedState {
+  sourceActorId
+  bonusDamage
+  sourceActionsRemaining
+  appliedRound
+}
+```
+
+- 적용 직후 `sourceActionsRemaining = 2`로 둔다. 스킬을 사용한 현재 행동 종료에서 1이 되고, 같은 궁수의 다음 행동 기회 종료에서 0이 되어 제거된다.
+- `stun`, `paralysis`, `sleep`으로 다음 행동 기회를 건너뛰어도 그 차례의 종료이므로 만료한다.
+- 궁수가 다음 행동 기회 전에 전투불능이 되면 즉시 제거하지 않는다. 사망한 라운드의 남은 행동 동안 유지하고 그 라운드가 끝나는 시점에 제거한다.
+- 궁수가 출혈로 자신의 다음 차례 시작에 쓰러지면 행동을 완료하지 못한 사망으로 보고 해당 라운드 종료까지 유지한다.
+- 같은 target에 다시 적용하면 기존 상태를 중첩하지 않고 최신 source·bonus로 교체한다. `head_shot` 사용 조건과 직접 피해 보정은 상태가 존재하는 동안 그대로 유지한다.
+- target이 먼저 쓰러진 상태는 결과에 영향을 주지 않으며 전투 종료 초기화 경계에서 제거된다.
+
+### 18.5 경제와 보스 수치의 단일 원본
+
+- 실제 지급 골드는 `QuestDefinition.goldReward`를 단일 런타임 원본으로 사용한다.
+- settlement summary, profile gold 증가, `GameResult.gold`, `REWARD_GRANTED` 메시지는 같은 quest definition 값을 전달받아야 한다.
+- 승인 골드는 순서대로 훈련 폐허 1100, 고블린 소굴 1100, 유적지 1800, 지하 던전 2700, 옛 고성 4000, 화산 동굴 4000, 깊은 숲 폐허 4000이다.
+- EXP, 장비 가격, 상점 등급, 반복 횟수와 스킬 가격은 이번 작업에서 변경하지 않는다.
+- 후반 보스 변경은 enemy definition과 skill definition 양쪽에 적용한다. 일반 적·중간보스·리치, 피해 공식, boss 확률 절반 공통 규칙은 유지한다.
+
+### 18.6 위험과 회귀 범위
+
+- 행동 순서를 현재 라운드 전체에서 다시 정렬하면 중복 행동·행동 누락이 발생할 수 있으므로 prefix/suffix 경계를 자동 테스트해야 한다.
+- 약점 노출을 target 행동 기준에서 source 행동 기준으로 바꾸면 `head_shot` 가능 시간이 길어질 수 있다. source 생존·사망·행동 건너뛰기·라운드 마지막 actor를 각각 검증해야 한다.
+- 퀘스트 골드가 여러 settlement에 중복되어 있어 literal 일부만 교체하면 저장 골드와 결과 UI가 불일치한다. 단일 원본 전환과 7개 퀘스트 정산 테스트가 필요하다.
+- 보스 피해 하향은 결정론적 전투 snapshot과 기존 수치 assertion을 의도적으로 변경한다. unrelated RNG·상태·전체 공격 대상 수 회귀는 유지해야 한다.
+- 기존 profile의 보유 골드는 소급 변경하지 않는다. 변경 이후 완료한 퀘스트부터 신규 보상값을 지급하며 profile version 2를 유지한다.

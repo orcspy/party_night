@@ -683,3 +683,19 @@
 - 호환성·의존성 변경: 신규 dependency·lock·profile version 변경 없음. Git 이력 재작성과 force push를 사용하지 않았다.
 - 검증 결과: staged diff 18개 파일·625줄 추가·29줄 삭제와 공백 오류 없음을 확인했다. `e238021..f4b07ee main -> main`으로 `https://github.com/orcspy/party_night.git`에 push하는 데 성공했다.
 - 실패·미확정 사항: 없음. 본 작업 기록 커밋을 추가로 `origin/main`에 일반 push한다.
+
+## 2026-08-10 02:58:50 +09:00 | Planner | 스킬·경제·후반 보스 수동 밸런스 변경 설계
+
+- 작업 루트·모드: `E:\Work\20260806\party_night` | 원본 직접 작업의 분석·설계
+- 사용자 작업 지시 원문: `/agent Planner
+빠른 찌르기와 신경독의 출혈 확률을 100%로 조정. 추가로 출혈 독의 agi 50% 감소가 적의 현재 전투 agi에 반영되도록 변경. 약점 노출 스킬의 유지 조건 변경. 궁수가 다음 차례가 오기 전에 사망 할 경우 해당 라운드 까지만 유지 하도록 고려 할 것.
+퀘스트 단계별 골드 보상 체계가 최신 장비 한세트도 구입 하지 못할 정도의 보상안으로 확인되어 수정.
+후반부 보스에 대한 파티 급사 확률 체감이 큰 이유로 인한 보스 스테이터스 수정.
+위의 항목들에 대해서 raw_data_table.md의 스킬과 퀘스트 보상 골드, 후반부 보스의 스테이터스 각 항목을 수동으로 수정 완료된 상태.
+해당 문서 확인 하여 수정 계획을 진행 할 것.`
+- 사용한 기준 문서: 사용자가 수동 수정한 `raw_data_table.md` 7.2~7.3절·22.7~22.9절 최우선, `AGENTS.md`, `architecture.md` 15~17절, `implements.md` 23~25절
+- 조사 범위: `raw_data_table.md` working diff, `src/game/{types,content,combat,rewards,gameEngine}.ts`, `src/tests/{combat,stage6,stage7,stage89,rewards,gameEngine}.test.ts`; 상태 확률·turn order·상태 수명·7개 퀘스트 골드 중복·후반 보스 정의와 기존 회귀
+- 생성·갱신 문서: `architecture.md` 18절, `implements.md` 26절, `changelog.md`; 사용자 원본 `raw_data_table.md`와 코드·테스트는 수정하지 않음
+- 결정 근거: 수동 데이터표가 일반/boss 확률, 7개 골드와 후반 보스 수치를 모두 명시하므로 이를 최신 승인 원본으로 사용했다. 신경독은 Actor AGI 값만 낮추고 고정 turn order에는 영향을 주지 않는 현재 불일치를 확인해, 행동 완료 prefix를 보존하면서 미행동 suffix와 다음 라운드 전체를 안정 정렬하도록 설계했다. 약점 노출은 시전자 source 수명을 저장해 현재 행동 직후에는 유지하고 다음 궁수 행동 종료에 만료하며, 그 전에 사망하면 사망 라운드 wrap에서 제거하도록 정규화했다.
+- 핵심 결과: `quick_stab`·`neurotoxin` 일반100%/boss50%, 신경독 current battle AGI 절반·비중첩·순서 반영, source 기준 약점 노출, 퀘스트 골드 1100/1100/1800/2700/4000/4000/4000, 미노타우르스 120/8/6/4·3d6+2·기절40%, 사이클롭스 150/10/7/2·3d6+4·기절40%, 스켈레톤 킹 145/9/7/5·전체2d6의 실행 사양을 확정했다. 퀘스트 definition을 골드 단일 원본으로 사용하고 profile version과 기존 보유 골드는 유지한다.
+- 위험·미확정 사항: 결과를 막는 미확정 사항은 없다. 현재 `raw_data_table.md`는 사용자 변경으로 미커밋 상태이며 실제 코드와 테스트는 아직 기존 확률·골드·보스 수치를 사용한다. 행동 순서 suffix 재정렬의 중복/누락, 궁수 사망 round 만료와 7개 정산 골드 일치를 구현 시 집중 검증해야 한다. 실제 구현·자동 테스트·빌드·모바일 검증은 Coder 작업 범위다.
