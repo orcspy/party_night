@@ -1,0 +1,61 @@
+Party Night Proprietary License Notice
+
+Copyright © 2026 송현도 (orcspy).
+All rights reserved.
+
+1. Scope
+
+This notice applies to the Party Night project source code, project
+documentation, and original project assets (collectively, the "Project"),
+except for third-party components that are separately identified or otherwise
+subject to their own licenses or terms.
+
+2. Reservation of Rights
+
+Except as expressly permitted by applicable law, by a separate written
+agreement with the copyright holder, or by rights necessarily granted through
+a hosting platform's applicable terms, no permission is granted to copy,
+modify, publish, distribute, sublicense, sell, commercially exploit, or create
+derivative works from the Project.
+
+3. Public Repository Hosting
+
+If the Project is made available through a public source-code hosting service,
+this notice does not limit rights that must be granted under that service's
+applicable terms for hosting, viewing, displaying, and platform-supported
+forking of public repository content.
+
+Making the repository public does not by itself grant any additional license
+to reuse, redistribute, commercialize, or create derivative works from the
+Project outside those rights.
+
+4. Third-Party Components
+
+Third-party software, libraries, data, fonts, media, and other components are
+not licensed under this notice. They remain subject to their respective
+licenses, copyright notices, attribution requirements, and terms.
+
+See `THIRD_PARTY_NOTICES.md` for the third-party notices maintained for the
+current Party Night distribution.
+
+5. Separate Agreements
+
+Nothing in this notice limits, revokes, or supersedes rights separately granted
+by the copyright holder under a written agreement, accepted event or contest
+terms, or another legally binding arrangement.
+
+6. Project Name and Branding
+
+No permission is granted by this notice to use the Party Night name, logos, or
+other project branding as trademarks or to imply endorsement by the copyright
+holder.
+
+7. Disclaimer
+
+THE PROJECT IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO WARRANTIES OF MERCHANTABILITY, FITNESS
+FOR A PARTICULAR PURPOSE, AND NON-INFRINGEMENT.
+
+TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, THE COPYRIGHT HOLDER SHALL
+NOT BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER LIABILITY ARISING FROM OR IN
+CONNECTION WITH THE PROJECT OR THE USE OF THE PROJECT.

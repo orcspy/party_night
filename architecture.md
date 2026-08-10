@@ -1984,3 +1984,119 @@ encounter/boss marker 20
 - mask polygon과 fallback polygon을 별도로 하드코딩하면 한 경로만 수정되는 회귀가 생긴다. 단일 geometry export를 사용해야 한다.
 - 현재 자동 테스트는 이동·벽 판정만 다루며 Phaser mask·depth를 검증하지 않는다. pure geometry 테스트와 실제 Scene screenshot 검증을 함께 둬야 한다.
 - frame-chain은 기존 단일 직선보다 깊이별 선분 각도가 달라진다. 이는 요청한 꼭지점 정합을 위한 의도된 변화이며 7개 terrain 테마 모두에서 tile seam·aliasing을 확인해야 한다.
+
+## 26. 초기 화면 License 버튼·모달 분석
+
+### 26.1 분석 범위와 근거
+
+- 최종 게임 화면 기준은 프로젝트 루트의 `GAME_LICENSE_SCREEN_TEXT.md`다. 기존 `GAME_LICENSE_SCREEN_CONTENT.md`는 사용자가 폐기·삭제했으며 현재 파일도 존재하지 않으므로 설계·구현·테스트에서 더 이상 참조하지 않는다.
+- 정식 프로젝트 권리 문서는 `LICENSE`, 배포 제3자 고지 원문은 `THIRD_PARTY_NOTICES.md`, 내부 검수 결과는 `LICENSE_AUDIT_SUMMARY.md`다. 네 문서는 현재 Git 미추적 상태이며 이번 Planner 작업에서는 내용을 읽기만 하고 수정하지 않는다.
+- 실제 초기 화면은 `src/ui/SetupScreen.tsx`에서 `state.screen === 'start'`일 때 렌더된다. 시작 동작은 profile 유무에 따라 `새 게임` 또는 `이어하기`이며, 같은 `.menu-actions` 안에 조건부 `저장 초기화`와 `FullscreenToggle`이 있다.
+- 현재 `.menu-actions`는 폭 `min(320px, 80vw)`의 1열 grid라 버튼을 단순 추가하면 시작 버튼의 오른쪽이 아니라 다음 행에 배치된다.
+- 프로젝트에는 전역 modal 계층이나 공용 dialog 컴포넌트가 없다. `HubScreen`의 창고 경고는 현재 panel 안에서 `role="dialog"`만 사용하는 인라인 경고이므로, 긴 License 전문을 viewport 위에 띄우는 modal과 구조·scroll 요구가 다르다.
+- `body`는 `overflow:hidden`이고 `.menu-screen`은 `user-select:none`이다. 따라서 modal 본문 자체에 독립적인 세로 scroll, touch pan, 텍스트 선택 허용을 지정해야 한다.
+- `src/vite-env.d.ts`가 `vite/client`를 참조하므로 화면 기준본과 notice를 `?raw`, notice 배포 파일을 `?url&no-inline`으로 읽을 수 있다. 현재 package에는 Markdown renderer가 없고 새 dependency를 추가할 필요도 없다.
+
+### 26.2 최종 문서 역할과 화면 범위
+
+| 문서 | 역할 | runtime 화면 처리 |
+|---|---|---|
+| `GAME_LICENSE_SCREEN_TEXT.md` | 게임 내 표시 문구의 유일한 기준본 | 기본 화면·Third-Party Software 두 `text` block과 표시 구조를 그대로 사용 |
+| `THIRD_PARTY_NOTICES.md` | runtime·vendored 구성요소의 저작권 및 MIT/ISC 원문 | sections 2~7을 `Third-Party License Texts` scroll 영역에 표시하고 별도 배포 파일도 유지 |
+| `LICENSE` | Party Night 자체 코드·문서·에셋의 정식 proprietary 권리 문서 | modal 문구를 덮어쓰지 않고 저장소 정식 권리 기준으로만 유지 |
+| `LICENSE_AUDIT_SUMMARY.md` | v0.2.0 package·vendored source·asset 감사 내부 요약 | 게임 화면에 표시하거나 runtime bundle에 import하지 않음 |
+
+`GAME_LICENSE_SCREEN_TEXT.md`에는 placeholder가 없고 다음 문구가 최종 승인돼 있다.
+
+```text
+Party Night
+
+Copyright © 2026 orcspy.
+All Rights Reserved.
+
+Party Night의 자체 코드, 문서 및 자체 제작 에셋에 대한 권리는
+orcspy에게 있습니다.
+
+제3자 소프트웨어는 각 구성요소의 원 라이선스가 적용됩니다.
+```
+
+- 이전 설계처럼 `LICENSE`에서 `송현도 (orcspy)`를 추출해 화면 저작권 문구를 치환하지 않는다. 정식 문서와 게임 표시용 이름의 표현 차이는 새 화면 기준본이 의도적으로 확정한 값으로 본다.
+- 화면 기본 목록은 개발 도구를 제외하고 React, React DOM, Scheduler, Phaser, EventEmitter3와 Phaser distributed/vendored Matter.js, poly-decomp.js, Earcut 8종을 표시한다.
+- `Third-Party License Texts`는 `THIRD_PARTY_NOTICES.md`의 runtime notice sections와 동일한 저작권·허가 원문을 제공한다. 개발 전용 section 8과 project asset·maintenance sections 9~10은 게임 modal에 넣지 않는다.
+
+### 26.3 최종 검수 문서 정합성
+
+- `LICENSE_AUDIT_SUMMARY.md`는 runtime npm 5종이 MIT이고 Phaser vendored source로 Matter.js·poly-decomp.js(MIT), Earcut(ISC)를 고지 대상으로 확정한다.
+- `THIRD_PARTY_NOTICES.md`는 위 8종의 이름·version·license, 원 copyright와 MIT/ISC 허가·면책 원문을 sections 1~7에 보존한다.
+- `GAME_LICENSE_SCREEN_TEXT.md`의 Third-Party Software 목록은 audit와 notice의 8종 이름·version·license에 일치한다.
+- 사용자가 asset 문서와 실제 asset의 파일 수·크기·registry를 대조했으며 외부 media asset 고지 대상을 발견하지 않았다. notice section 9와 audit summary도 같은 결론을 기록한다.
+- lockfile 전체 license 식별자는 사용자 검수상 MIT, Apache-2.0, ISC, BSD-3-Clause, CC-BY-4.0 범위이며 audit는 현재 runtime에서 강한 copyleft 충돌이 없다고 판정한다.
+- `THIRD_PARTY_NOTICES.md`는 더 이상 metadata template이 아니라 현재 v0.2.0 배포 고지 원문이다. 구현 단계에서 내용을 재생성·번역·요약하거나 설치 package LICENSE로 다시 덮어쓰지 않는다.
+- `LICENSE_AUDIT_SUMMARY.md`는 `party_night-v0.2.0.zip` 기준 내부 검수 기록이라고 명시한다. 실제 공개 핵심 파일은 `LICENSE`와 `THIRD_PARTY_NOTICES.md`이며 audit summary 자체를 License modal에 노출하지 않는다.
+
+### 26.4 목표 화면 구조
+
+초기 화면 동작 영역을 다음처럼 바꾼다.
+
+```text
+.menu-actions
+├─ .start-primary-row
+│  ├─ 새 게임 또는 이어하기  (남은 폭 사용)
+│  └─ License                (오른쪽 고정 폭)
+├─ 저장 초기화               (profile이 있을 때만)
+└─ FullscreenToggle          (지원 환경에서만)
+```
+
+- `License` 버튼은 profile 유무와 관계없이 항상 시작 버튼 오른쪽에 있다.
+- 시작 버튼의 label·dispatch와 저장 초기화·Fullscreen의 기존 순서 및 기능은 바꾸지 않는다.
+- License 열기/닫기는 UI local state이며 `GameCommand`, game store, profile, RNG와 persistence에 연결하지 않는다.
+- modal이 열리면 fixed backdrop이 현재 시작 화면을 덮고 License panel만 입력 가능하게 한다. Fullscreen 상태에서 열어도 같은 document 안에서 표시된다.
+
+### 26.5 콘텐츠 데이터 흐름
+
+최종 흐름은 다음과 같다.
+
+```text
+GAME_LICENSE_SCREEN_TEXT.md?raw
+  → 기본 화면 text block
+  → Third-Party Software text block
+
+THIRD_PARTY_NOTICES.md?raw
+  → sections 2~7 copyright/license text 추출
+
+THIRD_PARTY_NOTICES.md?url&no-inline
+  → production build의 별도 notice asset URL
+  → 전체 notice 별도 열기
+
+두 표시 원문 정합성 검증
+  → React text node·preformatted license text로 렌더
+  → LicenseModal scroll body
+```
+
+- `dangerouslySetInnerHTML`을 사용하지 않는다. 최종 화면 text와 notice 원문을 React text node로 표시한다.
+- copyright holder 치환, Markdown template 해석, dependency metadata 재조합을 하지 않는다. 화면 기준본의 두 `text` block을 줄바꿈까지 보존한다.
+- notice는 heading `## 2. React / React DOM / Scheduler`부터 `## 7. Earcut` 끝까지만 runtime text로 추출한다. section 8 이후를 modal에 섞지 않는다.
+- 두 문서의 8종 이름·version·license가 다르거나 필수 section이 사라지면 일부 내용만 표시하지 않고 “라이선스 정보를 불러오지 못했습니다.” fallback을 사용한다.
+- `GAME_LICENSE_SCREEN_TEXT.md`, `THIRD_PARTY_NOTICES.md`가 runtime build 입력이며 네 신규 root 문서는 모두 이번 커밋에 포함한다.
+- `?url&no-inline`을 사용해 notice가 data URI나 JS 문자열에만 묻히지 않고 `dist/assets`의 독립 파일로 생성되게 한다. modal은 `base:'/pn/'`이 반영된 Vite 생성 URL만 사용한다.
+
+### 26.6 modal 접근성·입력·scroll
+
+- overlay 안 panel에 `role="dialog"`, `aria-modal="true"`, `aria-labelledby="license-modal-title"`을 둔다.
+- 열릴 때 License trigger를 기억하고 panel의 첫 닫기 버튼으로 focus를 이동한다. 닫을 때 trigger로 focus를 돌려준다.
+- `Escape`, 상·하단 닫기 버튼, backdrop 자체 클릭으로 닫는다. panel 내부 클릭은 닫히지 않는다.
+- modal 내부의 focusable 요소를 기준으로 Tab/Shift+Tab 순환을 제한한다. 시작 버튼·저장 초기화·Fullscreen에는 modal이 열린 동안 keyboard focus가 도달하지 않아야 한다.
+- panel은 `max-height` 안에서 header/footer를 고정하고 본문만 `overflow-y:auto`, `overscroll-behavior:contain`, `-webkit-overflow-scrolling:touch`, `touch-action:pan-y`로 움직인다.
+- License 본문은 `user-select:text`와 `-webkit-user-select:text`로 저작권·라이선스 문구를 선택할 수 있게 한다.
+- overlay padding에 네 방향 safe-area를 반영한다. portrait에서는 기존 회전 안내가 modal보다 위에서 입력을 차단하도록 stacking 순서를 명시한다.
+
+### 26.7 호환성·위험·검증 공백
+
+- native `<dialog>`의 top-layer·모바일 Safari 버전별 동작에 의존하지 않고 기존 React/CSS 방식의 fixed ARIA modal을 사용한다.
+- 시작 화면은 작은 landscape 높이에서 이미 제목을 축소한다. 320px action 폭에 `License`를 나란히 놓을 때 시작 버튼 label이 줄바꿈되지 않는지 640×360과 844×390에서 확인해야 한다.
+- backdrop z-index가 portrait warning보다 높으면 세로 회전 차단을 우회한다. portrait warning을 최상위로 유지하거나 modal overlay를 그보다 낮게 배치해야 한다.
+- 두 화면 입력 문서의 heading·code fence·section 구조가 바뀌면 추출이 실패할 수 있다. 전체 문서를 대신 표시하는 fallback은 금지하고 parser test 실패로 변경을 드러낸다.
+- package·Phaser·asset 구성이 변경되면 audit summary의 유지 규칙에 따라 세 License 문서를 먼저 재검수한 뒤 화면 기준본을 동기화해야 한다.
+- 개발 전용 section 8을 player runtime 목록에 다시 포함하거나 audit summary를 사용자 화면에 노출하지 않는다.
+- minifier가 bundle comment를 제거할 수 있으므로 bundle 내부 주석 존재만으로 완료 처리하지 않는다. 별도 notice asset이 production output에 있고 HTTPS에서 열려야 한다.
+- 이 modal은 정보 표시 기능이다. 동의 체크, 첫 실행 강제 표시, 개인정보 수집, 외부 URL 이동, profile 저장 필드는 추가하지 않는다.

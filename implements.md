@@ -3386,3 +3386,352 @@ expect(isWall('training_ruins', 2, 5, [])).toBe(false)
 - CSS crop, DOM overlay 또는 canvas 크기 변경으로 Phaser 내부 geometry 문제를 우회하지 않는다.
 - terrain PNG·registry·생성 스크립트를 불필요하게 다시 만들지 않는다.
 - 신규 렌더·geometry·test library와 dependency를 추가하지 않는다.
+
+## 34. 초기 화면 License 버튼·모달 구현 사양
+
+### 34.1 목표와 범위
+
+- `state.screen === 'start'`의 `새 게임` 또는 `이어하기` 버튼 오른쪽에 항상 보이는 `License` 버튼을 배치한다.
+- 버튼을 누르면 폐기된 `GAME_LICENSE_SCREEN_CONTENT.md`가 아니라 최종 `GAME_LICENSE_SCREEN_TEXT.md`의 기본 화면·Third-Party Software 문구를 그대로 표시한다.
+- `Third-Party License Texts`를 펼치면 최종 `THIRD_PARTY_NOTICES.md`의 runtime·Phaser vendored sections 2~7 저작권·허가 원문을 표시한다.
+- 모바일 가로 화면에서 긴 본문을 독립적으로 scroll하고 닫은 뒤 기존 시작 버튼으로 즉시 돌아갈 수 있게 한다.
+- 게임 command·profile·save·RNG·Phaser에는 어떤 상태나 event도 추가하지 않는다.
+
+### 34.2 변경·참조 대상
+
+| 파일 | 책임 |
+|---|---|
+| `GAME_LICENSE_SCREEN_TEXT.md` | 게임 내 기본 화면·runtime/vendored 목록·표시 구조의 최종 기준본; `?raw` runtime 입력 |
+| `LICENSE` | Party Night 자체 권리의 정식 저장소 문서; runtime import하지 않음 |
+| `THIRD_PARTY_NOTICES.md` | runtime/vendored 8종 저작권·MIT/ISC 원문 및 별도 배포 원본 |
+| `LICENSE_AUDIT_SUMMARY.md` | v0.2.0 package·vendored·asset 내부 검수 요약; runtime import하지 않음 |
+| `src/ui/licenseContent.ts` | 최종 화면 text block·notice sections 추출, 8종 정합성 검증과 emitted notice URL 제공 |
+| `src/ui/LicenseModal.tsx` | modal DOM, 기본 문구·구성요소 목록·license text disclosure 렌더, focus·닫기 처리 |
+| `src/ui/SetupScreen.tsx` | start 화면 local open state, 시작 버튼 오른쪽 trigger와 modal 연결 |
+| `src/styles.css` | 시작 버튼 행, secondary License 버튼, safe-area overlay, scroll panel과 responsive 규칙 |
+| `src/tests/licenseContent.test.ts` | 최종 화면 text·notice runtime sections·audit/lockfile 8종 정합성과 제외 범위 회귀 |
+| `changelog.md` | Coder 구현 파일·검증 결과·남은 법적 문서 위험 기록 |
+
+수정하지 않는 범위:
+
+- `GAME_LICENSE_SCREEN_TEXT.md`, `LICENSE`, `THIRD_PARTY_NOTICES.md`, `LICENSE_AUDIT_SUMMARY.md`의 수동 확정 문구·heading·table
+- `src/game/**`, `src/app/gameStore.ts`, `src/app/saveV2.ts`, `src/phaser/**`
+- `package.json`, `package-lock.json`과 신규 Markdown/UI library
+- profile v2 schema와 localStorage
+- asset 파일·registry·asset 문서: 사용자 대조 완료 결과를 유지하고 이번 UI 구현에서 재생성·재분류하지 않음
+
+폐기된 `GAME_LICENSE_SCREEN_CONTENT.md`를 다시 만들거나 import하지 않는다. 해당 파일은 Git 추적 이력이 없으므로 삭제 commit 대상은 없으며, 신규 `GAME_LICENSE_SCREEN_TEXT.md`를 추가한다.
+
+### 34.3 최종 화면·notice 입력 계약
+
+`src/ui/licenseContent.ts`는 화면 기준본과 배포 notice만 runtime import한다.
+
+```ts
+import licenseScreenText from '../../GAME_LICENSE_SCREEN_TEXT.md?raw'
+import thirdPartyNotices from '../../THIRD_PARTY_NOTICES.md?raw'
+import thirdPartyNoticesUrl from '../../THIRD_PARTY_NOTICES.md?url&no-inline'
+```
+
+`LICENSE`와 `LICENSE_AUDIT_SUMMARY.md`는 repository 검수 문서이며 browser bundle에 import하지 않는다.
+
+권장 공개 타입:
+
+```ts
+export interface LicenseScreenContent {
+  basicText: string
+  thirdPartyText: string
+  runtimeLicenseTexts: string
+  noticesUrl: string
+}
+
+export type LicenseContentResult =
+  | { ok: true; content: LicenseScreenContent }
+  | { ok: false; content: null }
+
+export function parseLicenseScreenText(source: string): Pick<LicenseScreenContent, 'basicText' | 'thirdPartyText'> | null
+export function extractRuntimeLicenseTexts(source: string): string | null
+export function buildLicenseScreenContent(screenSource: string, noticesSource: string, noticesUrl: string): LicenseContentResult
+export const LICENSE_CONTENT: LicenseContentResult
+```
+
+#### 화면 text block 추출
+
+1. `\r\n`을 `\n`으로 정규화한다.
+2. `## 기본 화면` 바로 아래 첫 `text` code fence를 `basicText`로 추출한다.
+3. `## Third-Party Software` 바로 아래 첫 `text` code fence를 `thirdPartyText`로 추출한다.
+4. fence 안의 앞뒤 빈 행만 정리하고 내부 줄바꿈·대소문자·구두점·한글 문구는 그대로 보존한다.
+5. placeholder 치환, `LICENSE` holder 추출, Markdown heading 변환과 dependency version 재조합을 하지 않는다.
+
+필수 기본 문구:
+
+```text
+Copyright © 2026 orcspy.
+All Rights Reserved.
+Party Night의 자체 코드, 문서 및 자체 제작 에셋에 대한 권리는
+orcspy에게 있습니다.
+```
+
+필수 Third-Party 목록:
+
+```text
+React 19.0.0 — MIT
+React DOM 19.0.0 — MIT
+Scheduler 0.25.0 — MIT
+Phaser 3.90.0 — MIT
+EventEmitter3 5.0.4 — MIT
+Matter.js 0.20.0 — MIT
+poly-decomp.js 0.3.0 — MIT
+Earcut 2.2.4 — ISC
+```
+
+`GAME_LICENSE_SCREEN_CONTENT.md`, `[COPYRIGHT HOLDER]`, TypeScript, Vite, Vitest, `@types/`, Disclaimer 문구가 결과에 있으면 실패다.
+
+#### runtime license text 추출
+
+- `THIRD_PARTY_NOTICES.md`의 `## 2. React / React DOM / Scheduler` heading부터 section 7 Earcut의 license source URL까지를 원본 순서·문구로 추출한다.
+- 종료 경계는 section 7 다음 separator와 `## 8. Development-only direct dependencies`다.
+- 결과에는 다음 copyright가 모두 있어야 한다.
+
+```text
+Meta Platforms, Inc. and affiliates.
+2024 Richard Davey, Phaser Studio Inc.
+2014 Arnout Kazemier
+Liam Brummitt and contributors.
+2013 Stefan Hedman
+2016, Mapbox
+```
+
+- MIT sections에는 `Permission is hereby granted`, copyright/permission 포함 조건과 warranty/liability 끝 문구가 있어야 한다.
+- Earcut section에는 ISC permission, copyright 포함 조건과 warranty/liability 문구가 있어야 한다.
+- development-only section 8, project assets section 9와 maintenance section 10은 `runtimeLicenseTexts`에 포함하지 않는다.
+- `noticesUrl`은 비어 있거나 `data:`로 시작하면 실패다. Vite `base:'/pn/'`가 적용된 별도 emitted asset URL이어야 한다.
+- 화면 8종과 notice sections 2~7의 component·version·license가 일치하지 않으면 `{ ok:false, content:null }`을 반환하고 부분 text를 표시하지 않는다.
+
+### 34.4 검증 콘텐츠 렌더
+
+`LicenseModal.tsx`는 검증된 `LicenseScreenContent`를 semantic React element로 표시한다.
+
+- modal 제목 `<h2 id="license-modal-title">License</h2>` 아래 `basicText`를 `white-space:pre-line`인 text 영역으로 표시한다.
+- `Third-Party Software` heading 아래 `thirdPartyText`를 줄바꿈 그대로 표시한다.
+- `[Third-Party License Texts]` disclosure button을 두고 `aria-expanded`와 scroll region을 연결하며 기본값은 닫힘으로 한다.
+- disclosure를 열면 `runtimeLicenseTexts` 전체를 저작권·허가 원문 순서 그대로 선택 가능한 preformatted text로 표시한다.
+- 별도 “전체 notice 파일 열기” 링크는 `noticesUrl`을 사용한다. 새 탭이면 `target="_blank" rel="noreferrer"`를 함께 둔다.
+- `dangerouslySetInnerHTML`, Markdown HTML 실행, `LICENSE`·audit summary·development-only notice 자동 노출은 사용하지 않는다.
+- `LICENSE_CONTENT.ok === false`이면 modal 제목, “라이선스 정보를 불러오지 못했습니다.” 문구와 닫기 버튼만 표시한다.
+
+### 34.5 시작 화면 배치와 상태
+
+`SetupScreen.tsx` local state:
+
+```ts
+const [licenseOpen, setLicenseOpen] = useState(false)
+const licenseTriggerRef = useRef<HTMLButtonElement>(null)
+```
+
+start 화면 action 구조:
+
+```tsx
+<div className="menu-actions">
+  <div className="start-primary-row">
+    <button className="primary">{state.profile ? '이어하기' : '새 게임'}</button>
+    <button
+      ref={licenseTriggerRef}
+      type="button"
+      className="license-trigger"
+      aria-haspopup="dialog"
+      aria-expanded={licenseOpen}
+      onClick={() => setLicenseOpen(true)}
+    >
+      License
+    </button>
+  </div>
+  {state.profile && <button className="danger">저장 초기화</button>}
+  <FullscreenToggle className="start-fullscreen-toggle" />
+</div>
+{licenseOpen && (
+  <LicenseModal
+    returnFocusRef={licenseTriggerRef}
+    onClose={() => setLicenseOpen(false)}
+  />
+)}
+```
+
+- 기존 primary의 `LOAD_PROFILE`/`OPEN_PROFILE_CREATE`, reset의 `RESET_PROFILE` dispatch를 그대로 유지한다.
+- License trigger는 dispatch하지 않고 profile 유무에 따라 사라지거나 label이 바뀌지 않는다.
+- modal open state는 start 화면 component가 사라지면 함께 폐기된다. URL·history·profile에 저장하지 않는다.
+- trigger와 시작 버튼을 한 행에 두되 `.menu-actions`의 나머지 자식은 기존처럼 전체 폭 행을 사용한다.
+
+### 34.6 modal DOM·focus·close 계약
+
+권장 props:
+
+```ts
+interface LicenseModalProps {
+  onClose: () => void
+  returnFocusRef: RefObject<HTMLButtonElement | null>
+}
+```
+
+DOM 구조:
+
+```tsx
+<div className="license-modal-backdrop" onMouseDown={handleBackdrop}>
+  <section
+    className="license-modal"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="license-modal-title"
+  >
+    <header className="license-modal-header">...</header>
+    <div className="license-modal-body" tabIndex={0}>...</div>
+    <footer className="license-modal-actions"><button>닫기</button></footer>
+  </section>
+</div>
+```
+
+동작 계약:
+
+1. mount 시 이전 `document.activeElement`를 보존하고 header 닫기 버튼에 focus한다.
+2. `keydown` listener에서 `Escape`는 `onClose()`를 호출한다.
+3. Tab/Shift+Tab은 modal 내부 focusable 요소의 첫 항목과 마지막 항목 사이에서 순환한다.
+4. backdrop의 event target과 currentTarget이 같을 때만 닫는다. pointer/touch로 panel을 scroll한 뒤 release해도 잘못 닫히지 않게 `click` 또는 down/up 동일 backdrop 조건을 사용한다.
+5. unmount 후 listener를 제거하고 `returnFocusRef.current?.focus()`를 호출한다.
+6. 닫기 중 game command, reset, Fullscreen toggle이 함께 실행되지 않는다.
+
+외부 focus trap package나 modal library는 추가하지 않는다.
+
+### 34.7 CSS 사양
+
+시작 action:
+
+```css
+.start-primary-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+}
+.start-primary-row > .primary { min-width: 0; }
+.license-trigger {
+  min-width: 88px;
+  min-height: 44px;
+  padding: 10px 12px;
+  color: #eee8d8;
+  border: 1px solid #66563a;
+  background: #211a2b;
+  font-weight: 800;
+}
+```
+
+modal 기본 경계:
+
+```css
+.license-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-items: center;
+  padding:
+    max(10px, env(safe-area-inset-top))
+    max(10px, env(safe-area-inset-right))
+    max(10px, env(safe-area-inset-bottom))
+    max(10px, env(safe-area-inset-left));
+  background: rgba(5, 4, 9, .82);
+}
+.license-modal {
+  width: min(720px, 100%);
+  max-height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  color: #eee8d8;
+  border: 1px solid #66563a;
+  background: #17131f;
+}
+.license-modal-body {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+  user-select: text;
+  -webkit-user-select: text;
+}
+```
+
+- header·footer는 `flex:0 0 auto`, body는 `flex:1 1 auto`로 둔다.
+- body의 paragraph·list는 작은 landscape에서도 읽을 수 있는 최소 12px 이상의 글자와 1.5 전후 line-height를 사용한다.
+- header·footer 닫기 버튼은 최소 44×44px이며 `:focus-visible` outline을 제공한다.
+- `@media (max-height:500px)`에서 panel 외곽 여백과 header/footer padding을 줄이되 본문 scroll을 제거하지 않는다.
+- 기존 `.portrait-warning`의 z-index를 100 이상으로 올려 modal과 모든 start action보다 위에서 세로 입력을 차단한다. portrait에서 License modal을 조작하게 만들지 않는다.
+- Fullscreen 환경에서도 `100dvh`와 safe-area를 사용하며 fixed pixel 높이를 지정하지 않는다.
+
+### 34.8 자동 테스트
+
+신규 `src/tests/licenseContent.test.ts`는 DOM library 없이 최종 화면 text와 notice 추출을 검증한다.
+
+1. 실제 `GAME_LICENSE_SCREEN_TEXT.md`와 `THIRD_PARTY_NOTICES.md` 결합 결과가 `ok:true`다.
+2. basic text가 `Copyright © 2026 orcspy.`, `All Rights Reserved.`, `orcspy에게 있습니다.`를 원본 줄 순서로 가진다.
+3. 화면 Third-Party 목록은 npm runtime 5종과 Phaser vendored 3종의 이름·version·MIT/ISC를 정확히 가진다.
+4. 화면 8종이 `LICENSE_AUDIT_SUMMARY.md`와 notice section 1의 표에 일치한다.
+5. notice sections 2~7의 6개 copyright holder와 MIT/ISC permission·warranty 문구가 `runtimeLicenseTexts`에 있다.
+6. `GAME_LICENSE_SCREEN_CONTENT.md`, `[COPYRIGHT HOLDER]`, `송현도 (orcspy)`, TypeScript·Vite·Vitest·`@types/`, Disclaimer가 화면 결과에 없다.
+7. notice development-only·project assets·maintenance sections와 audit summary 본문이 runtime text에 없다.
+8. `LICENSE`의 정식 copyright와 `GAME_LICENSE_SCREEN_TEXT.md`의 표시 copyright는 각각 원문대로 유지되고 parser가 서로 치환하지 않는다.
+9. LF/CRLF 입력이 같은 결과를 만들고 parser는 입력·반환값을 변경하지 않는다.
+10. code fence 누락·중복, section 2/7/8 경계 누락, 화면/notice version 불일치 fixture는 `ok:false`다.
+11. 어느 입력이 실패해도 다른 문서의 부분 content나 전체 raw Markdown을 반환하지 않는다.
+12. lockfile의 `node_modules/*` package license metadata가 누락 없이 `MIT | Apache-2.0 | ISC | BSD-3-Clause | CC-BY-4.0` 집합 안에 있는지 확인한다.
+13. lockfile runtime closure가 React·React DOM·Scheduler·Phaser·EventEmitter3 5종이고 audit와 일치하는지 확인한다.
+14. notice URL import가 `data:`로 시작하지 않고 별도 file로 emitted되는지는 production build 후 `dist` 검사 단계에서 확인한다.
+
+`SetupScreen`·focus trap 검증을 위해 jsdom, React Testing Library와 신규 dependency를 추가하지 않는다. DOM·focus·touch는 수동 브라우저 검증으로 확인한다.
+
+### 34.9 수동·브라우저 검증
+
+Android Chrome과 iOS Safari의 640×360·844×390 가로 화면에서 확인한다.
+
+1. profile 없음: `새 게임 | License`가 한 행이며 새 게임 dispatch는 기존과 같다.
+2. profile 있음: `이어하기 | License`가 한 행이고 저장 초기화·Fullscreen이 기존처럼 남는다.
+3. License 버튼을 누르면 시작 화면 위에 modal이 한 번만 열리고 시작·초기화 command가 실행되지 않는다.
+4. 기본 화면에 `Copyright © 2026 orcspy.`, `All Rights Reserved.`와 자체 권리 문구가 기준본 줄바꿈대로 표시된다.
+5. Third-Party Software에 runtime 5종과 Phaser vendored 3종의 정확한 version·MIT/ISC가 표시된다.
+6. `Third-Party License Texts`를 열면 React 계열, Phaser, EventEmitter3, Matter.js, poly-decomp.js, Earcut 원 copyright·permission text를 끝까지 scroll할 수 있고 다시 닫을 수 있다.
+7. “전체 notice 파일 열기”가 `/pn/` 아래의 별도 notice asset을 열고 404·data URI·JS 화면으로 전환되지 않는다.
+8. 폐기 문서명, placeholder, `송현도 (orcspy)`, 개발 도구 목록, audit summary와 notice sections 8~10은 modal에 보이지 않는다.
+9. 본문을 끝까지 관성 scroll할 수 있고 배경 시작 화면은 scroll·tap되지 않는다.
+10. header/footer 닫기, backdrop, hardware keyboard Escape로 닫히며 focus가 License trigger로 돌아간다.
+11. Tab/Shift+Tab이 modal 밖의 새 게임·저장 초기화·Fullscreen으로 빠져나가지 않는다.
+12. Fullscreen 진입 상태에서 modal open·scroll·close 후 Fullscreen 상태와 시작 화면 layout이 유지된다.
+13. modal open 중 가로↔세로 회전하면 portrait warning이 최상위에서 입력을 막고 가로 복귀 후 modal이 깨지지 않는다.
+14. iOS Safari의 Fullscreen 미지원 환경에서도 License 버튼과 modal은 정상이며 Fullscreen 버튼은 기존처럼 숨는다.
+15. 200% text 확대 또는 긴 한글 줄에서 panel이 viewport 밖으로 넘치지 않고 가로 scroll이 생기지 않는다.
+
+### 34.10 구현 순서
+
+1. 신규 `GAME_LICENSE_SCREEN_TEXT.md`, `LICENSE`, `THIRD_PARTY_NOTICES.md`, `LICENSE_AUDIT_SUMMARY.md`를 추적하고 폐기 문서가 존재하지 않음을 확인한다.
+2. `licenseContent.ts`에 screen text `?raw`, notice `?raw`·`?url&no-inline`, 두 code block·runtime sections parser와 fail-closed 정합성 검증을 구현한다.
+3. `LicenseModal.tsx`에 기본 text·8종 목록·`Third-Party License Texts` scroll disclosure·전체 notice file 링크와 fallback을 구현한다.
+4. modal focus·Escape·backdrop·return-focus lifecycle을 연결한다.
+5. `SetupScreen`에 local state와 start-primary-row trigger를 추가한다.
+6. CSS에 action row·modal safe-area·scroll·focus·portrait stacking을 추가한다.
+7. `npm run typecheck`, 관련 parser test, 전체 `npm run test`, `npm run build`를 실행한다.
+8. build 후 별도 notice asset의 존재·비data URL·내용과 `/pn/` 접근을 확인한다.
+9. Android Chrome·iOS Safari 가로 화면과 Fullscreen/회전/focus/scroll을 수동 확인한다.
+10. 구현·검증 결과와 최종 화면 기준본·runtime/vendored notice 유지 결과를 `changelog.md`에 기록한다.
+
+### 34.11 완료 기준과 금지 범위
+
+- 시작 버튼 오른쪽에 profile 유무와 무관하게 `License` 버튼이 있으며 두 버튼의 44px touch target과 한 행 배치가 유지된다.
+- modal은 `GAME_LICENSE_SCREEN_TEXT.md`의 `orcspy` 기본 문구와 runtime/vendored 8종을 변경 없이 표시한다.
+- `THIRD_PARTY_NOTICES.md` sections 2~7의 MIT/ISC 저작권·허가 고지가 modal scroll 영역과 build 별도 파일에 모두 접근 가능하다.
+- 긴 본문이 safe-area 안에서 독립 scroll되고 닫기·Escape·backdrop·focus 복귀가 동작한다.
+- modal open/close가 game command, profile, save, RNG, Fullscreen 상태를 변경하지 않는다.
+- `npm run typecheck`, 전체 `npm run test`, `npm run build`가 성공한다.
+- Android Chrome·iOS Safari 가로 화면에서 layout·scroll·focus·회전·Fullscreen 지원/미지원 경로를 확인한다.
+- 네 수동 확정 root 문서를 수정하거나 화면 text·version·license를 JSX에 별도 복제하지 않는다.
+- raw Markdown 전체를 `<pre>`로 노출하거나 `dangerouslySetInnerHTML`로 렌더하지 않는다.
+- 폐기된 `GAME_LICENSE_SCREEN_CONTENT.md`를 생성·import·fallback하거나 `LICENSE`의 holder로 화면 text를 덮어쓰지 않는다.
+- `THIRD_PARTY_NOTICES.md`를 data URI·JS 문자열·bundle 주석만으로 대체하거나 production output에서 누락하지 않는다.
+- 최종 notice의 MIT/ISC copyright·permission text를 번역·요약·재작성하거나 서로 다른 copyright를 통합하지 않는다.
+- 동의 체크·강제 표시·외부 페이지·설정 화면 확장·공용 modal framework·신규 dependency를 추가하지 않는다.

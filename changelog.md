@@ -1036,3 +1036,122 @@ Continue if you have next steps, or stop and ask for clarification if you are un
 - 호환성·의존성 변경: profile version 2, RNG, 장착·정산·탐사 판정과 public 실행 경로를 유지했다. 신규 package와 dependency·lock 변경 없음.
 - 검증 결과: 선행 `npm run typecheck` 성공. 전투 관련 4개 파일 40개 테스트와 탐사 관련 4개 파일 23개 테스트 성공. 사용자가 Android phone Chrome 동작과 탐사 왜곡 해소를 실기 확인했다. 민감정보 패턴 및 `.env`·key 계열 파일 검색 결과 없음. `git diff --check`와 `git diff --cached --check` 공백 오류 없음. 커밋 `c11603d`를 `origin/main`에 push했다(`1af2983..c11603d`).
 - 실패·미확정 사항: 1단계 범위에 따라 전체 `npm test`, production `npm run build`, 패키징은 수행하지 않았다. iOS Safari 가로 화면은 미확인이다. push 중 Git for Windows의 `invalid fstab option - 'defaults'` 경고가 출력됐으나 GitHub `origin/main` 갱신은 성공했다.
+
+## 2026-08-10 12:07:51 +09:00 | Planner | README 모바일 지원 대상·실기 검증 결과 갱신
+
+- 대상: `D:\Work\Private\jobs\20260807\party_night\party_night\README.md`의 지원 환경, Android Chrome·iOS Safari 실기 검증 및 v0.2.0 통합 진행 상태
+- 사용자 작업 지시 원문:
+
+```text
+README에 iOS Safari를 지원대상에 추가 및 하기의 확인완료 사항들 적용.
+
+Android Chrome
+확인 완료:
+
+기본 동작
+탐사 원근 왜곡 해소
+추가 확인:
+
+Fullscreen 진입 시 URL bar 제거와 viewport 확장 : 확인 완료.
+빠른 반복 탭·뒤로가기·앱 전환·회전 복귀 : 확인 완료.
+적 공격 차례 1초, roll 연출, 전투 종료 최소 2초 : 확인 완료.
+연출 중 전투 명령 중복 입력 차단 : 확인 완료.
+긴 결과·overflow 결과의 footer 접근 : 확인 완료.
+저장 후 reload : 확인 완료.
+Lv1부터 Lv10까지 전체 진행 : 확인 완료.
+
+iOS Safari
+가로 화면과 safe-area : 확인 완료.
+결과 화면 관성 스크롤 : 확인 완료.
+Fullscreen 미지원 시 버튼 정상 미표시 : 확인 완료. ( safari는 fullscreen 미지원 )
+주소창 높이 변화와 회전 : 확인 완료.
+전투 timer·입력 잠금 : 확인 완료.
+탐사 viewport 가림과 버튼 hit-test : 확인 완료.
+
+순차 퀘스트 5개 완료 및 Lv6 도달 : 확인 완료.
+반복 퀘스트 2종 혼합 5회 및 Lv10 도달 : 확인 완료.
+Lv7·Lv10 커스텀 슬롯 해금 : 확인 완료.
+함정·비밀방·중간보스·보스 처리 : 확인 완료.
+성공·패배·창고 overflow 결과 : 확인 완료.
+각 결과 후 거점 복귀와 reload : 확인 완료.
+반복 플레이 중 timer·Scene·로그·메모리 누적 이상 여부 : 현재까지 반복 플레이중 이상 없음을 확인
+이상의 내용들에 대한 확인 완료 처리 할 것.
+```
+
+- 사용한 기준 문서: 루트 `AGENTS.md`, 현재 `README.md`, 사용자가 제공한 Android Chrome·iOS Safari 실기 검증 결과
+- 조사 범위: README의 실행·조작·단계별 구현 상태와 기존 “Android Chrome·iOS Safari 실기 검증 필요” 문구, 최신 changelog의 Android 부분 확인 이력
+- 생성·갱신 문서: `README.md`, `changelog.md`; 코드·설정·리소스·테스트·빌드 파일은 수정하지 않음
+- 결정 근거: 사용자가 직접 완료했다고 제공한 항목을 자동 테스트 결과와 혼동하지 않도록 “지원 환경 및 실기 검증” 절로 분리했다. Android Chrome과 iOS Safari를 지원 대상으로 명시하고, Safari의 Fullscreen API 미지원은 기능 실패가 아니라 버튼 비표시로 정상 처리된 환경 제약으로 기록했다.
+- 핵심 결과: Android Chrome의 Fullscreen·회전/앱 전환·전투 연출/입력 잠금·결과 footer·reload·Lv1~10 진행, iOS Safari의 가로/safe-area·관성 스크롤·Fullscreen 버튼 비표시·주소창/회전·전투 timer·탐사 viewport/input, 전체 순차/반복 퀘스트·슬롯·함정/비밀방/보스·성공/패배/overflow·거점 복귀/reload 검증을 README에 완료 상태로 반영했다. 반복 플레이의 timer·Scene·로그·메모리는 “현재까지 이상 없음”으로 범위를 보존했다.
+- 위험·미확정 사항: 사용자 제공 실기 결과를 반영한 문서 갱신 작업으로 새 자동 테스트·build·추가 기기 검증은 수행하지 않았다. 기기·OS·브라우저 세부 버전은 제공되지 않아 특정 버전 호환 범위로 확장해 주장하지 않았다.
+
+## 2026-08-10 12:17:50 +09:00 | Planner | 초기 화면 License 버튼·모달 설계
+
+- 대상: `D:\Work\Private\jobs\20260807\party_night\party_night`의 start 화면, `GAME_LICENSE_SCREEN_CONTENT.md` 기반 License 본문 추출·modal 표시·모바일 접근성
+- 사용자 작업 지시 원문:
+
+```text
+프로젝트 루트의 GAME_LICENSE_SCREEN_CONTENT.md 문서를 토대로 초기 화면의 시작 버튼 오른쪽에 license 버튼을 배치하고 관련 md안의 license내용들을 모달 창 형식으로 띄울 수 있게 설계를 진행 할 것.
+```
+
+- 사용한 기준 문서: 루트 `AGENTS.md`, `GAME_LICENSE_SCREEN_CONTENT.md`, 현재 `architecture.md`, `implements.md`; 현재 `src/ui/{SetupScreen,FullscreenToggle}.tsx`, `src/app/App.tsx`, `src/styles.css`, `src/vite-env.d.ts`, `package.json`, `tsconfig.json`, `vite.config.ts`
+- 조사 범위: start/profile_create 화면 분기, profile 유무별 새 게임/이어하기·초기화·Fullscreen action 구조, 320px 1열 action CSS, body overflow·safe-area·portrait warning stacking, 기존 인라인 dialog, Vite raw import 지원, License 문서의 실제 UI 본문·축약 template·화면 제외/제출 참고 절 구분, 루트 정식 고지 파일 존재 여부
+- 생성·갱신 문서: `architecture.md` 신규 26절, `implements.md` 신규 34절, `changelog.md`; `GAME_LICENSE_SCREEN_CONTENT.md`, 코드·설정·리소스·테스트·빌드 파일과 선행 미커밋 `README.md` 변경은 수정하지 않음
+- 결정 근거: 원문 전체에는 License 외 NAN·AI·Agent·적용 전 점검 내용이 함께 있어 첫 `# LICENSE`부터 `Disclaimer`까지만 runtime 표시 범위로 정했다. JSX 복제 대신 Vite `?raw`와 제한 parser를 사용해 원문을 단일 기준으로 유지하고, Markdown HTML 실행·신규 renderer dependency 없이 React text node로 렌더하도록 했다. modal은 game state가 아닌 SetupScreen local state로 분리했다.
+- 핵심 결과: 시작 primary와 `License`를 2열 action row에 배치하고 profile 유무에 관계없이 오른쪽 trigger를 유지하는 구조를 확정했다. fixed ARIA modal, safe-area·독립 touch scroll·본문 선택, 닫기/Backdrop/Escape, focus trap·trigger 복귀, Fullscreen·portrait stacking 계약과 parser·모바일 수동 검증을 실행 가능한 수준으로 설계했다.
+- 금지·호환성: 기존 `LOAD_PROFILE`/`OPEN_PROFILE_CREATE`/`RESET_PROFILE`, profile v2·RNG·Phaser·Fullscreen 상태를 변경하지 않는다. `dangerouslySetInnerHTML`, raw 전체 노출, 법적 문구 임의 수정·축약, 동의 state, 공용 modal framework와 신규 dependency를 추가하지 않는다.
+- 위험·미확정 사항: `GAME_LICENSE_SCREEN_CONTENT.md`는 현재 Git 미추적 파일이므로 구현 시 build 입력으로 함께 추적해야 한다. 루트 `LICENSE`와 `THIRD_PARTY_NOTICES.md`는 현재 존재하지 않지만 modal 본문은 후자를 참조한다. 이번 설계는 원문대로 평문 표시하되 가짜 링크를 만들지 않으며, 정식 고지 파일 작성·법적 정확성 확인은 별도 확정 작업이다. Planner 작업이므로 코드·테스트·typecheck·build·브라우저 실행은 수행하지 않았다.
+
+## 2026-08-10 12:59:51 +09:00 | Planner | LICENSE·THIRD_PARTY_NOTICES 기반 License 모달 재설계
+
+- 대상: `D:\Work\Private\jobs\20260807\party_night\party_night`의 초기 화면 License modal 콘텐츠 원본·placeholder·third-party version/license 결합 계약
+- 사용자 작업 지시 원문:
+
+```text
+프로젝트 루트에 License와 THIRD_PARTY_NOTICES.md를 추가 하였다. 해당 문서들을 참고하여 다시 작업 할 것. placeholder에 재울 내용은 License를 참고 할 것
+```
+
+- 사용한 기준 문서: 루트 `AGENTS.md`, 신규 `LICENSE`, 신규 `THIRD_PARTY_NOTICES.md`, `GAME_LICENSE_SCREEN_CONTENT.md`, `package.json`, `package-lock.json`, 기존 `architecture.md` 26절과 `implements.md` 34절
+- 조사 범위: `LICENSE`의 copyright·proprietary scope·third-party·branding·Disclaimer, notice의 직접 의존성·transitive license metadata·자체 에셋 checklist, 화면 문서의 전체/축약 UI·placeholder·third-party list·Disclaimer·제외 절, package manifest와 lockfile root version 일치 여부, 세 문서 Git 추적 상태
+- 생성·갱신 문서: `architecture.md` 26.1~26.7 재정합화, `implements.md` 34.1~34.11 재정합화, `changelog.md`; `LICENSE`, `THIRD_PARTY_NOTICES.md`, `GAME_LICENSE_SCREEN_CONTENT.md`, 코드·설정·리소스·테스트·빌드 파일과 선행 미커밋 `README.md`는 수정하지 않음
+- 결정 근거: 화면 문구는 `GAME_LICENSE_SCREEN_CONTENT.md`, 저작권자·연도는 정식 `LICENSE`, 제3자 component·version·license는 notice를 우선하도록 출처를 분리했다. 모바일 UI용 2절 template의 `[COPYRIGHT HOLDER]`는 `LICENSE`의 `Copyright (c) 2026 송현도 (orcspy).`에서 추출한 `송현도 (orcspy)`로만 치환한다. notice 직접 의존성 7종은 manifest·lockfile과 일치함을 확인했다.
+- 핵심 결과: modal 기본 화면을 `Copyright © 2026 송현도 (orcspy). All Rights Reserved.`와 권리 요약으로 정하고, `Third-Party Licenses` disclosure에서 React/React DOM/Phaser 및 TypeScript/Vite/Vitest/plugin-react의 정확한 버전·라이선스를 notice table 기준으로 표시하도록 변경했다. Disclaimer는 화면 문서의 한국어 AS IS 요약을 유지하고, 세 raw 문서 중 하나라도 파싱·검증 실패 시 부분 결과나 placeholder를 노출하지 않는 fail-closed 계약을 확정했다.
+- 호환성·금지: 기존 시작 버튼 배치·modal 접근성·focus·scroll·Fullscreen 설계와 game/profile/RNG 경계는 유지한다. holder·version을 JSX 상수로 복제하거나 정식 `LICENSE`의 GitHub·NAN·branding 전문, notice의 transitive metadata·작성 checklist를 modal에 노출하지 않는다.
+- 위험·미확정 사항: 세 root 문서는 현재 모두 Git 미추적 상태이므로 Coder 구현 시 build 입력과 함께 추적해야 한다. `THIRD_PARTY_NOTICES.md`는 직접 의존성 값은 현재 lockfile과 일치하지만 문서 자체가 “작성 템플릿”이며 외부 폰트·BGM/SFX·아이콘·이미지·CDN/API checklist와 최종 원 라이선스 고지 검수는 남아 있다. Planner 작업이므로 코드·테스트·typecheck·build·브라우저 실행은 수행하지 않았다.
+
+## 2026-08-10 13:25:27 +09:00 | Planner | 에셋·lockfile 검수 반영 및 production MIT 고지 배포 설계
+
+- 대상: License modal 설계의 외부 에셋·dependency license 위험 상태와 웹 production bundle의 MIT 저작권·허가 고지 유지 방식
+- 사용자 작업 지시 원문:
+
+```text
+asset 문서와 실제 asset 파일들에 대한 file수, file size, registry기반 대조 완료 함. 결과적으로 외부 에셋 관련 라이선스 문제는 현재 프로젝트에서 발견되지 않음.
+원 라이센스 검수 관련하여 package-lock.json 내의 전체가 MIT / Apache-2.0 / ISC / BSD-3-Clause / CC-BY-4.0 범위안에 있음을 확인.
+단 웹 배포본에 들어가는 MIT 코드의 저작권/허가 고지는 반드시 별도로 유지하는 방향으로 진행 할 것.
+```
+
+- 사용한 기준 문서: 루트 `AGENTS.md`, 사용자 검수 결과, `asset-catalog.md`, `asset-plan.md`, `changelog-assets.md`, `LICENSE`, `THIRD_PARTY_NOTICES.md`, `package.json`, `package-lock.json`, 설치된 `node_modules/{react,react-dom,scheduler,phaser,eventemitter3}` 원 LICENSE, 기존 `architecture.md` 26절과 `implements.md` 34절
+- 조사 범위: 자체 절차 생성 asset 출처·registry 기록, notice의 asset checklist와 lockfile license 집합, root runtime dependency와 React DOM→scheduler·Phaser→eventemitter3 closure, 5개 runtime package version/license/copyright/permission 원문, Vite base `/pn/`와 raw/별도 asset 배포 경계
+- 생성·갱신 문서: `architecture.md` 26.3·26.5·26.7, `implements.md` 34.2~34.11, `changelog.md`; asset 문서·실제 asset·registry·License 원문·코드·설정·테스트·빌드 파일과 선행 미커밋 `README.md`는 수정하지 않음
+- 결정 근거: 사용자가 file 수·크기·registry 기반 asset 대조와 lockfile 전체 license 식별자 검수를 완료했으므로 외부 에셋 및 license 종류 미확정은 해소 상태로 전환했다. 반면 현재 웹 runtime closure의 React·React DOM·scheduler·Phaser·eventemitter3는 모두 MIT이며 각 원 LICENSE가 copyright와 permission notice 유지를 요구하므로 modal 요약과 별도 배포 notice를 분리했다.
+- 핵심 결과: `THIRD_PARTY_NOTICES.md`에 production MIT 5종의 package/version·production 포함 여부·원 copyright·permission text를 원문 그대로 보존하고, Vite `?url&no-inline`으로 `/pn/` production output의 독립 notice asset을 생성해 modal의 “전체 제3자 고지 열기”에서 접근하도록 설계했다. bundle 주석·data URI·modal 요약만으로 고지를 대체하지 않는다.
+- 검증 사양: lockfile `node_modules/*` license가 승인 5종 집합 안인지, runtime closure가 정확한 MIT 5종인지, notice가 Meta Platforms·Richard Davey/Phaser Studio·Arnout Kazemier copyright와 MIT permission/warranty 문구를 포함하는지 자동 확인한다. build 후 별도 파일 존재·비data URL·HTTPS `/pn/` 접근과 모바일 link 동작을 확인한다.
+- 위험·미확정 사항: 사용자 검수에 따라 외부 asset 위험과 license 식별자 범위는 현재 해소됐다. 현재 `THIRD_PARTY_NOTICES.md` 파일은 아직 metadata template이라 production MIT notice 전문 반영과 build 산출물 확인은 Coder 구현 단계에 남아 있다. 세 License 관련 root 문서는 Git 미추적 상태다. Planner 작업이므로 원 notice 수정·코드·테스트·typecheck·build·브라우저 실행은 수행하지 않았다.
+
+## 2026-08-10 13:48:46 +09:00 | Planner | 최종 License 화면 기준 전환·수동 고지 문서 적용 및 로컬 커밋
+
+- 대상: 폐기된 License 화면 문서 의존 제거, `GAME_LICENSE_SCREEN_TEXT.md` 기반 최종 화면 설계, 수동 확정 `LICENSE`·`THIRD_PARTY_NOTICES.md`·`LICENSE_AUDIT_SUMMARY.md`와 관련 설계·검증 문서의 로컬 Git 적용
+- 사용자 작업 지시 원문:
+
+```text
+기존 GAME_LICENSE_SCREEN_CONTENT.md를 이용한 게임 내 license 표기는 내용을 폐기하고 GAME_LICENSE_SCREEN_TEXT.md를 이용하여 다시 내용을 채울 것. ( GAME_LICENSE_SCREEN_CONTENT.md는 더이상 하용하지 않음으로 삭제 처리 했음. )
+추가로 현재 수동으로 작업 한 THIRD_PARTY_NOTICES.md, License, LICENSE_AUDIT_SUMMARY.md를 적용(커밋)할 것.
+```
+
+- 사용한 기준 문서: 루트 `AGENTS.md`, 신규 `GAME_LICENSE_SCREEN_TEXT.md`, 최종 `LICENSE`, 최종 `THIRD_PARTY_NOTICES.md`, `LICENSE_AUDIT_SUMMARY.md`, `package.json`, `package-lock.json`, 기존 `architecture.md` 26절·`implements.md` 34절과 선행 `README.md` 지원 환경 갱신
+- 조사 범위: 폐기 문서 실제 부재와 Git 추적 이력, 신규 화면 기준본의 기본/Third-Party text block·표시 구조, notice runtime npm 5종·Phaser vendored 3종·sections 2~7 MIT/ISC 원문·development/asset/maintenance 경계, audit summary의 runtime·vendored·asset 판정, LICENSE 자체 권리 표기, 현재 Git 변경·미추적 파일과 최근 커밋
+- 생성·갱신 문서: 신규 `GAME_LICENSE_SCREEN_TEXT.md`, `LICENSE`, `THIRD_PARTY_NOTICES.md`, `LICENSE_AUDIT_SUMMARY.md`; 갱신 `README.md`, `architecture.md` 26절, `implements.md` 34절, `changelog.md`; `GAME_LICENSE_SCREEN_CONTENT.md`는 기존 Git 추적 파일이 아니며 현재 존재하지 않아 재생성·삭제 stage하지 않음
+- 결정 근거: `GAME_LICENSE_SCREEN_TEXT.md`가 게임 표시 내용의 최종 기준본이라고 명시하므로 이전 placeholder·LICENSE holder 결합 설계를 전부 폐기했다. 화면은 문서의 `Copyright © 2026 orcspy.`와 runtime/vendored 8종을 그대로 사용하고, 상세 원문은 최종 notice sections 2~7만 노출한다. 정식 `LICENSE`와 audit summary는 저장소 검수 문서로 유지하되 browser bundle에는 import하지 않는다.
+- 핵심 결과: 신규 화면 text 두 code block과 notice sections 2~7을 fail-closed로 추출하고 `Third-Party License Texts` scroll 영역과 `?url&no-inline` 별도 notice file을 제공하는 최종 사양으로 재작성했다. 개발 전용 section 8, asset·maintenance sections 9~10, audit summary, LICENSE의 `송현도 (orcspy)` 표기와 폐기 문서 내용은 게임 modal에서 제외한다.
+- 검증·커밋 범위: `README.md`, `architecture.md`, `implements.md`, `changelog.md`와 신규 License 관련 Markdown 4개만 로컬 commit 대상으로 한다. 사용자 지시에 없는 `Party_Night_license_final_v0.2.0.zip`은 binary archive이므로 stage·commit하지 않는다. 원격 push는 요청되지 않아 수행하지 않는다.
+- 위험·미확정 사항: 실제 License 버튼·modal·parser·CSS·테스트는 아직 구현되지 않았다. 구현 후 typecheck·전체 test·build, 별도 notice asset과 Android Chrome·iOS Safari scroll/focus 검증이 필요하다. Planner 문서 적용 작업이므로 코드·test·build는 실행하지 않는다.
