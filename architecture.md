@@ -2383,3 +2383,43 @@ header와 cell은 다음 계약으로 바꾼다.
 - `architecture.md`에는 증거·한계·현재 배포 기준을, `implements.md`에는 완료 기준 충족 현황을 기록한다.
 - `README.md`의 최신 전체 자동 test 수, build·notice asset과 사용자 수동 회귀 완료 요약을 갱신한다.
 - `AGENTS.md`는 개발 규칙·완료 기준이 이미 typecheck·test·build·모바일 확인을 요구하고 있어 변경할 규칙이 없다. 이번 상태 기록을 추가하지 않는다.
+
+
+## 30. 제출용 최소 SFX 아키텍처 (2026-08-10)
+
+### 30.1 범위
+
+- WAV 2종만 추가: `footstep`, `hit`.
+- 게임 규칙·RNG·저장 schema 변경 없음.
+- SFX는 Phaser/React가 소비하는 presentation-only side effect로 취급한다.
+
+### 30.2 AudioContext 수명
+
+기존 `PhaserGame`은 `screen` 변경 시 `Phaser.Game`을 destroy/recreate한다. Phaser Sound Manager에만 unlock 상태를 맡기면 탐사→전투 전환에서 새 AudioContext가 다시 잠길 수 있으므로, SFX는 `src/phaser/audio/sfxPlayer.ts`의 module singleton Web Audio context를 사용한다.
+
+```text
+Browser user gesture (capture phase)
+        │
+        ▼
+installSfxUnlock() → shared AudioContext.resume()
+        │
+        ├─ ExplorationScene PARTY_MOVED → footstep
+        └─ BattleScene damage presentation → hit
+
+Phaser.Game destroy/recreate
+        └─ shared AudioContext는 유지
+```
+
+- capture-phase `pointerdown`/`touchend`/`keydown`에서 unlock을 시도해 Scene/React command dispatch보다 먼저 context resume를 시작한다.
+- WAV fetch는 미리 시작하고 decode 결과를 context별 buffer promise로 cache한다.
+- 재생 실패는 게임 상태를 변경하지 않고 warning/fallback 무음으로 종료한다.
+
+### 30.3 이벤트→SFX 계약
+
+- `PARTY_MOVED`: `footstep` 1회.
+- `MOVE_BLOCKED`, `PARTY_TURNED`: SFX 없음.
+- `TRAP_TRIGGERED`: 광역 파티 피해여도 `hit` 1회.
+- 전투 `ROLL_RESOLVED` + `resultKind='damage'`: action당 `hit` 1회.
+- 광역 스킬은 다수 `DAMAGE_APPLIED` + 단일 `ROLL_RESOLVED` 구조이므로 타깃 수와 관계없이 1회 재생.
+- 한 dispatch envelope에 여러 적 공격이 이어질 경우 각 damage `ROLL_RESOLVED` presentation step에서 각각 1회 재생.
+- `ROLL_RESOLVED` 없는 아이템 직접 피해/출혈 damage batch는 immediate `hit` 1회.

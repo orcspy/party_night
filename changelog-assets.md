@@ -289,3 +289,23 @@
 - 출처·라이선스: Node 내장 모듈 기반 자체 절차적 생성, 외부 이미지·폰트·신규 npm dependency 없음. 11개 아이콘은 최종 아트가 아닌 `draft`다.
 - 검증 결과: 생성기 재실행, PNG 11개 24×24 RGBA·manifest·45개 장비 family·shield 규격 테스트 성공. 전체 122개 테스트와 production build 성공. Chromium 844×390에서 common shield 이미지·흰색 border, 동료 종족 미리보기, 탐사 canvas를 확인했고 관련 console/runtime/network 오류는 0건이었다(무관한 favicon 404 제외).
 - 미확정 사항: Android Chrome·iOS Safari 실기는 사용할 기기가 없어 미실행했다. 동료 성별과 아이콘 최종 아트 승격은 후속 승인 대상이며 다이스·함정·비밀문 전용 에셋은 기존 fallback을 유지한다.
+
+
+## 2026-08-10 20:13:31 +09:00 | ChatGPT | 제출용 최소 SFX 2종 절차 생성·배선
+
+- 작업 루트·모드: `party_night-final-docs-updated.zip`을 `/mnt/data/party_night-sfx-work/party_night-final`에 별도 추출한 독립 작업본. 원본 ZIP 미수정.
+- 사용자 지시: WAV 고정, `footstep`/`hit` 2종만 적용, 광역 피격도 hit 1회, 오디오 unlock 고려, 전체 프로젝트를 독립 폴더에서 작업.
+- 생성: `assets-source/audio/generate_sfx.py`, `src/assets/sfx/{footstep,hit}.wav`.
+- 규격: footstep 0.240s/약 21KB, hit 0.180s/약 16KB, 공통 44.1kHz/16-bit PCM/mono.
+- 배선: singleton Web Audio player, capture-phase global unlock, 탐사 `PARTY_MOVED`, 함정 `TRAP_TRIGGERED`, 전투 damage `ROLL_RESOLVED` presentation step.
+- 광역 계약: 하나의 광역 action이 여러 `DAMAGE_APPLIED`를 생성해도 단일 damage `ROLL_RESOLVED`에만 hit을 연결해 1회 재생. 복수 공격이 같은 envelope에 묶이면 각 roll presentation step에서 각각 재생.
+- 외부 음원: 없음. 파형은 NumPy/SciPy 기반 절차 합성으로 생성하며 Python package는 웹 runtime에 포함하지 않는다.
+- 검증: generator 재실행 SHA-256 2/2 일치, WAV header/길이 확인, audio helper strict TS compile, 변경 TS/TSX 구문 검사, SFX mapping 실행 PASS.
+- 차단: 작업 환경 npm mirror에서 `yallist@3.1.1` tarball 404로 `npm ci`가 dependency 설치 전에 중단. source test 실패가 아니므로 lock/package는 수정하지 않았다. 전체 typecheck/test/build 및 Android/iOS/Pages 오디오 실기는 정상 npm/실기 환경에서 후속 확인.
+
+## 2026-08-10 21:05:00 +09:00 | ChatGPT | SFX 실기 검증 반영 및 적 공격 windup 제거
+
+- 사용자 검증: SFX 적용본의 `npm run typecheck`, `npm run test`, `npm run build` 완료. PC·Android Chrome·iOS Safari에서 footstep/hit 재생 확인, 광역 공격에서도 hit이 공격당 1회만 재생됨을 확인.
+- 추가 발견: 적 공격 판정 HP가 즉시 반영되는 반면 `enemy_windup` 1000ms 이후 피격 flash/SFX가 재생되어 표시 타이밍 부정합이 노출됨.
+- 최소 수정: authoritative 판정·HP·RNG·SFX mapping은 유지하고 `ENEMY_WINDUP_MS`만 `1000 -> 0`으로 변경. `enemy_windup` step 자체와 command lock/적별 순서는 유지한다.
+- 재검증 필요: 이번 0ms windup 변경 후 typecheck/test/build 및 적 일반/연속/광역 공격의 presentation 타이밍을 최종 확인한다.

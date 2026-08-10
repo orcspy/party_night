@@ -36,18 +36,19 @@
 
 ## Asset 감사
 
-현재 `src/assets`에는 PNG **350개**가 존재한다.
+현재 SFX 작업본의 `src/assets`에는 PNG **350개**와 WAV **2개**가 존재한다.
 
 - terrain runtime tiles: 28개 (7 map × floor/ceiling/wall_side/wall_front)
 - terrain marker: 3개 (`marker_encounter`, `marker_exit`, `marker_boss`)
 - enemy: 16개
 - character: 288개
 - content icon: 11개
+- SFX: 2개 (`footstep.wav`, `hit.wav`)
 - 역사적 미사용 `dungeon_*` terrain: 4개
 
-현재 runtime 대상은 총 **346개**이며, `dungeon_floor.png`, `dungeon_ceiling.png`, `dungeon_wall_side.png`, `dungeon_wall_front.png` 4개는 현재 registry에서 참조하지 않는 역사적 파일이다.
+현재 runtime 대상은 총 **348개**(기존 이미지 346 + WAV SFX 2)이며, `dungeon_floor.png`, `dungeon_ceiling.png`, `dungeon_wall_side.png`, `dungeon_wall_front.png` 4개는 현재 registry에서 참조하지 않는 역사적 파일이다.
 
-terrain, enemy, character, icon의 현재 runtime 에셋은 프로젝트의 `assets-source/**` Node 절차 생성 스크립트로 관리되는 자체 생성 원본이다. 외부 이미지·폰트·BGM·SFX 등 별도 media attribution 대상은 현재 감사에서 발견되지 않았다. 자체 원본 에셋의 사용 조건은 루트 `LICENSE`를 따른다.
+terrain, enemy, character, icon의 현재 runtime 에셋은 프로젝트의 `assets-source/**` Node 절차 생성 스크립트로 관리되는 자체 생성 원본이다. SFX 2종도 `assets-source/audio/generate_sfx.py`가 외부 음원 입력 없이 절차 생성하는 프로젝트 자체 원본이다. generator는 asset 생성 시 NumPy/SciPy를 사용하지만 이 Python package들은 웹 runtime이나 배포 bundle에 포함되지 않는다. 외부 이미지·폰트·BGM·음원 샘플 등 별도 media attribution 대상은 현재 감사에서 발견되지 않았다. 자체 원본 에셋의 사용 조건은 루트 `LICENSE`를 따른다.
 
 ## 최종 판정
 

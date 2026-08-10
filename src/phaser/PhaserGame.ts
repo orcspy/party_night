@@ -4,6 +4,7 @@ import type { Screen } from '../game/types'
 import type { GameStore } from '../app/gameStore'
 import { BattleScene } from './BattleScene'
 import { ExplorationScene } from './ExplorationScene'
+import { installSfxUnlock } from './audio/sfxPlayer'
 
 export interface SceneBridge {
   store: GameStore
@@ -14,6 +15,7 @@ export function PhaserGame({ screen, store, onBattlePresentationStarted }: { scr
   const host = useRef<HTMLDivElement>(null)
   useEffect(() => {
     if (!host.current) return
+    installSfxUnlock()
     const scene = screen === 'battle' ? new BattleScene({ store, onBattlePresentationStarted }) : new ExplorationScene({ store })
     const game = new Phaser.Game({
       type: Phaser.AUTO,

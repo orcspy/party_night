@@ -1331,3 +1331,33 @@ test.log 파일을 참고하여 수동 회귀 테스트에 대한 정보를 문�
 - 라이선스 정합화: `asset-catalog.md`의 자체 생성 에셋 `사용 제약 없음` 표현을 제거하고 `외부 attribution 없음 + 사용 조건은 루트 LICENSE 적용`으로 통일했다. `LICENSE_AUDIT_SUMMARY.md`의 검수 기준을 `party_night-final.zip`으로 갱신하고 package-lock 154개(MIT 143, ISC 6, Apache-2.0 3, BSD-3-Clause 1, CC-BY-4.0 1), PNG 350개/현재 runtime 346개/역사적 dungeon 4개를 final 감사 요약에 반영했다.
 - 검증 결과: 원본 `party_night-final.zip`과 비교해 문서 5개만 변경되었음을 확인했다. README에서 `test.log`, `122개`, `단계 10`, `가져온 전용`, `npm install`, `/pn/` 잔존이 없음을 확인했고, asset current table의 `registry 준비` 잔존과 자체 asset `사용 제약 없음` 표현이 없음을 확인했다. 코드·설정 미변경이므로 typecheck/test/build는 재실행하지 않았다.
 - 실패·미확정 사항: final 그래픽 자체는 여전히 draft/procedural asset 상태다. changelog/implements 등 과거 시점의 `/pn/`, 122 tests, 변경 단위 미검증 문구는 역사 기록이므로 이번 작업에서 수정하지 않았다.
+
+
+## 2026-08-10 20:13:31 +09:00 | ChatGPT | 제출용 최소 SFX 2종 구현 작업본
+
+- 작업 기준: `party_night-final-docs-updated.zip` 전체 프로젝트를 독립 폴더에 추출해 작업했으며 원본 final 패키지는 변경하지 않았다.
+- 사용자 확정 범위: WAV 직접 사용, 발소리 `footstep` 1종, 피격음 `hit` 1종, 광역 피해도 공격당 hit 1회, BGM/볼륨 UI/variation 제외, 오디오 unlock 필수 고려.
+- 설계: 탐사↔전투 전환에서 `Phaser.Game`이 재생성되는 현재 구조 때문에 Phaser Sound Manager 단독 context 대신 module singleton Web Audio context를 도입했다. global capture-phase 사용자 입력에서 unlock/resume하고 Scene 재생성 후에도 같은 context를 유지한다.
+- 구현: `assets-source/audio/generate_sfx.py`, WAV 2종, `src/phaser/audio/{sfxPlayer,sfxEvents}.ts`, `PhaserGame.ts`, `ExplorationScene.ts`, `BattleScene.ts`, `src/tests/sfxEvents.test.ts` 및 관련 설계/에셋/라이선스 문서 갱신.
+- 규칙 엔진 영향: `src/game`의 판정·RNG·피해·저장 schema는 변경하지 않았다. SFX는 기존 `GameEvent`를 소비하는 presentation side effect다.
+- 광역 처리: `DAMAGE_APPLIED` 개수가 아니라 damage `ROLL_RESOLVED` action에 hit을 연결해 all-target attack도 1회 재생한다. 아이템/출혈처럼 roll 없는 damage batch는 별도 immediate 1회 처리한다.
+- 검증 완료: WAV 재생성 SHA 일치, 44.1kHz/16-bit/mono header 및 길이 확인, SFX helper strict TypeScript compile, 변경 TS/TSX syntax transpile, event mapping 행동 검사 PASS.
+- 검증 차단: 현재 실행 환경 npm mirror의 `yallist@3.1.1` 404 때문에 `npm ci`가 중단되어 전체 `npm run typecheck/test/build`는 실행하지 못했다. package-lock을 우회 수정하지 않았으며 정상 npm 환경에서 전체 검증 후 채택해야 한다.
+- 남은 필수 확인: Desktop 실제 재생, Android Chrome/iOS Safari 첫 gesture unlock 및 탐사→전투 전환, Pages 배포 후 WAV 200/decode/console, 전체 자동 회귀. 이 확인 전에는 기존 final을 안전한 제출 기준선으로 유지한다.
+
+## 2026-08-10 21:05:00 +09:00 | ChatGPT | 적 공격 presentation 1초 지연 제거
+
+- 사용자 검증 선행 상태: SFX 적용본에서 `npm run typecheck`, `npm run test`, `npm run build` 완료. PC·Android Chrome·iOS Safari SFX 재생과 광역 공격 hit 1회 재생을 확인했다.
+- 발견 문제: 적 행동 결과 HP는 authoritative state에 즉시 반영되지만 `enemy_windup`이 1000ms 동안 `공격 차례`를 표시한 뒤 roll/피격 연출과 hit SFX가 실행되어 HP와 피격 표현 사이에 눈에 띄는 시간 부정합이 발생했다.
+- 수정 정책(A안): 규칙 엔진이나 HP 적용 시점을 변경하지 않고 presentation layer의 `ENEMY_WINDUP_MS`만 `1000`에서 `0`으로 변경했다. `enemy_windup` step은 제거하지 않아 기존 command lock과 적별 presentation 순서를 보존한다.
+- 변경 파일: `src/app/battlePresentation.ts`, `src/tests/battlePresentation.test.ts`, 검증 상태 문서 및 changelog.
+- 테스트 보호: 기존 battle presentation 테스트에 `ENEMY_WINDUP_MS === 0` assertion을 추가했다. 테스트 case 수 자체는 늘리지 않았다.
+- 후속 확인: 이번 최종 변경 후 `npm run typecheck`, `npm run test`, `npm run build`, 일반 적 공격/연속 적 공격/광역 공격의 체감 타이밍을 재확인한다.
+
+## 2026-08-10 21:21:00 +09:00 | ChatGPT | Windows CRLF license parser compatibility fix
+
+- 사용자 검증에서 `src/tests/licenseContent.test.ts`의 line-ending normalization 테스트 1건이 실패했다 (`1 failed / 146 passed`).
+- 원인: Windows checkout에서 이미 CRLF인 `GAME_LICENSE_SCREEN_TEXT.md`에 테스트의 CRLF 변환이 다시 적용되면 `\r\r\n`이 만들어질 수 있는데, 기존 `normalize()`는 `\r\n`만 LF로 변환해 잔여 `\r` 때문에 section marker 파싱이 실패했다.
+- 수정: `src/ui/licenseContent.ts`의 줄바꿈 정규화를 CRLF, 중복 CRLF(`\r\r\n`), 단독 CR 모두 LF로 수렴하도록 최소 변경했다. 테스트 기대값과 라이선스 문서 내용은 변경하지 않았다.
+- 범위: 라이선스 화면 텍스트 파싱 호환성만 수정했으며 게임 규칙, SFX, 전투 판정, 저장, RNG에는 영향이 없다.
+- 재검증 필요: 사용자 환경에서 `npm run test` 재실행 후 21 files / 147 tests 통과 여부를 확인한다.

@@ -4,7 +4,7 @@
 
 이 문서는 AGENTS.md 12항에 따라 교체 대상, 신규 에셋, 변경 파일, fallback, 검증 방법을 기록한다. 실제 진행 상태는 이 문서를 계속 갱신한다.
 
-> **v0.2.0 final 상태(2026-08-10):** terrain 7/7 map, enemy 16/16, character 288종, content icon 11종이 현재 런타임에 연결되어 있다. 다이스·함정·비밀문은 별도 승인 asset ID 없이 Phaser Graphics 표현을 유지한다. 전체 20 test files·142 tests와 production build가 통과했고, Android phone Chrome 및 iOS Safari 실기 검증과 Lv1→Lv10 통합 진행을 완료했다. production base는 `/party_night/`이다. 아래 단계별 검증 문구 중 `/pn/`, 일부 test 수, '마일스톤 미검증' 표시는 **당시 변경 단위의 역사적 기록**으로 읽고 현재 상태 판정에는 이 final 요약을 우선한다.
+> **v0.2.0 final 기준선 + 제출용 SFX 작업본 상태(2026-08-10):** terrain 7/7 map, enemy 16/16, character 288종, content icon 11종에 더해 자체 절차 생성 WAV SFX `footstep`/`hit` 2종을 presentation 계층에 연결했다. 기존 final은 전체 20 test files·142 tests와 production build, Android phone Chrome/iOS Safari 실기, Lv1→Lv10 통합 진행을 완료했다. SFX 적용 후 사용자가 `npm run typecheck/test/build` 전부 통과와 PC·Android Chrome·iOS Safari 실제 재생, 일반 피격 및 광역 공격 hit 1회 재생을 확인했다. 이후 적 공격의 1초 presentation windup만 0ms로 조정했으며 해당 최종 변경은 재검증 대상이다. production base는 `/party_night/`이다. 아래 단계별 `/pn/`, 과거 test 수, '마일스톤 미검증' 문구는 **당시 변경 단위의 역사 기록**이다.
 
 ## 진행 상태 요약
 
@@ -30,7 +30,7 @@
 - 승인 encounter marker: `marker_encounter`, `marker_boss` 모두 등록·파일 존재, 누락 없음.
 - 현재 구현 콘텐츠의 실제 연결: map 7/7, enemy 16/16 연결.
 - 별도 영구 asset ID가 설계되지 않은 항목: 함정, 비밀문, 비밀방 보상, 다이스. 아이템·장비·스킬 대표 아이콘 11종은 생성·배선됐고 개별 로드 실패 시 텍스트 배지를 사용한다.
-- `raw_data_table.md` 19절의 animation/effect/sound 연결값은 여전히 `TBD`이며 v0.2.0 완료용 구체 asset ID가 승인되지 않았다.
+- `raw_data_table.md` 19절의 일반 animation/effect/sound 연결값은 역사적으로 `TBD`였다. 제출용 최소 polish에서는 예외적으로 `footstep`·`hit` 두 SFX만 승인·연결했으며, 그 외 사운드/BGM/variation은 여전히 범위 밖이다.
 
 기존 `ExplorationScene.ts`는 `Phaser.Graphics` 벡터 도형(`fillRect`/`fillTriangle`/`strokeRect`/`lineBetween`)만으로 원근 복도를 그리며, 실제 이미지 에셋은 0개다(별도 조사 결과, 앞선 대화 참조). `E`(조우)·`X`(출구) 셀에는 시각 마커가 전혀 없다.
 
@@ -202,3 +202,44 @@ P1(벽/바닥/천장 타일)은 기존 시야 프레임 3단 구조를 그대로
 - 상태: 11개 draft 생성·상점/창고/캐릭터/탐사/전투/결과 UI 배선 완료. 최종 아트 디렉션 승격은 별도다.
 - 어깨띠 폭 비율(0.2), 엘프 귀 quad 형태는 draft이며 최종 승인 전까지 `approved`로 승격하지 않는다.
 - 마일스톤 검증(전체 test, Android/iOS 실기, `/pn/` production 배포, 저장 데이터 복구)은 아직 수행하지 않았다.
+
+
+## 제출용 최소 SFX 2종 (2026-08-10 작업본)
+
+### 범위와 규격
+
+| SFX ID | 파일 | 길이 | 규격 | 재생 조건 |
+|---|---|---:|---|---|
+| `footstep` | `src/assets/sfx/footstep.wav` | 0.240s | 44.1kHz / 16-bit PCM / mono | `PARTY_MOVED`가 발생한 실제 이동 성공 시 1회 |
+| `hit` | `src/assets/sfx/hit.wav` | 0.180s | 44.1kHz / 16-bit PCM / mono | 전투 피해 action 또는 함정 피해 시 1회 |
+
+- 원본 생성기: `assets-source/audio/generate_sfx.py`.
+- 생성 도구: Python 3.9 호환 코드 + NumPy + SciPy. 외부 음원 샘플을 읽거나 합성 원본으로 사용하지 않는다.
+- 생성기는 고정 seed를 사용하며 동일 실행에서 `footstep.wav`와 `hit.wav`의 SHA-256이 재현된다.
+- WAV를 그대로 런타임 asset으로 사용하며 OGG/MP3 인코더나 FFmpeg를 추가하지 않는다.
+
+### 런타임 연결
+
+- `src/phaser/audio/sfxPlayer.ts`: 앱 수명 동안 유지되는 Web Audio `AudioContext`와 WAV fetch/decode/cache를 관리한다.
+- `src/phaser/PhaserGame.ts`: Scene 생성 시 idempotent `installSfxUnlock()`을 설치한다. capture-phase `pointerdown`/`touchend`/`keydown`에서 context를 resume해 Phaser Canvas/React 명령 dispatch보다 먼저 unlock을 시도한다.
+- Phaser Game 인스턴스가 탐사↔전투 화면 전환 때 재생성되어도 SFX player는 module singleton으로 유지되어 AudioContext를 공유한다.
+- `ExplorationScene`: `PARTY_MOVED`에만 발소리를 재생하고 `MOVE_BLOCKED`/회전에는 재생하지 않는다. `TRAP_TRIGGERED`는 광역 피해여도 `hit`을 1회만 재생한다.
+- `BattleScene`: `ROLL_RESOLVED(resultKind=damage)` presentation step당 `hit`을 1회 재생한다. 따라서 `all_enemies` 같은 광역 공격이 여러 `DAMAGE_APPLIED`를 생성해도 같은 공격은 1회만 재생한다. 여러 공격이 한 store envelope에 묶여도 각 `ROLL_RESOLVED` step에서 각각 한 번 재생한다.
+- 아이템 직접 피해·출혈 등 `ROLL_RESOLVED`가 없는 피해 event 묶음은 `hasImmediateBattleDamage()`에서 한 번만 재생한다.
+
+### 범위 제한
+
+- BGM 없음.
+- mute/volume 설정 UI 없음.
+- 지형별 발소리, 무기/스킬별 피격 variation, pitch randomization 없음.
+- 게임 규칙·RNG·HP 계산·저장 schema는 수정하지 않는다.
+
+### 검증 상태
+
+- `generate_sfx.py` 재실행 후 두 WAV의 SHA-256 일치 확인.
+- WAV header 확인: PCM 16-bit, mono, 44100Hz; `footstep` 0.240s, `hit` 0.180s.
+- `sfxPlayer.ts`/`sfxEvents.ts` 독립 TypeScript strict compile 통과.
+- 변경 TS/TSX 파일 `transpileModule` 구문 검사 통과.
+- SFX 이벤트 mapping 실행 검증 통과: 이동 성공/벽 충돌 구분, 광역 4개 `DAMAGE_APPLIED` + 1개 `ROLL_RESOLVED` → hit 1회, 굴림 없는 피해 → immediate hit 1회, 함정 → hit 1회.
+- 후속 사용자 환경에서 SFX 적용본의 `npm run typecheck`, `npm run test`, `npm run build` 전부 통과를 확인했고 PC·Android Chrome·iOS Safari 실제 재생 및 광역 공격 hit 1회 재생을 확인했다. 이후 적 공격의 `ENEMY_WINDUP_MS`를 1000ms→0ms로 조정했으므로 이 최종 presentation 변경에 대해서는 동일 자동 검증과 적 공격 수동 확인을 다시 수행한다.
+- Android Chrome/iOS Safari에서는 실제 첫 이동 음, 탐사→전투 전환 후 첫 피격음, 새로고침 후 첫 입력 unlock을 수동 확인해야 한다.

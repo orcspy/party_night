@@ -1,7 +1,7 @@
 import type { DispatchEnvelope } from './gameStore'
 import type { GameEvent } from '../game/types'
 
-export const ENEMY_WINDUP_MS = 1000
+export const ENEMY_WINDUP_MS = 0
 export const ROLL_DISPLAY_MS = 1000
 export const VICTORY_HOLD_MS = 2000
 

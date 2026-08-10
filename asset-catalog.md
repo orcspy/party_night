@@ -307,3 +307,20 @@ node assets-source/characters/generate_character_sprites.mjs
 - rarity는 이미지에 굽지 않고 React CSS frame·이름·한글 badge에 적용한다.
 - `ContentIcon.tsx`의 eager manifest가 URL을 관리하고 항목별 누락·decode 실패 시 텍스트 배지를 사용한다.
 - 생성 명령: `node assets-source/icons/generate_content_icons.mjs`.
+
+
+## SFX 2종 — 제출용 최소 오디오 피드백
+
+| SFX ID | 런타임 파일 | 생성 원본 | 규격 | 상태 |
+|---|---|---|---|---|
+| `footstep` | `src/assets/sfx/footstep.wav` | `assets-source/audio/generate_sfx.py` | 44.1kHz / 16-bit PCM / mono / 0.240s | draft·탐사 배선 완료 |
+| `hit` | `src/assets/sfx/hit.wav` | `assets-source/audio/generate_sfx.py` | 44.1kHz / 16-bit PCM / mono / 0.180s | draft·전투/함정 배선 완료 |
+
+- 출처/생성 방법: NumPy 배열과 SciPy 신호 처리/`wavfile.write()`를 이용한 프로젝트 자체 절차 생성. 외부 음원·샘플·BGM을 입력으로 사용하지 않는다.
+- 재현성: 고정 seed `20260810`을 사용하며 generator 재실행 SHA-256 비교에서 두 산출물이 모두 일치했다.
+- 런타임: `src/phaser/audio/sfxPlayer.ts`가 Vite asset URL을 fetch/decode하고 singleton Web Audio context로 재생한다.
+- unlock: global capture-phase 사용자 입력에서 context를 resume하므로 탐사/전투 `Phaser.Game` 재생성에 오디오 unlock 상태가 종속되지 않는다.
+- `footstep`: `PARTY_MOVED` 성공에만 1회. `MOVE_BLOCKED`·회전은 무음.
+- `hit`: 전투의 damage `ROLL_RESOLVED` action당 1회. 광역 공격이 여러 `DAMAGE_APPLIED`를 생성해도 1회만 재생한다. 함정도 event batch당 1회.
+- fallback: 오디오 API 또는 decode가 실패하면 warning만 남기고 게임 판정과 UI 진행은 계속된다. SFX는 권위 상태에 영향을 주지 않는다.
+- 사용 조건: WAV와 생성 스크립트는 Party Night 프로젝트 자체 원본이며 루트 `LICENSE`를 따른다. NumPy/SciPy 자체는 런타임 배포물에 포함하지 않는다.

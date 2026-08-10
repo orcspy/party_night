@@ -20,6 +20,7 @@ describe('battle presentation plan', () => {
     ]
     const before = JSON.stringify(events)
     const plan = buildBattlePresentationPlan(envelope(events))
+    expect(ENEMY_WINDUP_MS).toBe(0)
     expect(plan.steps.map((step) => step.kind)).toEqual(['roll', 'enemy_windup', 'roll', 'enemy_windup', 'roll'])
     expect(plan.durationMs).toBe(ROLL_DISPLAY_MS * 3 + ENEMY_WINDUP_MS * 2)
     expect(plan.lockCommands).toBe(true)

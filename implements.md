@@ -4358,3 +4358,46 @@ production 산출물 중 핵심 확인값:
 - 사용자 보고 완료: 전체 수동 회귀 테스트, iOS Safari·Android phone Chrome 실동작 확인.
 - 로그에 없는 세부 증거: 실제 배포 URL 응답, 기기 모델·OS/브라우저 version·viewport별 최신 회귀 matrix, 개별 수동 시나리오 수행 순서.
 - 추가 코드·설정·test 변경은 필요하지 않다. 이번 작업은 검증 결과 문서화만 수행한다.
+
+
+## 38. 제출용 최소 SFX 구현 계약 (2026-08-10)
+
+### 38.1 생성 산출물
+
+```text
+assets-source/audio/generate_sfx.py
+  ├─ src/assets/sfx/footstep.wav  # 0.240s
+  └─ src/assets/sfx/hit.wav       # 0.180s
+```
+
+- Python 3.9.x 호환.
+- NumPy + SciPy 사용.
+- 44100Hz / signed 16-bit PCM / mono.
+- fixed seed로 결정적 재생성.
+- WAV 그대로 Vite asset으로 사용한다. OGG/MP3/FFmpeg는 도입하지 않는다.
+
+### 38.2 코드 변경
+
+- `src/phaser/audio/sfxPlayer.ts`: URL manifest, prefetch, singleton AudioContext, unlock, decode cache, gain, play.
+- `src/phaser/audio/sfxEvents.ts`: 이벤트→SFX 매핑의 순수 함수.
+- `src/phaser/PhaserGame.ts`: `installSfxUnlock()` 설치.
+- `src/phaser/ExplorationScene.ts`: 이동 성공/함정 SFX.
+- `src/phaser/BattleScene.ts`: damage roll presentation 및 non-roll damage SFX.
+- `src/tests/sfxEvents.test.ts`: 성공 이동, 벽 충돌, 광역 hit 1회 계약, 복수 attack roll, non-roll damage, trap mapping 검증.
+
+### 38.3 완료 조건
+
+1. generator 재실행 SHA 일치.
+2. `npm run typecheck` 성공.
+3. `npm run test` 전체 성공 + SFX mapping test 성공.
+4. `npm run build` 성공, 두 WAV가 production asset으로 포함.
+5. Desktop: FWD/BACK 성공만 footstep, 벽 충돌 무음, 단일/광역 hit 조건 확인.
+6. Android Chrome: 첫 이동부터 footstep, 탐사→전투 후 첫 hit, 새로고침 후 unlock 확인.
+7. iOS Safari: 위와 동일한 세 항목 확인.
+8. Pages: 두 WAV 요청 성공, console audio error 없음.
+
+### 38.4 현재 작업본 검증 메모
+
+- generator SHA 재현, WAV 규격, SFX 순수 매핑, 변경 파일 구문 검사는 통과.
+- ChatGPT 실행 환경에서는 npm mirror의 `yallist@3.1.1` 404로 전체 dependency 설치가 차단됐으나, 이후 사용자 환경에서 SFX 적용본의 typecheck/test/build와 PC·Android Chrome·iOS Safari 실제 재생, 광역 공격 hit 1회 재생까지 확인했다. 적 공격의 1초 windup을 0ms로 조정한 최종 변경분은 동일 자동 검증과 적 공격 수동 타이밍 확인을 다시 수행한다.
+- 모바일 실기/Pages는 사용자가 최종 채택 전에 수행한다.

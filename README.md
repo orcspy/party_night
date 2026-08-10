@@ -18,6 +18,7 @@ Party Night는 모바일 가로 브라우저에서 플레이하는 **4인 파티
 - 장비·아이템·스킬 상점, 100칸 통합 창고, 개인 소비 아이템 인벤토리
 - 순차 퀘스트 5개 + 반복 퀘스트 2개
 - 브라우저 `localStorage` 기반 ProfileV2 저장
+- 프로젝트 자체 절차 생성 WAV SFX 2종: 탐사 이동 `footstep`, 전투·함정 피격 `hit`
 
 ## 실행
 
@@ -45,7 +46,7 @@ npm run build
 
 ## 최종 검증 상태
 
-최종 v0.2.0 기준 검증 결과는 다음과 같습니다.
+최종 v0.2.0 기준선 및 SFX 변경분 검증 결과는 다음과 같습니다. SFX 적용 후 사용자가 `npm run typecheck`, `npm run test`, `npm run build`를 모두 완료했고 PC·Android Chrome·iOS Safari에서 실제 재생, 일반 피격 및 광역 공격의 hit 1회 재생을 확인했습니다. 이후 적 공격 presentation의 1초 windup만 0ms로 조정했으므로 이 최종 변경분에 대해서는 아래 명령과 적 공격 체감 타이밍을 한 번 더 확인합니다.
 
 - `npm run typecheck`: 오류 없이 완료
 - `npm run test`: **20 test files / 142 tests 통과**
@@ -93,6 +94,7 @@ production main JS는 약 1.92MB(gzip 약 475.65kB)이며 Vite의 500kB 초과 c
 - 파티 캐릭터는 종족 4 × 직업 6 × 성별 3 × 파티 슬롯 4 조합의 **288개 절차 생성 PNG**를 필요 시 지연 로드합니다.
 - 아이템·장비·스킬은 포션, 장비 family 8종, 액티브/패시브의 **11개 대표 아이콘**을 사용합니다.
 - 유적지와 오크·오우거를 포함한 terrain/enemy 이미지는 프로젝트 내부 Node 절차 생성 스크립트로 제작한 draft 에셋을 사용합니다.
+- 탐사 이동과 피격 피드백은 `assets-source/audio/generate_sfx.py`로 생성한 44.1kHz/16-bit/mono WAV 2종을 사용하며 외부 음원 파일을 사용하지 않습니다.
 - 승인된 소비 아이템 9종을 진행도에 따라 상점에서 해금합니다.
 - 장비는 일반/고급/희귀/영웅/전설 rarity와 4개 장비 슬롯을 사용합니다.
 - 100칸 통합 창고와 STR 기반 개인 소비 아이템 인벤토리 배분·회수를 제공합니다.
@@ -146,6 +148,7 @@ Pure TypeScript Game Engine
 - 진행 중 `ExpeditionSession`은 영속 저장하지 않으며 ProfileV2의 장기 진행만 저장합니다.
 - terrain, enemy, character, content icon은 프로젝트 내부 절차 생성 스크립트로 만든 **draft 시각 에셋**입니다.
 - 다이스·함정·비밀문 일부 표현은 Phaser Graphics 기반 표현을 유지합니다.
+- 오디오는 현재 발소리·피격음 2종의 최소 SFX만 제공하며 BGM·볼륨 UI·환경별 사운드 variation은 포함하지 않습니다.
 - production main chunk는 Vite 500kB warning 기준을 초과하지만 현재 final build와 검증을 통과했습니다.
 - 계정/서버/온라인 플레이/PWA는 v0.2.0 범위에 포함되지 않습니다.
 

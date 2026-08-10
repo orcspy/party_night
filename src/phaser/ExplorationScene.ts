@@ -4,6 +4,8 @@ import { isWall } from '../game/exploration'
 import { getMapDefinition, getNextRequiredEncounter } from '../game/content'
 import type { Direction, GameState } from '../game/types'
 import type { SceneBridge } from './PhaserGame'
+import { hasSuccessfulMovement, hasTrapDamage } from './audio/sfxEvents'
+import { playSfx } from './audio/sfxPlayer'
 import { MARKER_KEYS, markerAssetReady, queueTerrainAssets, terrainAssetReady, terrainTextureKey } from './assets/terrainAssets'
 import {
   CEILING_POLYGON,
@@ -113,7 +115,11 @@ export class ExplorationScene extends Phaser.Scene {
     this.unsubscribe = this.bridge.store.subscribe((envelope) => {
       this.state = envelope.state
       this.drawWorld()
-      if (envelope.events.some((event) => event.type === 'TRAP_TRIGGERED')) this.cameras.main.shake(120, 0.008)
+      if (hasSuccessfulMovement(envelope.events)) playSfx('footstep')
+      if (hasTrapDamage(envelope.events)) {
+        playSfx('hit')
+        this.cameras.main.shake(120, 0.008)
+      }
       if (envelope.events.some((event) => event.type === 'TRAP_DISCOVERED' || event.type === 'SECRET_ROOM_DISCOVERED')) this.cameras.main.flash(100, 196, 176, 92, false)
     })
     const cleanup = () => {

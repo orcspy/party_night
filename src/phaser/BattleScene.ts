@@ -5,6 +5,8 @@ import type { DispatchEnvelope } from '../app/gameStore'
 import type { SceneBridge } from './PhaserGame'
 import { queueEnemyAssets, enemySpriteKeyFor, enemyAssetReady } from './assets/enemyAssets'
 import { queueCharacterAsset, characterTextureKey, characterAssetReady } from './assets/characterAssets'
+import { hasImmediateBattleDamage, isDamageRoll } from './audio/sfxEvents'
+import { playSfx } from './audio/sfxPlayer'
 
 export class BattleScene extends Phaser.Scene {
   private unsubscribe?: () => void
@@ -160,6 +162,7 @@ export class BattleScene extends Phaser.Scene {
   private animateEvents(envelope: DispatchEnvelope) {
     const events = envelope.events
     if (events.some((event) => event.type === 'DAMAGE_APPLIED')) this.cameras.main.shake(90, 0.005)
+    if (hasImmediateBattleDamage(events)) playSfx('hit')
     if (events.some((event) => event.type === 'DICE_ROLLED')) this.cameras.main.flash(80, 218, 184, 96, false)
     if (events.some((event) => event.type === 'STATUS_APPLIED')) this.cameras.main.flash(100, 214, 175, 61, false)
     const plan = buildBattlePresentationPlan(envelope)
@@ -201,6 +204,7 @@ export class BattleScene extends Phaser.Scene {
     }
 
     const event: GameEvent = step.event
+    if (isDamageRoll(event)) playSfx('hit')
     if (!event.finalDice || event.finalDice.length === 0) {
       this.showingPresentation = false
       this.showNextPresentation()

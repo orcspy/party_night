@@ -34,7 +34,7 @@ const REQUIRED_COPYRIGHTS = [
 ] as const
 
 function normalize(source: string): string {
-  return source.replaceAll('\r\n', '\n')
+  return source.replace(/\r+\n/g, '\n').replaceAll('\r', '\n')
 }
 
 function occurrences(source: string, value: string): number {
