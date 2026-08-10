@@ -1275,3 +1275,17 @@ asset 문서와 실제 asset 파일들에 대한 file수, file size, registry기
 - 결정 근거: 사용자가 수정 항목 확인과 전체 수동 회귀 완료를 명시하고 현재 작업 전체의 commit/push를 승인했다. 현재 `main`은 `origin/main`보다 선행 License 문서 commit 1개가 앞서므로 신규 구현 commit과 함께 원격으로 push한다.
 - 검증 결과: 선행 `npm run typecheck` 성공, 관련 3 files·18 tests 성공, 사용자 전체 수동 회귀 테스트 완료, pre-commit `git diff --check` 공백 오류 없음. 전체 자동 test·production build는 이번 commit 지시에서 추가 실행하지 않았다.
 - 실패·미확정 사항: 없음. commit·push 명령 결과와 최종 원격 동기화 상태는 명령 실행 후 사용자에게 직접 보고한다.
+
+## 2026-08-10 15:30:21 +09:00 | Coder | production base 경로 변경 commit/push
+
+- 작업 루트·모드: `D:\Work\Private\jobs\20260807\party_night\party_night` · 원본 직접 작업
+- 사용자 작업 지시 원문: `현재 프로젝트 배포 사양으로 기존의 vite.config.ts등 의 파일의 /pn/을 /party_night/로 변경 하였다. 해당 부분에 대해서 commit 및 push 할 것.`
+- 사용한 기준: 현재 사용자 지시와 사용자가 직접 수정한 `vite.config.ts`, `src/tests/licenseContent.test.ts`; `AGENTS.md`와 기존 License notice 배포 계약
+- 조사 범위: working tree diff, Vite `base`, License 별도 notice URL test fixture, 저장소 내 `/pn/`·`/party_night/` 참조, 최근 commit과 `origin/main` 상태
+- 검증 단계: 별도 지정이 없어 `1단계 기본 검증`을 적용했다.
+- 변경 파일: 사용자 수정 `vite.config.ts`, `src/tests/licenseContent.test.ts`; 작업 기록 `changelog.md`.
+- 결정 근거: 사용자가 현재 production 하위 경로를 `/party_night/`로 확정하고 설정과 직접 관련 test fixture를 함께 변경했다. Vite 생성 asset·notice URL이 같은 base를 사용하도록 두 변경을 하나의 commit으로 처리한다.
+- 핵심 변경: Vite `base`를 `/pn/`에서 `/party_night/`로 바꾸고 License notice URL fixture도 `/party_night/assets/THIRD_PARTY_NOTICES.md`로 정합화했다.
+- 호환성·의존성 변경: package·lockfile·runtime dependency·License 원문·asset·gameplay·profile schema 변경은 없다. 기존 `/pn/` 배포 URL과는 호환되지 않으므로 웹서버와 정적 배포 대상 경로도 `/party_night/`를 사용해야 한다.
+- 검증 결과: `npm run typecheck` 성공. `npm run test -- src/tests/licenseContent.test.ts` 성공(1 file, 3 tests). `git diff --check` 공백 오류 없음.
+- 실패·미확정 사항: production build와 실제 `/party_night/` 정적 배포 접속은 1단계 범위에서 실행하지 않았다. `architecture.md`, `implements.md` 및 과거 검증 기록의 `/pn/` 참조는 Coder 읽기 전용 문서와 역사 기록이므로 이번 commit에서 일괄 변경하지 않았으며, 현행 설계문서 표기 정합화가 필요하면 Planner 후속 작업 대상이다.

@@ -12,7 +12,7 @@ const COMPONENTS = [
 
 describe('license screen content', () => {
   it('builds the final screen and runtime notice sections without excluded content', () => {
-    const result = buildLicenseScreenContent(licenseScreenText, thirdPartyNotices, '/pn/assets/THIRD_PARTY_NOTICES.md')
+    const result = buildLicenseScreenContent(licenseScreenText, thirdPartyNotices, '/party_night/assets/THIRD_PARTY_NOTICES.md')
     expect(result.ok).toBe(true)
     expect(LICENSE_CONTENT.ok).toBe(true)
     if (!result.ok) return
