@@ -49,7 +49,7 @@ npm run build
 최종 v0.2.0 기준선 및 SFX 변경분 검증 결과는 다음과 같습니다. SFX 적용 후 사용자가 `npm run typecheck`, `npm run test`, `npm run build`를 모두 완료했고 PC·Android Chrome·iOS Safari에서 실제 재생, 일반 피격 및 광역 공격의 hit 1회 재생을 확인했습니다. 이후 적 공격 presentation의 1초 windup만 0ms로 조정했으므로 이 최종 변경분에 대해서는 아래 명령과 적 공격 체감 타이밍을 한 번 더 확인합니다.
 
 - `npm run typecheck`: 오류 없이 완료
-- `npm run test`: **20 test files / 142 tests 통과**
+- `npm run test`: **21 test files / 147 tests 통과**
 - `npm run build`: 성공 — Vite가 418 modules를 변환
 - 독립 `THIRD_PARTY_NOTICES` Markdown asset 생성 확인
 - 전체 수동 회귀 테스트 완료
