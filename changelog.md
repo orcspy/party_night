@@ -1013,3 +1013,26 @@ raw_data_table.md파일에 동료 관련 종족 데이터 수동 추가완료. �
 - 호환성·의존성 변경: `isWall`, map·encounter·비밀문 판정, movement command, 640×360 Phaser scale, terrain asset·fallback·tile phase와 profile을 변경하지 않았다. 신규 패키지와 dependency·lock 변경 없음.
 - 검증 결과: `npm run typecheck` 성공. `npm test -- src/tests/explorationGeometry.test.ts src/tests/exploration.test.ts src/tests/assets.test.ts src/tests/battlePresentation.test.ts` 성공(4개 파일, 23개 테스트). 전체 polygon 순서·정면 벽 공유 모서리·side wall points·cover bounds·실제 wall render depth·map 재현 판정·기존 asset/presentation 회귀를 확인했다. `git diff --check` 공백 오류 없음.
 - 실패·미확정 사항: 1단계 범위에 따라 전체 테스트, production build와 실제 Phaser browser 실행은 수행하지 않았다. 640×360·844×390·7개 terrain·fallback·Fullscreen에서 polygon seam과 viewport 외부 pixel, marker·함정·비밀문·버튼 hit-test, Android Chrome·iOS Safari 가로 화면은 수동 검증이 필요하다.
+
+## 2026-08-10 11:28:14 +09:00 | Coder | Android Chrome 실기 확인 및 모바일 UI 개선 push
+
+- 작업 루트·모드: `D:\Work\Private\jobs\20260807\party_night\party_night` | 원본 직접 작업
+- 사용자 작업 지시 원문:
+
+```text
+android phone chrome 동작 확인 완료. 탐사 간 왜곡 현상 해소 확인 완료.
+
+현재 작업물을 모두 commit해서 origin/main에 push할 것.
+
+Continue if you have next steps, or stop and ask for clarification if you are unsure how to proceed.
+```
+
+- 사용한 설계문서: `implements.md` 30~33절 최우선, `architecture.md` 22~25절, 루트 `AGENTS.md`
+- 조사 범위: `main`·`origin/main` 추적 상태와 최근 커밋, fullscreen·결과/창고/캐릭터 표시·전투 presentation/log·탐사 geometry 및 관련 테스트를 포함한 현재 변경 30개 파일, 변경 파일의 민감정보 패턴과 비밀정보 파일명, staged diff와 공백 오류
+- 검증 단계: 1단계 기본 검증 및 사용자 Android Chrome 수동 검증 결과 반영
+- 변경 파일: 구현·설계·테스트 30개 파일을 커밋 `c11603d`에 포함했으며 이 결과 기록으로 `changelog.md`를 추가 수정
+- 결정 근거: fullscreen, 표시 위계, 전투 텀·구조화 로그, 탐사 frame-chain polygon·viewport cover는 서로 직접 연결된 승인 작업이고 관련 설계·테스트와 함께 한 작업 트리에 누적되어 있어 현재 상태 전체를 단일 구현 커밋으로 전달했다. canonical 전투 판정·정산은 즉시 확정하고 지연은 presentation 계층에만 유지했다.
+- 핵심 구현: `Improve mobile combat and exploration UI` 커밋 `c11603d`에 전체 화면 토글, 결과·창고·캐릭터 정보 위계, 적 공격 차례 예고와 전투 종료 유지, 상태 성공/실패 및 damage/heal 구조화 로그, 탐사 floor·ceiling frame-chain polygon과 viewport 외곽 cover, 관련 pure helper·테스트·설계문서를 포함했다.
+- 호환성·의존성 변경: profile version 2, RNG, 장착·정산·탐사 판정과 public 실행 경로를 유지했다. 신규 package와 dependency·lock 변경 없음.
+- 검증 결과: 선행 `npm run typecheck` 성공. 전투 관련 4개 파일 40개 테스트와 탐사 관련 4개 파일 23개 테스트 성공. 사용자가 Android phone Chrome 동작과 탐사 왜곡 해소를 실기 확인했다. 민감정보 패턴 및 `.env`·key 계열 파일 검색 결과 없음. `git diff --check`와 `git diff --cached --check` 공백 오류 없음. 커밋 `c11603d`를 `origin/main`에 push했다(`1af2983..c11603d`).
+- 실패·미확정 사항: 1단계 범위에 따라 전체 `npm test`, production `npm run build`, 패키징은 수행하지 않았다. iOS Safari 가로 화면은 미확인이다. push 중 Git for Windows의 `invalid fstab option - 'defaults'` 경고가 출력됐으나 GitHub `origin/main` 갱신은 성공했다.
