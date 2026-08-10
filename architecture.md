@@ -2338,3 +2338,48 @@ header와 cell은 다음 계약으로 바꾼다.
 - 신경독 note를 raw exact loop에 그대로 포함하면 새 요구와 test가 충돌한다. override를 명시적으로 분리해야 한다.
 - 아이템 효과 설명을 `ShopPanel` JSX에 분산하면 effect 추가 시 누락되므로 exhaustiveness를 검사할 presentation map이 필요하다.
 - 장비 modifier formatter는 표시 전용이며 최종 능력치·파생 수치나 실제 장착 가능 여부를 계산하지 않는다.
+
+## 29. `test.log` 기반 최신 회귀 검증 증거 분석
+
+### 29.1 분석 범위와 증거 성격
+
+- 기준 자료는 프로젝트 루트의 `test.log`, 현재 `package.json`·`vite.config.ts`, `src/tests`와 사용자의 전체 수동 회귀 완료 보고다.
+- `test.log`는 `.gitignore`의 `*.log` 규칙으로 Git 추적되지 않는 로컬 실행 기록이다. 원본은 수정하지 않고 지속적으로 보존해야 하는 결과만 문서에 옮긴다.
+- 로그에는 `npm run typecheck`, 전체 `npm run test`, `npm run build` 출력이 있다. 브라우저 조작 절차·기기·OS·URL·각 수동 시나리오의 pass/fail 표는 없다.
+- 따라서 자동 검증·build 결과는 로그로 확인된 사실이고, “전체 수동 회귀 완료”는 사용자 완료 보고다. 로그 자체가 수동 회귀의 세부 실행 증거라고 표현하지 않는다.
+- 로그에는 날짜·commit hash가 없어 특정 Git revision에 직접 결속할 수 없다. 실행 경로와 package 출력으로 Party Night 0.2.0 workspace에서 수행된 사실만 확인된다.
+
+### 29.2 자동 검증 확인 결과
+
+| 구분 | `test.log` 확인 결과 |
+|---|---|
+| TypeScript | `npm run typecheck` → `tsc -b --pretty false`, 오류 출력 없음 |
+| 전체 test | Vitest 3.2.7, 20 files passed, 142 tests passed, 실패 0 |
+| test 시간 | Start `16:18:15`, duration 2.57s |
+| production build | Vite 6.4.3, 418 modules transformed, 6.71s에 성공 |
+| 독립 notice asset | `dist/assets/THIRD_PARTY_NOTICES-Be2Gocd2.md`, 10.89kB 생성 |
+| CSS | `dist/assets/index-BuWOJkUA.css`, 21.30kB, gzip 5.14kB |
+| main JS | `dist/assets/index-Nabr6AIP.js`, 1,923.66kB, gzip 475.65kB |
+
+전체 20개 test file에는 최신 `skillInfo.test.ts` 4개, `licenseContent.test.ts` 3개, `assets.test.ts` 11개와 기존 전투·탐사·저장·상점·단계 회귀가 모두 포함된다. 기존 README의 단계 10 시점 122개보다 최신 전체 suite가 142개로 증가했다.
+
+### 29.3 License·배포 검증 상태
+
+- 별도 `THIRD_PARTY_NOTICES` Markdown asset이 production output에 생성됐으므로 License 설계 34절의 “data URI나 JS bundle에만 포함하지 않음” build 조건은 충족됐다.
+- `test.log`는 emitted filename·크기까지만 보여 주며, modal 링크 click, HTTP status, 실제 `/party_night/` URL, 파일 내용 대조는 기록하지 않는다.
+- 현재 code 기준 Vite base는 `/party_night/`다. architecture 11절의 `/pn/`은 v0.1.0 당시 배포·검증 이력이고 현재 production 경로는 이 절의 `/party_night/`를 우선한다.
+- build는 성공했지만 500kB 초과 chunk warning이 계속된다. main JS gzip은 500kB 미만이나 원본 minified chunk가 기준을 초과하며, 이는 경고이지 build 실패가 아니다.
+
+### 29.4 수동 회귀 완료 보고의 범위
+
+- 사용자는 최신 수정 항목을 확인하고 전체 수동 회귀 테스트를 완료했다고 보고했다.
+- 후속 사용자 보고로 최신 상태의 실제 동작을 **iOS Safari**와 **Android phone Chrome**에서 각각 확인 완료했다. 이는 `test.log` 출력이 아니라 사용자 실기기 확인 결과다.
+- 이에 따라 License 버튼·modal, 스킬 정보 표, 결과 문구, 장비·아이템·스킬 상점 수정 및 기존 v0.2.0 플레이 루프에 대해 사용자 수준 회귀 완료 상태로 기록한다.
+- `test.log`만으로는 두 브라우저의 최신 실행을 입증할 수 없지만 사용자 실기기 확인으로 iOS Safari·Android phone Chrome의 실동작 상태는 완료 처리한다. 기기 모델·OS/브라우저 version·정확한 viewport·배포 URL·focus trap·회전·Fullscreen의 개별 결과는 제공되지 않았으므로 임의로 세분화하지 않는다.
+- 재현 가능한 공식 release evidence가 필요하면 날짜·commit·브라우저/기기·배포 URL·시나리오별 pass/fail을 별도 추적 Markdown에 남겨야 한다. 현재 요청에서는 새 원본 test 문서를 만들지 않는다.
+
+### 29.5 문서 영향 판정
+
+- `architecture.md`에는 증거·한계·현재 배포 기준을, `implements.md`에는 완료 기준 충족 현황을 기록한다.
+- `README.md`의 최신 전체 자동 test 수, build·notice asset과 사용자 수동 회귀 완료 요약을 갱신한다.
+- `AGENTS.md`는 개발 규칙·완료 기준이 이미 typecheck·test·build·모바일 확인을 요구하고 있어 변경할 규칙이 없다. 이번 상태 기록을 추가하지 않는다.

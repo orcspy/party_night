@@ -4299,3 +4299,62 @@ export function getItemEffectDescription(itemId: string): string
 - incompatible 장비의 `현재 파티 장착 불가` 문구는 유지되며 해당 phrase에만 `#e4a56f` 강조색과 굵은 글꼴이 적용된다.
 - 아이템은 단가·효과를 표시하고 합계 text를 표시하지 않지만 구매 계산은 유지한다.
 - gameplay data·가격·구매·장착·profile·License·dependency가 변경되지 않는다.
+
+## 37. 최신 전체 회귀·production build 검증 기록
+
+### 37.1 기준과 판정 원칙
+
+- 자동 검증·build 수치는 프로젝트 루트 `test.log`의 실제 출력만 사용한다.
+- 수동 회귀는 사용자의 “수정 항목 확인 및 전체 수동 회귀 테스트 완료” 보고를 완료 근거로 사용한다.
+- `test.log`에는 수동 조작 단계가 없으므로 자동 로그 결과와 사용자 수동 완료 보고를 합쳐 쓰거나 서로의 직접 증거로 대체하지 않는다.
+- `test.log`는 `.gitignore` 대상이며 이번 문서화에서 수정·추적하지 않는다.
+
+### 37.2 검증 결과
+
+```text
+npm run typecheck
+→ tsc -b --pretty false
+→ 오류 출력 없음
+
+npm run test
+→ Vitest 3.2.7
+→ Test Files 20 passed (20)
+→ Tests 142 passed (142)
+→ Duration 2.57s
+
+npm run build
+→ Vite 6.4.3
+→ 418 modules transformed
+→ built in 6.71s
+```
+
+production 산출물 중 핵심 확인값:
+
+| 산출물 | 크기 | gzip | 판정 |
+|---|---:|---:|---|
+| `dist/index.html` | 0.54kB | 0.33kB | 생성 |
+| `dist/assets/THIRD_PARTY_NOTICES-Be2Gocd2.md` | 10.89kB | - | 별도 notice 생성 |
+| `dist/assets/index-BuWOJkUA.css` | 21.30kB | 5.14kB | 생성 |
+| `dist/assets/index-Nabr6AIP.js` | 1,923.66kB | 475.65kB | 생성, 500kB warning 유지 |
+
+### 37.3 기존 완료 기준 반영
+
+- 34.11 License: typecheck·전체 test·build와 별도 notice asset 생성 조건은 충족됐다. modal link의 실제 `/party_night/` HTTP 접근은 로그에 없다.
+- 35.13 스킬 정보: 최신 `skillInfo.test.ts` 4개를 포함한 전체 suite가 통과했다.
+- 36.10 상점·표 수정: 최신 `assets.test.ts` 11개·`skillInfo.test.ts` 4개를 포함한 전체 suite가 통과했다.
+- 사용자가 최신 수정 항목과 기존 플레이 루프의 전체 수동 회귀 완료를 보고했으므로 수동 완료 상태로 기록한다.
+- 후속 사용자 실기기 보고로 **iOS Safari**와 **Android phone Chrome**에서 최신 상태의 실제 동작 확인을 완료했다.
+- 기기 모델·OS/브라우저 version·viewport·URL별 evidence가 로그에 없으므로 640×360, 844×390, focus·회전·Fullscreen 항목을 이번 확인만으로 각각 새로 검증했다고 표기하지 않는다.
+
+### 37.4 현재 배포·경고 기준
+
+- 현재 production base는 `vite.config.ts`의 `/party_night/`다. v0.1.0 당시 `/pn/` 기준선은 역사 기록이며 신규 배포에 사용하지 않는다.
+- build chunk warning은 비차단 상태로 유지한다. 실제 초기 로딩·메모리 문제가 확인되기 전에는 범위를 벗어난 code splitting이나 Phaser 분리를 수행하지 않는다.
+- 다음 release evidence를 다시 남길 때는 실행 날짜·commit hash·배포 URL·브라우저/기기·수동 시나리오 결과를 함께 기록한다.
+
+### 37.5 완료 상태
+
+- 확인됨: typecheck 성공, 20 test files·142 tests 성공, production build 성공, 독립 notice asset 생성.
+- 사용자 보고 완료: 전체 수동 회귀 테스트, iOS Safari·Android phone Chrome 실동작 확인.
+- 로그에 없는 세부 증거: 실제 배포 URL 응답, 기기 모델·OS/브라우저 version·viewport별 최신 회귀 matrix, 개별 수동 시나리오 수행 순서.
+- 추가 코드·설정·test 변경은 필요하지 않다. 이번 작업은 검증 결과 문서화만 수행한다.

@@ -17,6 +17,12 @@ npm run test
 npm run build
 ```
 
+최신 `test.log` 기준으로 typecheck 오류 없이 전체 **20개 test file·142개 test**가 통과했고, Vite production build가 418 modules를 변환해 6.71초에 완료되었습니다. build에는 10.89kB의 독립 `THIRD_PARTY_NOTICES` Markdown asset이 포함됩니다. main JS는 1,923.66kB(gzip 475.65kB)로 build는 성공했지만 500kB 초과 chunk 경고는 유지됩니다.
+
+사용자는 최신 License·스킬 정보·상점 수정 사항을 포함한 전체 수동 회귀 테스트를 완료했고, **iOS Safari**와 **Android phone Chrome**에서 실제 동작을 확인했습니다. `test.log`에는 자동 명령과 build 출력만 있고 기기 모델·브라우저 version·배포 URL·수동 시나리오별 기록은 없으므로, 아래 실기 항목과 사용자 완료 보고는 로그 수치와 구분해 기록합니다.
+
+production build의 현재 하위 경로는 `/party_night/`입니다.
+
 ## 조작과 흐름
 
 1. 메인 캐릭터의 이름, 종족, 직업, 성별을 선택해 profile v2를 생성합니다.
@@ -35,6 +41,7 @@ npm run build
 
 ### Android Chrome
 
+- 최신 상태가 Android phone Chrome에서 실제 동작함을 사용자가 확인했습니다.
 - 기본 플레이 동작과 탐사 원근 왜곡 해소를 확인했습니다.
 - Fullscreen 진입 시 URL bar 제거와 viewport 확장을 확인했습니다.
 - 빠른 반복 탭, 뒤로가기, 앱 전환과 화면 회전 후 복귀 동작을 확인했습니다.
@@ -45,6 +52,7 @@ npm run build
 
 ### iOS Safari
 
+- 최신 상태가 iOS Safari에서 실제 동작함을 사용자가 확인했습니다.
 - 가로 화면, safe-area, 주소창 높이 변화와 화면 회전 대응을 확인했습니다.
 - 결과 화면의 관성 스크롤을 확인했습니다.
 - iOS Safari는 Fullscreen API를 지원하지 않으므로 Fullscreen 버튼이 표시되지 않는 것을 확인했습니다.
@@ -74,6 +82,7 @@ npm run build
 - 옛 고성 5조우와 구울 중간보스·리치 보스, Lv6 성장, 전설 장비와 반복 퀘스트 2개 해금을 구현했습니다.
 - 화산 동굴·깊은 숲 폐허의 반복 플레이, 사이클롭스·스켈레톤 킹 보스, 반복 횟수, Lv7~10 성장과 두 번째·세 번째 커스텀 슬롯을 구현했습니다.
 - 단계 10에서 전체 122개 자동 테스트, production build, 100회 혼합 반복·저장 reload·overflow, 844×390 Chromium 가로 실행과 390×844 세로 차단을 검증했습니다. 이후 Android Chrome·iOS Safari 실기 검증과 v0.2.0의 Lv1~10 통합 진행을 완료했습니다.
+- 최신 회귀에서는 스킬 정보·상점 presentation·License parser test가 추가되어 전체 suite가 20 files·142 tests로 증가했고 모두 통과했습니다. 시작 화면 License modal과 별도 notice asset, 거점의 32개 스킬 정보 표, 장비 보너스·아이템 효과 설명을 구현했으며 사용자가 해당 수정 항목의 전체 수동 회귀와 iOS Safari·Android phone Chrome 실동작 확인을 완료했습니다.
 - 저장 키는 `party_night_profile_v2`입니다. version 1 저장은 읽거나 변환·삭제하지 않으며 진행 중 원정·HP·위치·전투 상태는 저장하지 않습니다.
 
 게임 판정은 React와 Phaser에 의존하지 않는 `src/game` 순수 TypeScript 엔진에서 처리하며, 세션 이후 모든 난수는 시드 PRNG를 사용합니다.

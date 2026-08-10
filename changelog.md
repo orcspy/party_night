@@ -1289,3 +1289,32 @@ asset 문서와 실제 asset 파일들에 대한 file수, file size, registry기
 - 호환성·의존성 변경: package·lockfile·runtime dependency·License 원문·asset·gameplay·profile schema 변경은 없다. 기존 `/pn/` 배포 URL과는 호환되지 않으므로 웹서버와 정적 배포 대상 경로도 `/party_night/`를 사용해야 한다.
 - 검증 결과: `npm run typecheck` 성공. `npm run test -- src/tests/licenseContent.test.ts` 성공(1 file, 3 tests). `git diff --check` 공백 오류 없음.
 - 실패·미확정 사항: production build와 실제 `/party_night/` 정적 배포 접속은 1단계 범위에서 실행하지 않았다. `architecture.md`, `implements.md` 및 과거 검증 기록의 `/pn/` 참조는 Coder 읽기 전용 문서와 역사 기록이므로 이번 commit에서 일괄 변경하지 않았으며, 현행 설계문서 표기 정합화가 필요하면 Planner 후속 작업 대상이다.
+
+## 2026-08-10 16:24:05 +09:00 | Planner | `test.log` 기반 최신 회귀 검증 문서화
+
+- 대상: 최신 전체 자동 검증·production build·사용자 수동 회귀 완료 상태와 License/스킬 정보/상점 수정 완료 근거
+- 사용자 작업 지시 원문:
+
+```text
+/agent Planner
+test.log 파일을 참고하여 수동 회귀 테스트에 대한 정보를 문서들에 업데이트 할 것. 필요하다면 AGENTS.md나 README.md 도 수정 대상에 포함.
+```
+
+- 사용한 기준 문서: 루트 `test.log`, `AGENTS.md`, `README.md`, `architecture.md`, `implements.md`, `changelog.md`, `.gitignore`, 현재 `package.json`·`vite.config.ts`와 `src/tests` 구성
+- 조사 범위: typecheck 출력, Vitest 20 files·142 tests 목록과 시간, Vite 418 modules production build·산출물 크기·독립 notice asset·chunk warning, test.log 추적 여부, 기존 모바일·통합 수동 검증 주장과 최신 License·스킬 정보·상점 완료 기준
+- 생성·갱신 문서: `architecture.md` 신규 29절, `implements.md` 신규 37절, `README.md`, `changelog.md`; `test.log`, 코드·설정·테스트·빌드 산출물은 수정하지 않음. `AGENTS.md`는 기존 규칙이 충분해 수정하지 않음.
+- 결정 근거: `test.log`는 자동 명령과 build의 직접 증거지만 수동 조작·기기·URL 기록이 없다. 자동 20 files·142 tests와 build 결과는 확인 사실로, 전체 수동 회귀 완료는 사용자 보고로 구분해 기록했다. ignored log를 추적하지 않고 핵심 수치와 한계를 정적 문서에 보존한다.
+- 핵심 결과: typecheck 오류 없음, 전체 142 tests 통과, Vite 418 modules·6.71초 build 성공, 10.89kB 독립 `THIRD_PARTY_NOTICES` asset 생성을 최신 완료 근거로 반영했다. 단계 10 시점 122 tests와 최신 142 tests를 역사·현재 수치로 구분했다.
+- 핵심 결과: 사용자 보고에 따라 License modal·스킬 정보 표·상점 수정과 기존 플레이 루프의 전체 수동 회귀를 완료 상태로 기록하되, test.log만으로 Android/iOS·viewport·focus·회전·Fullscreen·실제 `/party_night/` URL을 개별 입증하지 않는다고 명시했다. 현재 production base는 `/party_night/`를 우선한다.
+- 위험·미확정 사항: main JS 1,923.66kB(gzip 475.65kB)의 500kB 초과 warning은 비차단으로 남는다. test.log에는 날짜·commit hash·브라우저/기기·배포 URL·수동 시나리오별 결과가 없어 release evidence 재현성은 제한된다. Planner 문서 작업이므로 명령 재실행·코드·test·build는 수행하지 않았다.
+
+## 2026-08-10 16:28:03 +09:00 | Planner | iOS Safari·Android phone Chrome 실동작 확인 반영
+
+- 대상: 최신 전체 수동 회귀의 실제 모바일 브라우저 동작 확인 범위
+- 사용자 작업 지시 원문: `실동작에 대해서도 iOS Safari, android phone Chrome에서 동작 확인 완료 하였음을 문서에 포함 할것.`
+- 사용한 기준 문서: 사용자 실기기 확인 보고, `architecture.md` 29.4, `implements.md` 37.3·37.5, `README.md` 지원 환경·최신 회귀 절, 선행 `test.log` 분석 결과
+- 조사 범위: 자동 log와 사용자 수동 증거의 구분, 기존 Android Chrome·iOS Safari 지원 주장, 최신 License·스킬 정보·상점 수정의 전체 회귀 완료 상태
+- 생성·갱신 문서: `architecture.md`, `implements.md`, `README.md`, `changelog.md`; `AGENTS.md`, `test.log`, 코드·설정·테스트·build 파일은 수정하지 않음
+- 결정 근거: `test.log`에는 브라우저 실행 기록이 없지만 사용자가 iOS Safari와 Android phone Chrome에서 실제 동작 확인 완료를 명시했으므로 사용자 실기기 검증 결과로 별도 기록한다.
+- 핵심 결과: 최신 상태의 전체 수동 회귀와 iOS Safari·Android phone Chrome 실동작 확인을 완료 상태로 반영했다. 자동 142 tests·build 결과와 모바일 실기기 보고의 증거 출처는 계속 구분한다.
+- 위험·미확정 사항: 기기 모델, OS·브라우저 version, 정확한 viewport, 배포 URL과 focus·회전·Fullscreen별 결과는 제공되지 않아 임의로 확정하지 않았다. Planner 문서 작업이므로 검증 명령이나 브라우저 실행은 수행하지 않았다.
