@@ -44,6 +44,9 @@ jobs:
 
       - name: Setup Pages
         uses: actions/configure-pages@v6
+        with:
+            token: ${{secrets.PAGES_SETUP_TOKEN}}
+            enablement: true
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v5
