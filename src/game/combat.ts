@@ -1,6 +1,6 @@
 import { CLASS_DATA, deriveCombatStats, ITEM_DATA, SKILLS } from './content'
 import { randomIndex, rollDie } from './rng'
-import type { Actor, CombatState, GameEvent, ItemId, PendingRoll } from './types'
+import type { Actor, CombatState, CombatStatusId, GameEvent, ItemId, PendingRoll } from './types'
 
 export interface CombatUpdate {
   combat: CombatState
@@ -24,6 +24,27 @@ function statusList(combat: CombatState, actorId: string, status: 'bleed' | 'neu
   return { ...(combat.removableStatusesByActor ?? {}), [actorId]: statuses }
 }
 
+const STATUS_NAMES: Record<CombatStatusId, string> = {
+  stun: '기절',
+  bleed: '출혈',
+  paralysis: '마비',
+  neurotoxin: '신경독',
+  sleep: '수면',
+  exposed: '약점 노출',
+  taunt: '도발',
+}
+
+function statusResultEvent(type: 'STATUS_APPLIED' | 'STATUS_RESISTED', source: Actor, target: Actor, skillId: string, statusId: CombatStatusId): GameEvent {
+  return {
+    type,
+    message: `${source.name}의 ${SKILLS[skillId]?.name ?? '스킬'}: ${target.name}에게 ${STATUS_NAMES[statusId]} 부여 ${type === 'STATUS_APPLIED' ? '성공' : '실패'}.`,
+    actorId: source.id,
+    targetId: target.id,
+    skillId,
+    statusId,
+  }
+}
+
 function stableOrderByCurrentAgi(combat: CombatState, actorIds: string[]): string[] {
   const actors = new Map(combat.participants.map((actor) => [actor.id, actor]))
   const previousIndex = new Map(actorIds.map((actorId, index) => [actorId, index]))
@@ -41,7 +62,7 @@ function reorderAfterNeurotoxinChange(combat: CombatState): CombatState {
 }
 
 function applyStatus(combat: CombatState, target: Actor, status: 'stun' | 'bleed' | 'paralysis' | 'neurotoxin' | 'sleep', source: Actor, skillId: string, events: GameEvent[]): CombatState {
-  events.push({ type: 'STATUS_APPLIED', message: `${target.name}에게 ${status === 'stun' ? '기절' : status === 'bleed' ? '출혈' : status === 'paralysis' ? '마비' : status === 'neurotoxin' ? '신경독' : '수면'}을(를) 적용했다.`, actorId: source.id, targetId: target.id, skillId })
+  events.push(statusResultEvent('STATUS_APPLIED', source, target, skillId, status))
   if (status === 'stun') return { ...combat, stunnedActionsByActor: { ...combat.stunnedActionsByActor, [target.id]: (combat.stunnedActionsByActor[target.id] ?? 0) + 1 } }
   if (status === 'bleed') return { ...combat, bleedStacksByActor: { ...(combat.bleedStacksByActor ?? {}), [target.id]: Math.min(5, (combat.bleedStacksByActor?.[target.id] ?? 0) + 1) }, removableStatusesByActor: statusList(combat, target.id, 'bleed', true) }
   if (status === 'paralysis') return { ...combat, paralyzedActionsByActor: { ...(combat.paralyzedActionsByActor ?? {}), [target.id]: (combat.paralyzedActionsByActor?.[target.id] ?? 0) + 1 }, removableStatusesByActor: statusList(combat, target.id, 'paralysis', true) }
@@ -299,7 +320,10 @@ function resolvePending(combat: CombatState, rngState: number, events: GameEvent
     for (const damagedTarget of damagedTargets) if (next.sleepingByActor?.[damagedTarget.id] && damagedTarget.currentHp < (combat.participants.find((item) => item.id === damagedTarget.id)?.currentHp ?? damagedTarget.currentHp)) next = removeStatus(next, damagedTarget.id, 'sleep', events)
   }
   if (pending.skillId === 'wound_break') next = removeStatus(next, target.id, 'bleed', events)
-  if (pending.skillId === 'find_leak') next = { ...next, exposedByActor: { ...(next.exposedByActor ?? {}), [target.id]: { bonusDamage: Math.max(1, rollTotal), sourceActorId: actor.id, sourceActionsRemaining: 2, appliedRound: combat.round } } }
+  if (pending.skillId === 'find_leak') {
+    next = { ...next, exposedByActor: { ...(next.exposedByActor ?? {}), [target.id]: { bonusDamage: Math.max(1, rollTotal), sourceActorId: actor.id, sourceActionsRemaining: 2, appliedRound: combat.round } } }
+    events.push(statusResultEvent('STATUS_APPLIED', actor, target, pending.skillId, 'exposed'))
+  }
   if (pending.skillId === 'ability_reinforcement') next = { ...next, attributeChangesByActor: { ...(next.attributeChangesByActor ?? {}), [actor.id]: { effectId: pending.skillId, delta: 5, remainingActions: 4, phase: 'increase' } } }
   if (pending.skillId === 'bless') next = { ...next, attributeChangesByActor: { ...(next.attributeChangesByActor ?? {}), [target.id]: { effectId: pending.skillId, delta: 2, remainingActions: target.id === actor.id ? 4 : 3, keys: ['str', 'dex', 'int'] } } }
   if (pending.skillId === 'sacred_rage') next = { ...next, sacredRageByActor: { ...(next.sacredRageByActor ?? {}), [actor.id]: { remainingActions: 4 } } }
@@ -315,6 +339,7 @@ function resolvePending(combat: CombatState, rngState: number, events: GameEvent
     const bossAdjusted = target.isBoss ? Math.floor(chance.percent / 2) : chance.percent
     const currentTarget = next.participants.find((item) => item.id === target.id) ?? target
     if (roll.value < bossAdjusted) next = applyStatus(next, currentTarget, chance.status, actor, pending.skillId, events)
+    else events.push(statusResultEvent('STATUS_RESISTED', actor, currentTarget, pending.skillId, chance.status))
   }
   if (['heal', 'smite', 'arcane_bolt', 'lightning_bolt', 'sleep', 'bless'].includes(pending.skillId)) {
     const gainsHoly = ['heal', 'smite', 'bless'].includes(pending.skillId)
@@ -422,9 +447,10 @@ export function advanceToPlayer(combat: CombatState, rngState: number, events: G
       continue
     }
     if (actor.side === 'party') {
-      events.push({ type: 'TURN_STARTED', message: `${actor.name}의 차례` })
+      events.push({ type: 'TURN_STARTED', message: `${actor.name}의 차례`, actorId: actor.id, actorSide: actor.side })
       return { combat: next, rngState: state, events }
     }
+    events.push({ type: 'TURN_STARTED', message: `${actor.name}의 차례`, actorId: actor.id, actorSide: actor.side })
     const targets = next.participants.filter((item) => item.side === 'party' && item.currentHp > 0)
     let target: Actor
     const taunt = next.tauntsByEnemy[actor.id]
@@ -586,8 +612,7 @@ function applyUseLimit(combat: CombatState, actorId: string, skillId: string, ev
 function resolveTaunt(combat: CombatState, actor: Actor, skillId: string, rngState: number): CombatUpdate {
   const enemies = combat.participants.filter((item) => item.side === 'enemy' && item.currentHp > 0)
   const events: GameEvent[] = enemies.map((enemy) => ({
-    type: 'STATUS_APPLIED', message: `${enemy.name}에게 도발을 적용했다.`,
-    actorId: actor.id, targetId: enemy.id, skillId,
+    ...statusResultEvent('STATUS_APPLIED', actor, enemy, skillId, 'taunt'),
   }))
   let next: CombatState = {
     ...combat,

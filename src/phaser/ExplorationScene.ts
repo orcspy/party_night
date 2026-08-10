@@ -5,64 +5,22 @@ import { getMapDefinition, getNextRequiredEncounter } from '../game/content'
 import type { Direction, GameState } from '../game/types'
 import type { SceneBridge } from './PhaserGame'
 import { MARKER_KEYS, markerAssetReady, queueTerrainAssets, terrainAssetReady, terrainTextureKey } from './assets/terrainAssets'
+import {
+  CEILING_POLYGON,
+  EXPLORATION_DEPTHS,
+  EXPLORATION_FRAMES,
+  EXPLORATION_VIEWPORT,
+  EXPLORATION_VIEWPORT_SIZE,
+  FLOOR_POLYGON,
+  VIEWPORT_COVERS,
+  farEdgeFor,
+  wallQuadPoints,
+  wallRenderDepthFor,
+  type DepthFrame,
+} from './explorationGeometry'
 
 const FORWARD: Record<Direction, [number, number]> = { north: [0, -1], east: [1, 0], south: [0, 1], west: [-1, 0] }
 const RIGHT: Record<Direction, [number, number]> = { north: [1, 0], east: [0, 1], south: [-1, 0], west: [0, -1] }
-
-interface DepthFrame {
-  left: number
-  right: number
-  top: number
-  bottom: number
-}
-
-const FRAMES: DepthFrame[] = [
-  { left: 70, right: 570, top: 62, bottom: 258 },
-  { left: 166, right: 474, top: 92, bottom: 232 },
-  { left: 238, right: 402, top: 120, bottom: 207 },
-]
-
-/** Screen-space apex the corridor frames converge to; matches the floor/ceiling triangle tip already used for those meshes. */
-const VANISH_X = 320
-const VANISH_Y = 172
-
-/**
- * Depth 2 (the last rendered frame) has no real depth-3 frame to taper toward. Collapsing straight to the single
- * vanishing point made the last segment's front-wall cap shrink to a barely-visible speck (MIN_FRONT_WALL_SIZE)
- * while its side walls stretched into an unnaturally long, thin sliver reaching all the way to that point — a
- * severe size/length mismatch against depth 0/1. This virtual "depth 3" frame continues the same shrink ratio
- * FRAMES[1]->FRAMES[2] used, so the last segment reads as one more (smaller) step into the distance instead of
- * a degenerate point, without needing to actually render a 4th frame.
- */
-const VANISH_FRAME: DepthFrame = { left: 284, right: 356, top: 148, bottom: 196 }
-
-/** The frame a side wall's inner edge should taper toward: the next visible depth, or VANISH_FRAME past the last frame. */
-function farEdgeFor(depth: number): DepthFrame {
-  const next = FRAMES[depth + 1]
-  if (next) return next
-  return VANISH_FRAME
-}
-
-/**
- * A side wall is a quad, not a rectangle: its outer edge sits at the current frame's corner, its inner edge tapers
- * to the next frame's corner (or VANISH_FRAME's corner on the last visible depth). This is what makes the top/bottom
- * edges of adjacent depth segments meet along a continuous diagonal instead of stepping at a right angle.
- */
-function wallQuadPoints(near: DepthFrame, far: DepthFrame, side: 'left' | 'right') {
-  return side === 'left'
-    ? [
-        { x: near.left, y: near.top },
-        { x: far.left, y: far.top },
-        { x: far.left, y: far.bottom },
-        { x: near.left, y: near.bottom },
-      ]
-    : [
-        { x: near.right, y: near.top },
-        { x: far.right, y: far.top },
-        { x: far.right, y: far.bottom },
-        { x: near.right, y: near.bottom },
-      ]
-}
 
 /** Absolute safety floor for the front-wall cap's size; VANISH_FRAME normally makes this a no-op. */
 const MIN_FRONT_WALL_SIZE = 24
@@ -145,17 +103,18 @@ export class ExplorationScene extends Phaser.Scene {
     this.backgroundGfx = this.add.graphics().setDepth(-3)
     this.world = this.add.graphics().setDepth(0)
     this.setupTerrainLayers()
-    this.location = this.add.text(18, 16, '', { fontFamily: 'monospace', fontSize: '13px', color: '#d9c98c' }).setDepth(50)
-    this.add.text(320, 22, getMapDefinition(this.state.session?.exploration.mapId ?? 'training_ruins').name.toUpperCase(), { fontFamily: 'monospace', fontSize: '14px', color: '#746d89' }).setOrigin(0.5).setDepth(50)
+    this.setupViewportBoundary()
+    this.location = this.add.text(18, 16, '', { fontFamily: 'monospace', fontSize: '13px', color: '#d9c98c' }).setDepth(EXPLORATION_DEPTHS.ui)
+    this.add.text(320, 22, getMapDefinition(this.state.session?.exploration.mapId ?? 'training_ruins').name.toUpperCase(), { fontFamily: 'monospace', fontSize: '14px', color: '#746d89' }).setOrigin(0.5).setDepth(EXPLORATION_DEPTHS.ui)
     this.makeButton(56, 288, '↶', () => this.bridge.store.dispatch({ type: 'TURN_LEFT' }))
     this.makeButton(136, 288, 'BACK', () => this.bridge.store.dispatch({ type: 'MOVE_BACKWARD' }))
     this.makeButton(504, 288, 'FWD', () => this.bridge.store.dispatch({ type: 'MOVE_FORWARD' }))
     this.makeButton(584, 288, '↷', () => this.bridge.store.dispatch({ type: 'TURN_RIGHT' }))
-    this.unsubscribe = this.bridge.store.subscribe((state, events) => {
-      this.state = state
+    this.unsubscribe = this.bridge.store.subscribe((envelope) => {
+      this.state = envelope.state
       this.drawWorld()
-      if (events.some((event) => event.type === 'TRAP_TRIGGERED')) this.cameras.main.shake(120, 0.008)
-      if (events.some((event) => event.type === 'TRAP_DISCOVERED' || event.type === 'SECRET_ROOM_DISCOVERED')) this.cameras.main.flash(100, 196, 176, 92, false)
+      if (envelope.events.some((event) => event.type === 'TRAP_TRIGGERED')) this.cameras.main.shake(120, 0.008)
+      if (envelope.events.some((event) => event.type === 'TRAP_DISCOVERED' || event.type === 'SECRET_ROOM_DISCOVERED')) this.cameras.main.flash(100, 196, 176, 92, false)
     })
     const cleanup = () => {
       this.unsubscribe?.()
@@ -170,22 +129,22 @@ export class ExplorationScene extends Phaser.Scene {
   private setupTerrainLayers() {
     if (this.terrainReady.floor) {
       const floorMaskShape = this.make.graphics(undefined, false)
-      floorMaskShape.fillStyle(0xffffff).fillTriangle(0, 266, 640, 266, 320, 172)
+      floorMaskShape.fillStyle(0xffffff).fillPoints([...FLOOR_POLYGON], true)
       this.maskShapes.push(floorMaskShape)
       this.floorSprite = this.add.tileSprite(0, 172, 640, 94, terrainTextureKey(this.mapId, 'floor')).setOrigin(0, 0).setDepth(-1)
       this.floorSprite.setMask(floorMaskShape.createGeometryMask())
     }
     if (this.terrainReady.ceiling) {
       const ceilingMaskShape = this.make.graphics(undefined, false)
-      ceilingMaskShape.fillStyle(0xffffff).fillTriangle(0, 44, 640, 44, 320, 172)
+      ceilingMaskShape.fillStyle(0xffffff).fillPoints([...CEILING_POLYGON], true)
       this.maskShapes.push(ceilingMaskShape)
       this.ceilingSprite = this.add.tileSprite(0, 44, 640, 128, terrainTextureKey(this.mapId, 'ceiling')).setOrigin(0, 0).setDepth(-2)
       this.ceilingSprite.setMask(ceilingMaskShape.createGeometryMask())
     }
     if (this.terrainReady.wallSide) {
       const wallSideKey = terrainTextureKey(this.mapId, 'wallSide')
-      for (let depth = 0; depth < FRAMES.length; depth++) {
-        const near = FRAMES[depth]
+      for (let depth = 0; depth < EXPLORATION_FRAMES.length; depth++) {
+        const near = EXPLORATION_FRAMES[depth]
         const far = farEdgeFor(depth)
 
         const leftSprite = this.add.tileSprite(0, 0, 1, 1, wallSideKey).setOrigin(0, 0).setVisible(false)
@@ -207,19 +166,30 @@ export class ExplorationScene extends Phaser.Scene {
       this.frontWallSprite = this.add.tileSprite(0, 0, 1, 1, terrainTextureKey(this.mapId, 'wallFront')).setOrigin(0, 0).setVisible(false)
     }
     if (this.terrainReady.markerEncounter) {
-      this.encounterMarker = this.add.image(0, 0, MARKER_KEYS.encounter).setDepth(20).setVisible(false)
+      this.encounterMarker = this.add.image(0, 0, MARKER_KEYS.encounter).setDepth(EXPLORATION_DEPTHS.marker).setVisible(false)
     }
     if (this.terrainReady.markerExit) {
-      this.exitMarker = this.add.image(0, 0, MARKER_KEYS.exit).setDepth(20).setVisible(false)
+      this.exitMarker = this.add.image(0, 0, MARKER_KEYS.exit).setDepth(EXPLORATION_DEPTHS.marker).setVisible(false)
     }
     if (this.terrainReady.markerBoss) {
-      this.bossMarker = this.add.image(0, 0, MARKER_KEYS.boss).setDepth(20).setVisible(false)
+      this.bossMarker = this.add.image(0, 0, MARKER_KEYS.boss).setDepth(EXPLORATION_DEPTHS.marker).setVisible(false)
     }
   }
 
+  private setupViewportBoundary() {
+    const cover = this.add.graphics().setDepth(EXPLORATION_DEPTHS.viewportCover)
+    cover.fillStyle(0x0b0b13, 1)
+    for (const rect of VIEWPORT_COVERS) cover.fillRect(rect.x, rect.y, rect.width, rect.height)
+
+    this.add.graphics()
+      .setDepth(EXPLORATION_DEPTHS.outerFrame)
+      .lineStyle(3, 0x897a58, 1)
+      .strokeRect(EXPLORATION_VIEWPORT.left, EXPLORATION_VIEWPORT.top, EXPLORATION_VIEWPORT_SIZE.width, EXPLORATION_VIEWPORT_SIZE.height)
+  }
+
   private makeButton(x: number, y: number, label: string, action: () => void) {
-    const button = this.add.rectangle(x, y, 68, 54, 0x242035).setStrokeStyle(2, 0xd4b45d).setInteractive({ useHandCursor: true }).setDepth(50)
-    this.add.text(x, y, label, { fontFamily: 'monospace', fontSize: '16px', color: '#fff2c2' }).setOrigin(0.5).setDepth(50)
+    const button = this.add.rectangle(x, y, 68, 54, 0x242035).setStrokeStyle(2, 0xd4b45d).setInteractive({ useHandCursor: true }).setDepth(EXPLORATION_DEPTHS.ui)
+    this.add.text(x, y, label, { fontFamily: 'monospace', fontSize: '16px', color: '#fff2c2' }).setOrigin(0.5).setDepth(EXPLORATION_DEPTHS.ui)
     button.on('pointerdown', action)
   }
 
@@ -258,25 +228,24 @@ export class ExplorationScene extends Phaser.Scene {
     const [rx, ry] = RIGHT[exploration.direction]
     const map = getMapDefinition(exploration.mapId)
     const bg = this.backgroundGfx.clear()
-    bg.fillStyle(0x171321).fillRect(0, 44, 640, 222)
-    if (!this.terrainReady.floor) bg.fillStyle(0x28213a).fillTriangle(0, 266, 640, 266, 320, 172)
-    if (!this.terrainReady.ceiling) bg.fillStyle(0x100f19).fillTriangle(0, 44, 640, 44, 320, 172)
+    bg.fillStyle(0x171321).fillRect(EXPLORATION_VIEWPORT.left, EXPLORATION_VIEWPORT.top, EXPLORATION_VIEWPORT_SIZE.width, EXPLORATION_VIEWPORT_SIZE.height)
+    if (!this.terrainReady.floor) bg.fillStyle(0x28213a).fillPoints([...FLOOR_POLYGON], true)
+    if (!this.terrainReady.ceiling) bg.fillStyle(0x100f19).fillPoints([...CEILING_POLYGON], true)
     const g = this.world.clear()
 
     this.encounterMarker?.setVisible(false)
     this.exitMarker?.setVisible(false)
     this.bossMarker?.setVisible(false)
     this.frontWallSprite?.setVisible(false)
-    for (let depth = 0; depth < FRAMES.length; depth++) {
+    for (let depth = 0; depth < EXPLORATION_FRAMES.length; depth++) {
       this.leftWallSprites[depth]?.setVisible(false)
       this.rightWallSprites[depth]?.setVisible(false)
     }
 
-    for (let depth = 0; depth < FRAMES.length; depth++) {
+    for (let depth = 0; depth < EXPLORATION_FRAMES.length; depth++) {
       const cx = exploration.x + fx * depth
       const cy = exploration.y + fy * depth
-      const frame = FRAMES[depth]
-      const renderDepth = 2 + depth * 3
+      const frame = EXPLORATION_FRAMES[depth]
       const shade = WALL_SHADE_BY_DEPTH[depth]
       const leftWall = isWall(exploration.mapId, cx - rx, cy - ry, session.discoveredSecretIds)
       const rightWall = isWall(exploration.mapId, cx + rx, cy + ry, session.discoveredSecretIds)
@@ -285,12 +254,12 @@ export class ExplorationScene extends Phaser.Scene {
       const leftWidth = far.left - frame.left
       const rightWidth = frame.right - far.right
 
-      g.lineStyle(3, shadeColor(0x897a58, shade), 1).strokeRect(frame.left, frame.top, frame.right - frame.left, frame.bottom - frame.top)
+      if (depth > 0) g.lineStyle(3, shadeColor(0x897a58, shade), 1).strokeRect(frame.left, frame.top, frame.right - frame.left, frame.bottom - frame.top)
 
       if (leftWall) {
         const sprite = this.leftWallSprites[depth]
         if (this.terrainReady.wallSide && sprite) {
-          this.positionWallSprite(sprite, frame.left, frame.top, leftWidth, frame.bottom - frame.top, renderDepth + 1, shade)
+          this.positionWallSprite(sprite, frame.left, frame.top, leftWidth, frame.bottom - frame.top, wallRenderDepthFor(depth, 'side'), shade)
         } else {
           g.fillStyle(shadeColor(0x312944, shade), 1).fillPoints(wallQuadPoints(frame, far, 'left'), true)
         }
@@ -298,7 +267,7 @@ export class ExplorationScene extends Phaser.Scene {
       if (rightWall) {
         const sprite = this.rightWallSprites[depth]
         if (this.terrainReady.wallSide && sprite) {
-          this.positionWallSprite(sprite, far.right, frame.top, rightWidth, frame.bottom - frame.top, renderDepth + 1, shade)
+          this.positionWallSprite(sprite, far.right, frame.top, rightWidth, frame.bottom - frame.top, wallRenderDepthFor(depth, 'side'), shade)
         } else {
           g.fillStyle(shadeColor(0x312944, shade), 1).fillPoints(wallQuadPoints(frame, far, 'right'), true)
         }
@@ -326,14 +295,14 @@ export class ExplorationScene extends Phaser.Scene {
         const frontX = (far.left + far.right) / 2 - frontWidth / 2
         const frontY = (far.top + far.bottom) / 2 - frontHeight / 2
         if (this.terrainReady.wallFront && this.frontWallSprite) {
-          this.positionWallSprite(this.frontWallSprite, frontX, frontY, frontWidth, frontHeight, renderDepth + 2, shade)
+          this.positionWallSprite(this.frontWallSprite, frontX, frontY, frontWidth, frontHeight, wallRenderDepthFor(depth, 'front'), shade)
         } else {
           g.fillStyle(shadeColor(0x3c324c, shade), 1).fillRect(frontX, frontY, frontWidth, frontHeight)
           g.lineStyle(2, shadeColor(0x665877, shade), 1)
           for (let y = frontY + 22; y < frontY + frontHeight; y += 24) g.lineBetween(frontX, y, frontX + frontWidth, y)
         }
         break
-      } else if (depth === FRAMES.length - 1) {
+      } else if (depth === EXPLORATION_FRAMES.length - 1) {
         // Last rendered depth, passage still open: nothing further is ever drawn past here, so the side-wall
         // trapezoids would otherwise taper down to bare VANISH_FRAME background — a visible "hole" at the vanish
         // point that reads as distortion rather than depth. A flat dark fill over that same footprint reads as

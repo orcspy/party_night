@@ -39,6 +39,19 @@ describe('pure game engine profile and expedition flow', () => {
     expect(first.persistence).toBe('save_profile')
   })
 
+  it('settles an enemy-first defeat that occurs while entering an encounter', () => {
+    const expedition = reduceGame(createdState(), { type: 'REQUEST_QUEST_ENTRY', questId: 'training_ruins_quest' }).state
+    const party = expedition.session!.party.map((actor, index) => ({ ...actor, currentHp: index === 0 ? 1 : 0, agi: 1 }))
+    const nearEncounter: GameState = {
+      ...expedition,
+      session: { ...expedition.session!, party, exploration: { ...expedition.session!.exploration, x: 2, y: 1, direction: 'east' } },
+    }
+    const defeated = reduceGame(nearEncounter, { type: 'MOVE_FORWARD' })
+    expect(defeated.state).toMatchObject({ screen: 'result', result: { outcome: 'defeat' } })
+    expect(defeated.battlePresentation?.session.combat).toMatchObject({ phase: 'ended', outcome: 'lost' })
+    expect(defeated.events.some((event) => event.type === 'BATTLE_LOST')).toBe(true)
+  })
+
   it('rejects unavailable quests without changing state or persistence', () => {
     const state = createdState()
     const rejected = reduceGame(state, { type: 'REQUEST_QUEST_ENTRY', questId: 'goblin_den_quest' })
@@ -123,6 +136,40 @@ describe('pure game engine profile and expedition flow', () => {
     expect(settled.state.profile?.characters.every((character) => character.level === 2)).toBe(true)
     expect(settled.state.profile?.questProgress.completedQuestIds).toContain('training_ruins_quest')
     expect(settled.persistence).toBe('save_profile')
+    expect(settled.battlePresentation?.session.combat).toMatchObject({ phase: 'ended', outcome: 'won' })
+    expect(settled.battlePresentation?.session.combat?.participants.find((actor) => actor.id === enemy.id)?.currentHp).toBe(0)
+    expect(settled.battlePresentation?.session.logs.find((log) => log.eventType === 'DAMAGE_APPLIED')?.kind).toBe('damage')
+  })
+
+  it('keeps an ordinary encounter terminal frame while canonical state returns to exploration', () => {
+    const expedition = reduceGame(createdState(), { type: 'REQUEST_QUEST_ENTRY', questId: 'training_ruins_quest' }).state
+    const party = expedition.session!.party
+    const enemy = { ...createEncounterEnemies('training_ruins_encounter_1')[0], currentHp: 1, maxHp: 1, def: 0 }
+    const combat: CombatState = {
+      battleId: 'training_ruins_encounter_1', round: 1, phase: 'awaiting_action', participants: [...party, enemy],
+      turnOrder: [party[0].id], turnIndex: 0, selectedSkillId: null, pendingRoll: null, usedSkillIdsByActor: {}, cooldownsByActor: {}, tauntsByEnemy: {}, stunnedActionsByActor: {}, itemBuffsByActor: {}, outcome: null,
+    }
+    const battleState: GameState = { ...expedition, screen: 'battle', session: { ...expedition.session!, combat } }
+    const selected = reduceGame(battleState, { type: 'SELECT_SKILL', skillId: 'basic_attack' }).state
+    const won = reduceGame(selected, { type: 'SELECT_TARGET', targetId: enemy.id })
+    expect(won.state).toMatchObject({ screen: 'exploration', session: { combat: null } })
+    expect(won.battlePresentation?.session.combat).toMatchObject({ phase: 'ended', outcome: 'won' })
+    expect(won.battlePresentation?.session.logs.at(-1)?.message).toBe('전투에서 승리했다.')
+  })
+
+  it('stores healing events as green log entries without parsing messages', () => {
+    const expedition = reduceGame(createdState(), { type: 'REQUEST_QUEST_ENTRY', questId: 'training_ruins_quest' }).state
+    const party = expedition.session!.party.map((actor) => actor.id === 'party_priest' ? { ...actor, currentHp: 1 } : actor)
+    const priest = party.find((actor) => actor.id === 'party_priest')!
+    const enemy = { ...createEncounterEnemies('training_ruins_encounter_1')[0], currentHp: 999, maxHp: 999 }
+    const combat: CombatState = {
+      battleId: 'training_ruins_encounter_1', round: 1, phase: 'awaiting_action', participants: [...party, enemy],
+      turnOrder: [priest.id], turnIndex: 0, selectedSkillId: null, pendingRoll: null, usedSkillIdsByActor: {}, cooldownsByActor: {}, tauntsByEnemy: {}, stunnedActionsByActor: {}, itemBuffsByActor: {}, outcome: null,
+    }
+    const battleState: GameState = { ...expedition, screen: 'battle', session: { ...expedition.session!, combat } }
+    const selected = reduceGame(battleState, { type: 'SELECT_SKILL', skillId: 'heal' }).state
+    const healed = reduceGame(selected, { type: 'SELECT_TARGET', targetId: priest.id })
+    expect(healed.state.session?.logs.find((log) => log.eventType === 'HEAL_APPLIED')).toMatchObject({ kind: 'heal' })
   })
 
   it('starts goblin den and applies seek_trap discovery or one-time trap damage', () => {
@@ -140,7 +187,8 @@ describe('pure game engine profile and expedition flow', () => {
     expect(trapped.session?.party.map((actor) => actor.currentHp)).toEqual(beforeHp.map((hp) => hp - 2))
     expect(trapped.session?.triggeredTrapIds).toEqual(['goblin_den_trap_1'])
     expect(trappedResult.events.find((event) => event.type === 'TRAP_TRIGGERED')).toMatchObject({ placementId: 'goblin_den_trap_1', damage: 2 })
-    expect(trapped.session?.logs.filter((log) => log.includes('함정 발동'))).toHaveLength(1)
+    expect(trapped.session?.logs.filter((log) => log.message.includes('함정 발동'))).toHaveLength(1)
+    expect(trapped.session?.logs.find((log) => log.eventType === 'TRAP_TRIGGERED')?.kind).toBe('damage')
 
     const rogueProfile = createProfile({ type: 'CREATE_PROFILE', mainCharacterConfig: { name: '도적', raceId: 'human', classId: 'rogue', gender: '남성' }, profileId: 'rogue', createdAt: 1, rootSeed: 5 })!
     const rogueTrained = settleTrainingRuins(rogueProfile, 3, 'expedition_1')
@@ -151,7 +199,7 @@ describe('pure game engine profile and expedition flow', () => {
     expect(rogueStart.session?.discoveredSecretIds).toEqual(['goblin_den_secret_1'])
     expect(rogueStarted.events.map((event) => event.type)).toEqual(['SESSION_STARTED', 'TRAP_DISCOVERED', 'SECRET_ROOM_DISCOVERED'])
     expect(rogueStarted.events[1]).toMatchObject({ sourceActorId: 'party_main', skillId: 'seek_trap', placementId: 'goblin_den_trap_1' })
-    expect(rogueStart.session?.logs).toEqual(rogueStarted.events.map((event) => event.message))
+    expect(rogueStart.session?.logs.map((log) => log.message)).toEqual(rogueStarted.events.map((event) => event.message))
 
     const secretNear: GameState = { ...rogueStart, session: { ...rogueStart.session!, exploration: { ...rogueStart.session!.exploration, x: 2, y: 2, direction: 'south' } } }
     const secretResult = reduceGame(secretNear, { type: 'MOVE_FORWARD' })
@@ -182,5 +230,7 @@ describe('pure game engine profile and expedition flow', () => {
     expect(result.state.profile?.questProgress.completedQuestIds).toContain('ancient_site_quest')
     expect(result.state.profile?.shop.unlockedRarities).toContain('rare')
     expect(result.persistence).toBe('save_profile')
+    expect(result.battlePresentation?.session.combat).toMatchObject({ phase: 'ended', outcome: 'won' })
+    expect(result.battlePresentation?.session.logs.some((log) => log.eventType === 'ROLL_RESOLVED')).toBe(false)
   })
 })

@@ -1,11 +1,20 @@
-import { createInitialGameState, reduceGame } from '../game/gameEngine'
+import { createInitialGameState, reduceGame, type BattlePresentationFrame } from '../game/gameEngine'
 import type { GameCommand, GameEvent, GameState } from '../game/types'
 import { clearProfileV2, readProfileV2, writeProfileV2 } from './saveV2'
 
-type Listener = (state: GameState, events: GameEvent[]) => void
+export interface DispatchEnvelope {
+  sequence: number
+  previousState: GameState
+  state: GameState
+  events: GameEvent[]
+  battlePresentation?: BattlePresentationFrame
+}
+
+type Listener = (envelope: DispatchEnvelope) => void
 
 export interface GameStore {
   getState: () => GameState
+  getSnapshot: () => DispatchEnvelope
   dispatch: (command: GameCommand) => GameEvent[]
   subscribe: (listener: Listener) => () => void
 }
@@ -17,16 +26,26 @@ interface GameStoreOptions {
 
 export function createGameStore(options: GameStoreOptions = {}): GameStore {
   let state = options.initialState ?? createInitialGameState(readProfileV2(options.storage))
+  let snapshot: DispatchEnvelope = { sequence: 0, previousState: state, state, events: [] }
   const listeners = new Set<Listener>()
 
   return {
     getState: () => state,
+    getSnapshot: () => snapshot,
     dispatch: (command) => {
-      const result = reduceGame(state, command)
+      const previousState = state
+      const result = reduceGame(previousState, command)
       state = result.state
       if (result.persistence === 'clear_profile') clearProfileV2(options.storage)
       if (result.persistence === 'save_profile' && state.profile) writeProfileV2(state.profile, options.storage)
-      listeners.forEach((listener) => listener(state, result.events))
+      snapshot = {
+        sequence: snapshot.sequence + 1,
+        previousState,
+        state,
+        events: result.events,
+        battlePresentation: result.battlePresentation,
+      }
+      listeners.forEach((listener) => listener(snapshot))
       return result.events
     },
     subscribe: (listener) => {

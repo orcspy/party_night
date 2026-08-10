@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import shieldSpec from '../../assets-source/icons/equipment_shield.asset.json'
-import { EQUIPMENT_DATA, getMapDefinition, ITEM_DATA, SKILLS } from '../game/content'
+import { CLASS_DATA, CUSTOM_SKILL_ALLOWED_CLASSES, EQUIPMENT_DATA, getMapDefinition, ITEM_DATA, SKILLS } from '../game/content'
 import { REGISTERED_ENEMY_CONTENT_IDS, enemySpriteKeyFor } from '../phaser/assets/enemyAssets'
 import { characterTextureKey } from '../phaser/assets/characterAssets'
 import { MARKER_KEYS, REGISTERED_TERRAIN_MAP_IDS, terrainTextureKey } from '../phaser/assets/terrainAssets'
 import { CONTENT_ICON_URLS } from '../ui/ContentIcon'
-import { CONTENT_ICON_KEYS, getEquipmentPresentation, getItemPresentation, getRarityDisplayName, getRewardPresentation, getSkillPresentation, RARITY_CSS_TOKENS } from '../ui/contentPresentation'
+import { CONTENT_ICON_KEYS, getCustomSkillAllowedClassLabel, getEquipmentPresentation, getItemPresentation, getRarityDisplayName, getRewardPresentation, getSkillPresentation, RARITY_CSS_TOKENS } from '../ui/contentPresentation'
 import type { EquipmentFamily, PendingRewardEntry, Rarity } from '../game/types'
 
 const TERRAIN_MAP_IDS = ['training_ruins', 'goblin_den', 'ancient_site', 'underground_dungeon', 'old_castle', 'volcanic_cave', 'deep_forest_ruins']
@@ -98,6 +98,15 @@ describe('content presentation assets', () => {
     }
     expect(getItemPresentation('unknown_item')).toMatchObject({ label: '알 수 없는 아이템', iconKey: null, fallbackText: '아', rarity: 'neutral' })
     expect(getSkillPresentation('unknown_skill')).toMatchObject({ label: '알 수 없는 스킬', iconKey: null, fallbackText: '액', rarity: 'neutral' })
+  })
+
+  it('shows custom skill class restrictions without exposing internal IDs', () => {
+    const before = JSON.stringify({ classes: CLASS_DATA, allowed: CUSTOM_SKILL_ALLOWED_CLASSES })
+    expect(getCustomSkillAllowedClassLabel('first_aid')).toBe('공용')
+    expect(getCustomSkillAllowedClassLabel('cutlery_expert')).toBe('전사')
+    expect(getCustomSkillAllowedClassLabel('sleep')).toBe('마법사')
+    expect(getCustomSkillAllowedClassLabel('unknown_skill')).toBe('장착 직업 정보 없음')
+    expect(JSON.stringify({ classes: CLASS_DATA, allowed: CUSTOM_SKILL_ALLOWED_CLASSES })).toBe(before)
   })
 
   it('delegates rewards to selectors and does not mutate definitions or inputs', () => {

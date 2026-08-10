@@ -3,6 +3,7 @@ import { getQuestDisplayName } from '../game/displayNames'
 import { usedStorageSlots } from '../game/inventory'
 import type { GameCommand, GameEvent, GameState } from '../game/types'
 import { CharacterPanel } from './CharacterPanel'
+import { FullscreenToggle } from './FullscreenToggle'
 import { ShopPanel } from './ShopPanel'
 import { StoragePanel } from './StoragePanel'
 
@@ -32,7 +33,7 @@ export function HubScreen({ state, dispatch }: { state: GameState; dispatch: (co
     <main className="menu-screen hub-screen">
       <header className="hub-header">
         <div><p className="eyebrow">PARTY BASE</p><h1>거점</h1></div>
-        <div className="hub-summary"><b>G {profile.gold}</b><span>창고 {usedStorage}/100</span><span>평균 Lv {averageLevel.toFixed(1)}</span></div>
+        <div className="screen-tools"><div className="hub-summary"><b>G {profile.gold}</b><span>창고 {usedStorage}/100</span><span>평균 Lv {averageLevel.toFixed(1)}</span></div><FullscreenToggle /></div>
       </header>
       <nav className="hub-tabs" aria-label="거점 메뉴">
         {(Object.keys(TAB_LABELS) as HubTab[]).map((id) => <button key={id} className={tab === id ? 'active' : ''} onClick={() => setTab(id)}>{TAB_LABELS[id]}</button>)}

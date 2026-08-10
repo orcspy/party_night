@@ -837,3 +837,179 @@ raw_data_table.md파일에 동료 관련 종족 데이터 수동 추가완료. �
 - 호환성·의존성 변경: Git 이력 재작성·force push·원격 설정 변경과 dependency 변경 없음.
 - 검증 결과: staged diff 5개 파일·352줄 추가·25줄 삭제, `git diff --cached --check` 공백 오류 없음. `7164460..66d5d5e main -> main` push 성공.
 - 실패·미확정 사항: push 과정에서 Git for Windows `fstab_read_flags: invalid fstab option - 'defaults'` 경고가 2회 출력됐으나 원격 반영은 성공했다. 전체 테스트·build·모바일 브라우저 검증 미실행 범위는 직전 구현 기록과 동일하다.
+
+## 2026-08-10 08:24:27 +09:00 | Planner | Android Chrome 전체 화면 토글 설계
+
+- 대상: Android phone Chrome landscape의 URL 입력창 가림 완화를 위한 전체 화면↔일반 화면 전환 UI
+- 사용자 작업 지시 원문: `Android Chrome 등의 url입력 창에 의해 컨텐츠가 가려지는 문제를 해결하기 위한 전체화면 < = > 일반화면 전환용 토글 버튼을 오른쪽 하단 구석에 배치 하도록 기능 설계 작업을 할 것. 해당 위치의 배치가 실제 게임 플레이에 영향을 줄 경우 다른 위치로 변경하는 것을 허가함.`
+- 사용한 기준 문서: 루트 `AGENTS.md`, `architecture.md` 11·21절, `implements.md` 19·20·29절; 현재 코드 `src/app/App.tsx`, `src/ui/{SetupScreen,HubScreen,GameHud,BattleCommands,ExplorationItems,ResultScreen}.tsx`, `src/phaser/{PhaserGame,ExplorationScene}.ts`, `src/styles.css`; MDN Fullscreen API·`requestFullscreen`·`fullscreenchange` 문서
+- 조사 범위: `100dvh`와 Android 브라우저 UI 경계, Fullscreen API 사용자 활성화·지원 판정·Permissions Policy·event/error, 시작·프로필·거점·탐사·전투·결과 화면의 오른쪽 하단 입력과 배치 충돌, Phaser 640×360 FIT·canvas input·safe area·portrait 안내
+- 생성·갱신 문서: `architecture.md` 신규 22절, `implements.md` 신규 30절, `changelog.md`; 원본 코드·설정·테스트는 수정하지 않음
+- 결정 근거: 전역 오른쪽 하단은 탐사 Phaser 이동 버튼과 우측 HUD의 스킬·대상·리롤·아이템 명령, 결과 action footer, 프로필 생성·거점 관리 action을 가릴 수 있다. 사용자 허용에 따라 같은 기능을 화면별 비중첩 slot에 배치하고, gameplay 중에는 현재 정보·명령이 없는 game-stage 우측 상단을 사용하도록 확정했다.
+- 핵심 결과: 표준 `documentElement.requestFullscreen({ navigationUI:'hide' })`·`exitFullscreen`, `fullscreenEnabled`, `fullscreenchange/fullscreenerror` 기반의 `FullscreenToggle` 계약을 정의했다. 시작 menu, profile/hub header, game-stage 우측 상단, result footer에 44×44px 접근성 버튼을 상시 제공하고 미지원 환경에서는 숨긴다. 자동 진입·orientation/keyboard lock·저장 반영을 금지하고 Android Chrome HTTPS에서 URL 입력창 제거·viewport 증가·전체 화면 이동/종료·입력 비중첩을 검증하도록 했다.
+- 위험·미확정 사항: `navigationUI:'hide'`의 실제 URL 입력창 제거와 `visualViewport` 증가는 Android phone Chrome 실기 확인이 필요하다. 브라우저·Permissions Policy·iframe 조건에 따라 요청이 거부될 수 있으며, 빠른 연속 터치·앱 전환·회전 중 외부 종료는 event 기반으로 복구해야 한다. Planner 작업이므로 코드·테스트·build·브라우저 실행은 수행하지 않았다.
+
+## 2026-08-10 08:39:37 +09:00 | Coder | 전체 화면·일반 화면 토글 구현
+
+- 작업 루트·모드: `D:\Work\Private\jobs\20260807\party_night\party_night` | 원본 직접 작업
+- 사용자 작업 지시 원문:
+
+```text
+/agent Coder
+위의 전체화면 토글 버튼 구현작업을 진행 할 것
+```
+
+- 사용한 설계문서: `implements.md` 30절 최우선, `architecture.md` 22절, 루트 `AGENTS.md`
+- 조사 범위: Fullscreen 표준 DOM 타입, App 화면 분기, 시작·프로필·거점·결과 React action, game-stage와 Phaser canvas/HUD 입력, 100dvh·safe area·portrait CSS, 기존 store 화면 전환 테스트
+- 검증 단계: 1단계 기본 검증
+- 변경 파일: `src/ui/FullscreenToggle.tsx`, `src/ui/{SetupScreen,HubScreen,ResultScreen}.tsx`, `src/app/App.tsx`, `src/styles.css`, `changelog.md`; 선행 Planner의 `architecture.md`, `implements.md` 변경은 그대로 보존
+- 결정 근거: 오른쪽 하단 전역 overlay는 Phaser 이동과 HUD·결과 필수 action을 가리므로 설계대로 시작 menu, profile/hub header, game-stage 우측 상단, result footer의 비중첩 slot을 사용했다. 브라우저 fullscreen은 game state가 아니므로 component local state와 DOM event만 사용했다.
+- 핵심 구현: `document.fullscreenEnabled` 지원 판정, `documentElement.requestFullscreen({ navigationUI:'hide' })`·`exitFullscreen`, `fullscreenchange/fullscreenerror`, 전환 중 중복 방지와 2.5초 오류 상태를 구현했다. 화면 전환 재마운트와 Android back·ESC 등 외부 종료 시 실제 `fullscreenElement`를 다시 읽는다. 모든 지원 화면에 44×44px CSS corner icon과 `aria-label/aria-pressed/title`을 연결하고 portrait·미지원 환경에서는 숨긴다.
+- 호환성·의존성 변경: game command/state/event, profile v2, Phaser 640×360 FIT, Vite base와 저장 계약을 변경하지 않았다. orientation/keyboard lock·PWA·prefixed API를 추가하지 않았고 신규 패키지와 dependency·lock 변경 없음.
+- 검증 결과: `npm run typecheck` 성공. `npm test -- src/tests/gameStore.test.ts`에서 1개 파일·3개 테스트 성공. 화면 전환·결과→거점 store 회귀를 확인했고 `git diff --check` 공백 오류 없음.
+- 실패·미확정 사항: 1단계 범위에 따라 전체 테스트, production build, PC/iPhone 회귀와 Android phone Chrome HTTPS의 실제 URL 입력창 제거·viewport 증가·touch·back/app 전환 검증은 수행하지 않았다. iframe 배포 시 상위 `allow="fullscreen"`이 별도로 필요하다.
+
+## 2026-08-10 09:03:37 +09:00 | Planner | 결과·창고·캐릭터 표시 위계 수정 설계
+
+- 대상: 퀘스트 결과 성장·해금 알림, 거점 창고 스킬 metadata, 거점 캐릭터 custom skill·장비 slot 행
+- 사용자 작업 지시 원문:
+
+```text
+/agent Planner
+퀘스트 완료 시 성장 해금에서 "신규 장비 등급" 알림 문구를 "상점에 신규 []등급 장비가 입하 되었습니다."의 문구로 변경.
+거점 창고 아이템 리스트에서 skill 정보 중 skill_x 같은 값이 아닌 해당 스킬을 장착 가능한 직업군을 표시 하도록 변경. ( 대상이 all인 스킬은 "공용"으로 표시 )
+거점 케릭터 정보 창에서 커스텀 스킬 슬롯과 장착중인 스킬의 정보에 대해서 각각의 폰트 크기를 교체. ( 스킬 슬롯 번호가 작게 보이고 커스텀 스킬 이름이 크게 보이도록. )
+거점 케릭터 정보 창에서 장비 슬롯에서 장비 슬롯이름을 작게 장착중인 장비를 크게 표시.
+위와 같이 레이아웃을 수정하는 설계를 작업 할 것.
+```
+
+- 사용한 기준 문서: 루트 `AGENTS.md`, `architecture.md` 19·21~22절, `implements.md` 27·29~30절; 현재 코드 `src/ui/{ResultScreen,StoragePanel,CharacterPanel,contentPresentation}.tsx/ts`, `src/game/{content,displayNames,types,inventory}.ts`, `src/styles.css`, 관련 presentation·character 테스트
+- 조사 범위: `unlockedRarities` 표시 DOM·rarity token, skill instance ID 노출과 `CUSTOM_SKILL_ALLOWED_CLASSES`·`CLASS_DATA` 관계, 선택 캐릭터 compatibility, custom/equipment slot의 `<b>/<small>` 구조와 compact management list 모바일 font·wrap
+- 생성·갱신 문서: `architecture.md` 신규 23절, `implements.md` 신규 31절, `changelog.md`; 원본 코드·설정·테스트는 수정하지 않았으며 선행 fullscreen 구현 변경은 보존
+- 결정 근거: 상점 입하 알림은 rarity 해금 배열을 표시만 바꾸고, 스킬 직업군은 장착 판정과 같은 허용 class 원본에서 파생해야 한다. 현재 all sentinel은 없으므로 6개 `ClassId` 전체 포함을 `공용`으로 해석했다. font 역전은 공통 element selector가 원인이므로 다른 목록에 영향을 주지 않는 캐릭터 loadout 전용 class를 사용하도록 정했다.
+- 핵심 결과: rarity마다 `상점에 신규 [고급]등급 장비가 입하 되었습니다.` 문장을 표시하고 등급색을 유지한다. 창고 skill ID는 `장착 직업: 공용/전사/... · 장착 가능/직업 제한`으로 교체한다. custom slot·장비 slot label은 9px 보조 text, 실제 장착 이름은 13px 주요 text로 바꾸고 아이콘·rarity·해제 command를 유지하는 DOM·CSS·pure helper 테스트 사양을 확정했다.
+- 위험·미확정 사항: compact 2열에서 긴 스킬·장비 이름과 badge·해제 버튼이 겹칠 수 있어 640×360·760px 이하 검증이 필요하다. 복수 rarity 입하 문장의 결과 scroll 높이, unknown skill fallback, 모든 직업 전용 label도 구현 후 확인해야 한다. Planner 작업이므로 코드·테스트·build·브라우저 실행은 수행하지 않았다.
+
+## 2026-08-10 09:27:17 +09:00 | Coder | 결과·창고·캐릭터 표시 위계 수정
+
+- 작업 루트·모드: `D:\Work\Private\jobs\20260807\party_night\party_night` | 원본 직접 작업
+- 사용자 작업 지시 원문:
+
+```text
+/agent Coder
+위의 수정 설계안과 설계문서를 기반으로 작업을 진행 할 것
+```
+
+- 사용한 설계문서: `implements.md` 31절 최우선, `architecture.md` 23절, 루트 `AGENTS.md`
+- 조사 범위: 결과 rarity 해금 DOM, 창고 skill instance metadata와 allowed class 원본, 캐릭터 custom/equipment slot DOM·compact list, 공통 content presentation·rarity CSS, 관련 asset presentation 테스트
+- 검증 단계: 1단계 기본 검증
+- 변경 파일: `src/ui/{ResultScreen,StoragePanel,CharacterPanel,contentPresentation}.tsx/ts`, `src/styles.css`, `src/tests/assets.test.ts`, `changelog.md`; 선행 fullscreen 설계·구현 변경은 그대로 보존
+- 결정 근거: 장착 직업군은 판정과 같은 `CUSTOM_SKILL_ALLOWED_CLASSES`를 사용하고 전체 6개 ClassId 포함 시에만 `공용`으로 표시했다. 공통 목록 typography를 바꾸지 않고 캐릭터 loadout 전용 class로 slot label과 장착 이름 크기를 분리했다.
+- 핵심 구현: 결과 화면은 rarity마다 `상점에 신규 [고급]등급 장비가 입하 되었습니다.` 문장을 출력하고 등급색을 유지한다. 창고 스킬 행에서 instance ID를 제거하고 `장착 직업: 공용/직업명 · 장착 가능/직업 제한`을 표시한다. custom/equipment slot label은 9px, 실제 장착 이름은 13px로 바꾸고 기존 아이콘·rarity badge·해제 action을 유지했다.
+- 호환성·의존성 변경: `unlockedRarities`, instance ID, 장착 가능 판정, command payload, profile v2와 저장 계약을 변경하지 않았다. 신규 패키지와 dependency·lock 변경 없음.
+- 검증 결과: `npm run typecheck` 성공. `npm test -- src/tests/assets.test.ts`에서 1개 파일·10개 테스트 성공. 공용·전사·마법사·unknown 직업군 label과 원본 불변성을 확인했다. `git diff --check` 공백 오류 없음.
+- 실패·미확정 사항: 1단계 범위에 따라 전체 테스트, production build와 실제 결과·창고·캐릭터 화면의 640×360·760px 이하·844×390 browser 검증은 수행하지 않았다. 긴 이름·badge·해제 버튼 wrap과 결과 scroll 높이는 수동 확인이 필요하다.
+
+## 2026-08-10 09:30:49 +09:00 | Coder | 설계 31절 구현 재확인·기본 검증
+
+- 작업 루트·모드: `D:\Work\Private\jobs\20260807\party_night\party_night` | 원본 직접 작업
+- 사용자 작업 지시 원문:
+
+```text
+/agent Coder
+위의 설계안과 설계 문서를 기반으로 작업을 진행 할 것.
+```
+
+- 사용한 설계문서: `implements.md` 31절 최우선, `architecture.md` 23절, 루트 `AGENTS.md`
+- 조사 범위: 현재 미커밋 변경 상태, 결과 rarity 입하 문장, 창고 custom skill 직업군 helper·compatibility, 캐릭터 custom/equipment loadout DOM·전용 CSS, 관련 pure presentation 테스트와 package 검증 명령
+- 검증 단계: 1단계 기본 검증
+- 변경 파일: 이번 재확인에서 소스 변경 없음, `changelog.md` 기록만 추가; 기존 구현 파일과 선행 fullscreen 변경은 그대로 보존
+- 결정 근거: 현재 `src/ui/{ResultScreen,StoragePanel,CharacterPanel,contentPresentation}.tsx/ts`, `src/styles.css`, `src/tests/assets.test.ts`가 `implements.md` 31.3~31.8의 문구·직업군·DOM·CSS·테스트 계약을 이미 충족하므로 중복 수정하지 않았다.
+- 핵심 구현: 기존 구현에서 rarity별 상점 입하 문장, custom skill의 공용·한글 직업군 표시, slot label 9px·장착 이름 13px 위계와 원본 command·instance identity 보존을 확인했다.
+- 호환성·의존성 변경: 신규 소스·설정·패키지·dependency·lock 변경 없음. profile v2, 정산, 장착·해제·판매 command와 Fullscreen 변경을 유지했다.
+- 검증 결과: `npm run typecheck` 성공. `npm test -- src/tests/assets.test.ts` 성공(1개 파일, 10개 테스트). 공용·전사·마법사·unknown label과 presentation 입력 불변성 테스트 통과.
+- 실패·미확정 사항: 1단계 범위에 따라 전체 테스트, production build, packaging과 640×360·760px 이하·844×390 실제 브라우저 검증은 수행하지 않았다. 모바일 wrap·결과 scroll과 Android Chrome fullscreen 동작은 실기 확인이 남아 있다.
+
+## 2026-08-10 10:17:09 +09:00 | Planner | 전투 결과 확인 텀·적 공격 예고·상태 결과 로그 설계
+
+- 대상: `D:\Work\Private\jobs\20260807\party_night\party_night`의 전투 종료 화면 전환, 자동 적 턴 연출, 디버프 성공·실패 로그와 피해·회복 로그 색상
+- 사용자 작업 지시 원문:
+
+```text
+/agent Planner
+현재 전투 단계 마지막 몹이 사망 할 때 바로 던전 이동 화면으로 전환되는 것을 마지막 몹이 사망 할 때 2초간의 화면 전환에 텀을 두고 마지막 전투 결과(dice roll 등)을 확인 할 수 있도록 할 것.
+추가로 플레이어의 공격이 끝나고 몹 공격이 차례가 진행 될때 너무 빠르게 전환이 되어서 인식이 힘듬. 적 공격이 시작 될 때 약 1초간의 텀을 두고 적 턴의 공격을 진행 하도록 변경.
+현재 전투 로그에는 대미지, 차례, 쿨타임 관련 정보만 표시되고 있음. 플레이어 혹은 적이 스킬을 통해서 디버프를 부여 할때 디버프가 부여가 성공/실패 되었다는 부분을 log로 추가적으로 남기도록 수정 할 것. ( 현재 수정에서 디버프의 잔여 턴은 표시 할 필요는 없음 )
+전투 로그중 대미지는 붉은색, 힐은 녹색으로 표현.
+이상의 탐사 관련 수정사항을 설계 할 것.
+```
+
+- 사용한 기준 문서: 루트 `AGENTS.md`, `architecture.md` 16절, `implements.md` 24절; 현재 코드 `src/game/{types,combat,gameEngine}.ts`, `src/app/{gameStore,App}.tsx/ts`, `src/phaser/{PhaserGame,BattleScene,ExplorationScene}.ts`, `src/ui/{GameHud,BattleCommands}.tsx`, `src/styles.css`와 combat·engine·store 테스트
+- 조사 범위: 한 dispatch 안의 플레이어 판정·연속 적 AI 재귀, 일반/완료 조우 승리 destination과 Phaser Scene 수명, `ROLL_RESOLVED` queue, 상태 확률·적용 event와 실패 branch, `find_leak`·`taunt`·`neurotoxin` 예외, string session log의 type 유실과 CSS selector 우선순위
+- 생성·갱신 문서: `architecture.md` 신규 24절, `implements.md` 신규 32절, `changelog.md`; 원본 코드·설정·리소스·테스트는 수정하지 않았고 기존 미커밋 fullscreen·표시 위계 변경을 보존
+- 결정 근거: combat과 gameEngine에 timer를 넣어 판정·정산을 늦추면 애니메이션 실패가 게임 상태에 영향을 주는 금지 구조가 된다. reducer는 canonical 결과를 즉시 확정하고, 최종 combat snapshot과 monotonic dispatch envelope를 presentation 계층이 읽어 적 예고·전투 화면 유지·입력 잠금만 수행하도록 분리했다. 로그 색은 message 파싱 대신 원본 event type을 보존해야 한다.
+- 핵심 결과: 각 실제 enemy `TURN_STARTED` 앞 1000ms 예고와 기존 roll 1000ms를 순서대로 재생하고, `BATTLE_WON`에서는 일반 exploration·완료 result 목적지 모두 최소 2000ms terminal battle frame을 보인 뒤 canonical 화면을 표시하도록 설계했다. `STATUS_APPLIED/STATUS_RESISTED`에 status ID와 시전자·대상·스킬을 넣어 양 진영 디버프 성공·실패를 기록하되 잔여 turn은 제외한다. session log를 `default/damage/heal` 구조로 바꾸고 damage·trap은 붉은색, heal은 녹색으로 표시하는 사양과 자동·모바일 수동 검증을 확정했다.
+- 위험·미확정 사항: 브라우저 timer는 background 상태에서 늦어질 수 있으나 canonical 승패·정산은 이미 완료되어야 한다. 현재 event batch는 최종 HP snapshot을 먼저 가지므로 이번 범위에서는 event별 중간 HP replay를 추가하지 않는다. 초기 적 선행 행동 event 유실, terminal snapshot capture 시점, sequence 중복 재생, timer 중 입력·Fullscreen·회전 cleanup을 구현·실기 검증해야 한다. Planner 작업이므로 코드·테스트·build·브라우저 실행은 수행하지 않았다.
+
+## 2026-08-10 10:58:11 +09:00 | Coder | 전투 결과 텀·적 공격 예고·상태 결과 로그 구현
+
+- 작업 루트·모드: `D:\Work\Private\jobs\20260807\party_night\party_night` | 원본 직접 작업
+- 사용자 작업 지시 원문:
+
+```text
+/agent Coder
+위의 설계 문서를 반영하여 작업을 진행 할 것.
+```
+
+- 사용한 설계문서: `implements.md` 32절 최우선, `architecture.md` 24절, 루트 `AGENTS.md`
+- 조사 범위: combat의 player→enemy 재귀 진행·상태 확률·선행 적 행동, gameEngine의 일반/완료/패배 전이와 원정 로그, store subscriber, App screen 분기·입력, Phaser Scene preload·event queue·cleanup, HUD 로그 DOM·CSS와 관련 combat·engine·store 테스트
+- 검증 단계: 1단계 기본 검증
+- 변경 파일: `src/game/{types,combat,gameEngine}.ts`, `src/app/{gameStore,battlePresentation,App}.ts/tsx`, `src/phaser/{PhaserGame,BattleScene,ExplorationScene}.ts`, `src/ui/{BattleCommands,GameHud}.tsx`, `src/styles.css`, `src/tests/{combat,gameEngine,gameStore,battlePresentation}.test.ts`, `changelog.md`; 선행 fullscreen·결과/창고/캐릭터 변경과 설계문서는 보존
+- 결정 근거: reducer 내부에 timer를 넣으면 판정·정산이 연출에 의존하므로 canonical state와 profile 저장은 즉시 완료하고, 최종 combat session snapshot과 sequence envelope를 presentation 계층에서만 재생했다. 상태·로그 색상은 문구 파싱 없이 event type·status payload를 단일 기준으로 사용했다.
+- 핵심 구현: enemy `TURN_STARTED`마다 1000ms 공격 준비 step과 기존 1000ms roll을 순서대로 표시한다. `BATTLE_WON`은 최종 전투 snapshot을 최소 2000ms 유지하고 화염병·출혈처럼 roll이 없으면 승리 fallback을 표시한다. Scene 시작 callback 전에는 command를 잠그고 5초 failure fallback을 두며, locked plan 시작 시 이전 비잠금 roll queue를 정리해 App timer와 Scene 재생을 맞췄다. 탐사 진입 선행 적 공격에서 즉시 전멸해도 result·terminal frame으로 정상 전이한다.
+- 핵심 구현: `STATUS_APPLIED/STATUS_RESISTED`에 시전자·대상·스킬·`statusId`를 넣고 기절·출혈·마비·신경독·수면의 성공/실패, 약점 노출·도발의 확정 성공을 기록한다. 신경독 성공은 실제 신경독·출혈을 각각 기록하고 실패는 주 상태 한 건만 기록하며 잔여 turn 정보는 포함하지 않는다. `GameLogEntry`의 `default/damage/heal` kind로 damage·trap은 붉은색, heal은 녹색으로 표시한다.
+- 호환성·의존성 변경: profile version 2, 콘텐츠 수치, RNG 소비, 상태 지속시간, 보상·정산과 canonical destination을 유지했다. 원정 중 비영속 `session.logs`만 string에서 구조화 entry로 변경했다. 신규 package와 dependency·lock 변경 없음.
+- 검증 결과: `npm run typecheck` 성공. `npm test -- src/tests/combat.test.ts src/tests/gameEngine.test.ts src/tests/gameStore.test.ts src/tests/battlePresentation.test.ts` 성공(4개 파일, 40개 테스트). 양 진영 상태 성공·실패, sided turn, 일반/완료/아이템/선행 적 전멸 terminal frame, 구조화 damage·heal log, envelope sequence와 1초/2초 pure plan을 확인했다. `git diff --check` 공백 오류 없음.
+- 실패·미확정 사항: 1단계 범위에 따라 전체 테스트, production build와 실제 브라우저 실행은 수행하지 않았다. 640×360·760px 이하·844×390에서 적 예고/roll/Fullscreen 중첩, 실제 1초·2초 체감, background·회전·앱 전환 중 timer fallback과 Android Chrome·iOS Safari 동작은 수동 검증이 필요하다. event별 중간 HP replay는 설계 금지 범위대로 추가하지 않았다.
+
+## 2026-08-10 11:01:47 +09:00 | Planner | 탐사 통로 원근 경사·viewport 외곽 가림 설계
+
+- 대상: `D:\Work\Private\jobs\20260807\party_night\party_night`의 Phaser 탐사 복도 floor·ceiling·side/front wall 원근 geometry와 640×360 내부 탐사 viewport 경계
+- 사용자 작업 지시 원문:
+
+```text
+/agent Planner
+탐사 화면에서 현재 마스에서 두 마스 앞이 막혀있고 좌/우 통로가 비어있을 경우 표시되는 좌/우 부분의 통로 음영 표시의 위/아래 모서리의 경사가 막혀있는 벽에 완만하게 이어져 막혀있는 벽의 모서리 꼭지점에 맞지 않는다(좌/우 막힌 벽은 정상적으로 꼭지점이 이어짐). 이를 가파르게 조정해서 막혀있는 벽의 모서리 꼭지점에 맞도록 조절 할 것.
+탐사 화면에서 현재 마스를 표현하는 틀 바깥쪽(이동 버튼, 좌표, 던전명이 표시되는 지역)으로 배경관련 어셋들이 빠져나와서 표시되고 있음. 이로인해 현재 마스의 좌/우 통로에 대한 표현이 왜곡되고 있다. 해당 부분에 튀어나온 어셋들을 가려 왜곡 현상을 줄일 것.
+```
+
+- 사용한 기준 문서: 루트 `AGENTS.md`, `architecture.md`의 탐사·viewport 원칙, `implements.md`의 기존 Phaser 책임·검증 기준, `changelog-assets.md`의 side wall 사다리꼴·front cap·virtual frame 변경 이력; 현재 `src/phaser/ExplorationScene.ts`, `src/phaser/assets/terrainAssets.ts`, `src/game/{content,exploration}.ts`, `src/tests/{exploration,assets}.test.ts`
+- 조사 범위: `FRAMES[0..2]`·`VANISH_FRAME`·소실점, `wallQuadPoints`와 depth 1 front wall footprint, floor/ceiling triangle mask 방정식, TileSprite·fallback·marker·world·UI depth, canvas와 외곽 frame·버튼 좌표, 7개 terrain registry와 실제 재현 map 좌표
+- 생성·갱신 문서: `architecture.md` 신규 25절, `implements.md` 신규 33절, `changelog.md`; 코드·설정·PNG·생성 스크립트·에셋 문서는 수정하지 않았으며 기존 미커밋 구현 변경을 보존
+- 결정 근거: 좌·우 막힌 벽은 frame 꼭지점을 공유하는 사다리꼴이라 정상이나 열린 통로는 단일 floor/ceiling 삼각형의 사선이 드러난다. 이 사선은 depth 1 정면 벽 x=238/402에서 위쪽 약 19.2px·아래쪽 약 10.9px 어긋나며, frame 모서리들이 한 직선에 있지 않아 단일 slope 조정으로 모든 깊이를 맞출 수 없다. 에셋은 정상이고 Scene mask·clip 문제이므로 PNG 재생성은 제외했다.
+- 핵심 결과: floor·ceiling을 `FRAMES[0]→[1]→[2]→VANISH_FRAME→소실점`의 실제 모서리를 잇는 frame-chain polygon으로 바꿔 `(238,120)~(402,207)` 정면 벽 네 꼭지점을 공유하도록 설계했다. 탐사 viewport `(70,62)~(570,258)` 밖은 camera 배경색 cover depth 15로 가리고 outer frame을 depth 16에서 다시 그려, wall≤10·marker20·UI50 순서를 보존한다. pure geometry 단일 원본, loaded/fallback 동일 polygon, 실제 map 판정·geometry·모바일 screenshot 검증 사양을 확정했다.
+- 위험·미확정 사항: cover와 outer frame depth를 잘못 배치하면 테두리·marker·버튼이 잘릴 수 있다. frame-chain의 깊이별 각도와 tile seam, 7개 terrain의 고대비 테마, 640×360·844×390·Fullscreen·Android/iOS landscape 외곽 pixel은 구현 후 실제 Scene에서 확인해야 한다. Planner 작업이므로 코드·테스트·build·브라우저 실행은 수행하지 않았다.
+
+## 2026-08-10 11:22:51 +09:00 | Coder | 탐사 원근 경사·viewport 가림 및 전투 예고 문구 수정
+
+- 작업 루트·모드: `D:\Work\Private\jobs\20260807\party_night\party_night` | 원본 직접 작업
+- 사용자 작업 지시 원문:
+
+```text
+/agent Coder
+위의 탐사 화면 관련 원근 문제 수정 사항을 설계문서를 기반으로 수정 할 것. BattleScene.ts의 공격 준비 문구를 공격 차례로 변경 포함 수정.
+
+/agent Coder
+위의 탐사 화면 관련 원근 문제 수정 사항을 설계문서를 기반으로 수정 할 것. BattleScene.ts의 공격 준비 문구를 공격 차례로 변경 포함 수정.
+```
+
+- 사용한 설계문서: `implements.md` 33절 최우선, `architecture.md` 25절, 루트 `AGENTS.md`; 전투 예고 label은 현재 사용자 지시를 우선 적용
+- 조사 범위: ExplorationScene의 frame·virtual frame·floor/ceiling mask·loaded/fallback·wall/front/marker/UI depth와 lifecycle, 실제 훈련 폐허 depth 1 판정, BattleScene enemy windup overlay, 관련 exploration·asset·presentation 테스트
+- 검증 단계: 1단계 기본 검증
+- 변경 파일: 신규 `src/phaser/explorationGeometry.ts`, `src/tests/explorationGeometry.test.ts`; 수정 `src/phaser/{ExplorationScene,BattleScene}.ts`, `src/tests/exploration.test.ts`, `changelog.md`; terrain PNG·registry·생성 스크립트와 선행 미커밋 변경은 보존
+- 결정 근거: 열린 통로는 side wall이 아니라 기존 단일 floor/ceiling 삼각형의 사선을 노출해 depth별 frame 꼭지점과 어긋났다. map별 보정 대신 모든 frame·virtual frame·소실점 좌표를 잇는 공통 polygon을 사용했다. 외곽 누출은 CSS가 아닌 Phaser 논리 좌표의 cover로 차단해 FIT·Fullscreen에서도 동일 경계를 유지했다.
+- 핵심 구현: frame·polygon·viewport·depth를 Phaser 비의존 pure geometry로 분리했다. ceiling/floor loaded GeometryMask와 fallback을 동일한 9점 `fillPoints` polygon으로 교체해 depth 1 정면 벽 `(238,120)~(402,207)`의 네 모서리를 공유한다. background wash를 `(70,62)~(570,258)`로 제한하고 외부 네 영역을 depth 15의 `#0b0b13` cover로 가린 뒤 outer frame을 depth 16에서 재렌더했다. wall sprite depth는 pure helper에 연결하고 marker 20·UI 50·버튼 입력을 유지했다.
+- 핵심 구현: BattleScene enemy windup의 표시 문구를 현재 지시에 따라 `공격 준비`에서 `공격 차례`로 변경했다. 적 이름은 기존처럼 별도 상단 label로 유지했다.
+- 호환성·의존성 변경: `isWall`, map·encounter·비밀문 판정, movement command, 640×360 Phaser scale, terrain asset·fallback·tile phase와 profile을 변경하지 않았다. 신규 패키지와 dependency·lock 변경 없음.
+- 검증 결과: `npm run typecheck` 성공. `npm test -- src/tests/explorationGeometry.test.ts src/tests/exploration.test.ts src/tests/assets.test.ts src/tests/battlePresentation.test.ts` 성공(4개 파일, 23개 테스트). 전체 polygon 순서·정면 벽 공유 모서리·side wall points·cover bounds·실제 wall render depth·map 재현 판정·기존 asset/presentation 회귀를 확인했다. `git diff --check` 공백 오류 없음.
+- 실패·미확정 사항: 1단계 범위에 따라 전체 테스트, production build와 실제 Phaser browser 실행은 수행하지 않았다. 640×360·844×390·7개 terrain·fallback·Fullscreen에서 polygon seam과 viewport 외부 pixel, marker·함정·비밀문·버튼 hit-test, Android Chrome·iOS Safari 가로 화면은 수동 검증이 필요하다.

@@ -78,6 +78,7 @@ describe('combat rules', () => {
       expect(poisoned.combat.neurotoxinsByActor?.[target.id]).toEqual({ originalAgi: 8 })
       expect(poisoned.combat.participants.find((item) => item.id === target.id)?.agi).toBe(4)
       expect(poisoned.combat.bleedStacksByActor?.[target.id]).toBe(1)
+      expect(poisoned.events.filter((event) => event.type === 'STATUS_APPLIED').map((event) => event.statusId)).toEqual(['neurotoxin', 'bleed'])
 
       let repeated = poisoned.combat
       for (let count = 0; count < 6; count++) {
@@ -103,7 +104,12 @@ describe('combat rules', () => {
     }
     for (const skillId of ['quick_stab', 'neurotoxin'] as const) {
       const outcomes = new Set<boolean>()
-      for (let seed = 1; seed <= 100; seed++) outcomes.add(run(skillId, seed).applied)
+      for (let seed = 1; seed <= 100; seed++) {
+        const attempt = run(skillId, seed)
+        outcomes.add(attempt.applied)
+        const statusId = skillId === 'quick_stab' ? 'bleed' : 'neurotoxin'
+        expect(attempt.result.events.some((event) => event.type === (attempt.applied ? 'STATUS_APPLIED' : 'STATUS_RESISTED') && event.statusId === statusId)).toBe(true)
+      }
       expect(outcomes).toEqual(new Set([true, false]))
       expect(run(skillId, 42)).toEqual(run(skillId, 42))
     }
@@ -162,6 +168,7 @@ describe('combat rules', () => {
     const ready: CombatState = { ...started.combat, participants: [archer, ally, target], turnOrder: [archer.id, target.id, ally.id], turnIndex: 0, phase: 'awaiting_action' }
     const exposed = selectTarget(selectSkill(ready, 'find_leak', 11).combat, target.id, 11)
     expect(exposed.combat.exposedByActor?.[target.id]).toMatchObject({ sourceActorId: archer.id, sourceActionsRemaining: 1, appliedRound: 1 })
+    expect(exposed.events.find((event) => event.type === 'STATUS_APPLIED' && event.statusId === 'exposed')).toMatchObject({ actorId: archer.id, targetId: target.id, skillId: 'find_leak' })
     expect(exposed.combat.turnIndex).toBe(2)
 
     const headShotReady: CombatState = { ...exposed.combat, turnOrder: [archer.id], turnIndex: 0, phase: 'awaiting_action' }
@@ -245,6 +252,7 @@ describe('combat rules', () => {
     expect(applied.rngState).toBe(777)
     expect(Object.keys(applied.combat.tauntsByEnemy)).toHaveLength(enemies.length)
     expect(applied.events.filter((event) => event.type === 'STATUS_APPLIED')).toHaveLength(enemies.length)
+    expect(applied.events.filter((event) => event.type === 'STATUS_APPLIED').every((event) => event.statusId === 'taunt')).toBe(true)
     expect(applied.combat.participants.map((actor) => actor.currentHp)).toEqual(combat.participants.map((actor) => actor.currentHp))
     const enemyTurn = { ...applied.combat, turnIndex: applied.combat.turnOrder.indexOf(enemies[0].id), phase: 'awaiting_action' as const }
     const first = advanceToPlayer(enemyTurn, 999)
@@ -279,6 +287,22 @@ describe('combat rules', () => {
     const result = advanceToPlayer(combat, 88)
     expect(result.events.some((event) => event.message.startsWith(`${party[0].name}의`))).toBe(false)
     expect(result.combat.participants.find((actor) => actor.id === party[0].id)?.currentHp).toBe(0)
+  })
+
+  it('emits sided turn starts only for actors that can actually act', () => {
+    const party = actor('party', 'party', 10)
+    const enemy = actor('enemy', 'enemy', 8)
+    const started = startCombat([party], [enemy], 30).combat
+    const partyTurn = advanceToPlayer({ ...started, participants: [party, enemy], turnOrder: [party.id, enemy.id], turnIndex: 0, phase: 'awaiting_action' }, 31)
+    expect(partyTurn.events.find((event) => event.type === 'TURN_STARTED')).toMatchObject({ actorId: party.id, actorSide: 'party' })
+
+    const enemyTurn: CombatState = { ...started, participants: [party, enemy], turnOrder: [enemy.id, party.id], turnIndex: 0, phase: 'awaiting_action' }
+    const acted = advanceToPlayer(enemyTurn, 32)
+    expect(acted.events.find((event) => event.type === 'TURN_STARTED' && event.actorSide === 'enemy')).toMatchObject({ actorId: enemy.id })
+
+    const skipped = advanceToPlayer({ ...enemyTurn, stunnedActionsByActor: { [enemy.id]: 1 } }, 32)
+    expect(skipped.events.some((event) => event.type === 'TURN_SKIPPED' && event.actorId === enemy.id)).toBe(true)
+    expect(skipped.events.some((event) => event.type === 'TURN_STARTED' && event.actorId === enemy.id)).toBe(false)
   })
 
   it('detects enemy and party defeat', () => {
@@ -331,10 +355,14 @@ describe('combat rules', () => {
     const base = startCombat(party, [ogre], 1).combat
     const enemyTurn: CombatState = { ...base, participants: [...party.map((actor) => ({ ...actor, maxHp: 999, currentHp: 999 })), ogre], turnOrder: [ogre.id, party[0].id], turnIndex: 0, phase: 'awaiting_action' }
     let found: ReturnType<typeof advanceToPlayer> | null = null
-    for (let seed = 1; seed < 100 && !found; seed++) {
+    let resisted: ReturnType<typeof advanceToPlayer> | null = null
+    for (let seed = 1; seed < 100 && (!found || !resisted); seed++) {
       const result = advanceToPlayer(enemyTurn, seed)
       if (result.events.some((event) => event.type === 'STATUS_APPLIED')) found = result
+      if (result.events.some((event) => event.type === 'STATUS_RESISTED')) resisted = result
     }
-    expect(found?.events.some((event) => event.type === 'STATUS_APPLIED' && event.skillId === 'ogre_smash')).toBe(true)
+    expect(found?.events.some((event) => event.type === 'STATUS_APPLIED' && event.skillId === 'ogre_smash' && event.statusId === 'stun')).toBe(true)
+    expect(resisted?.events.some((event) => event.type === 'STATUS_RESISTED' && event.skillId === 'ogre_smash' && event.statusId === 'stun')).toBe(true)
+    expect(resisted?.events.find((event) => event.type === 'STATUS_RESISTED')?.message).not.toMatch(/턴|라운드|남음/)
   })
 })

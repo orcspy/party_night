@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { CLASS_DATA, createInitialCharacters, deriveCombatStats, getFinalAttributes, RACE_DATA } from '../game/content'
 import type { ClassId, GameCommand, GameState, Gender, MainCharacterConfig, PersistentCharacter, RaceId } from '../game/types'
+import { FullscreenToggle } from './FullscreenToggle'
 
 interface Props {
   state: GameState
@@ -19,6 +20,7 @@ export function SetupScreen({ state, dispatch }: Props) {
         <div className="menu-actions">
           <button className="primary" onClick={() => dispatch({ type: state.profile ? 'LOAD_PROFILE' : 'OPEN_PROFILE_CREATE' })}>{state.profile ? '이어하기' : '새 게임'}</button>
           {state.profile && <button className="danger" onClick={() => dispatch({ type: 'RESET_PROFILE' })}>저장 초기화</button>}
+          <FullscreenToggle className="start-fullscreen-toggle" />
         </div>
       </main>
     )
@@ -31,7 +33,7 @@ export function SetupScreen({ state, dispatch }: Props) {
     <main className="menu-screen setup-screen">
       <header className="setup-header">
         <div><p className="eyebrow">ADVENTURER REGISTRY</p><h1>프로필 생성</h1></div>
-        <div className="wallet">START G 300</div>
+        <div className="screen-tools"><div className="wallet">START G 300</div><FullscreenToggle /></div>
       </header>
       <div className="setup-grid">
         <section className="card character-form">

@@ -7,13 +7,14 @@ import { ExplorationScene } from './ExplorationScene'
 
 export interface SceneBridge {
   store: GameStore
+  onBattlePresentationStarted?: (sequence: number) => void
 }
 
-export function PhaserGame({ screen, store }: { screen: Screen; store: GameStore }) {
+export function PhaserGame({ screen, store, onBattlePresentationStarted }: { screen: Screen; store: GameStore; onBattlePresentationStarted?: (sequence: number) => void }) {
   const host = useRef<HTMLDivElement>(null)
   useEffect(() => {
     if (!host.current) return
-    const scene = screen === 'battle' ? new BattleScene({ store }) : new ExplorationScene({ store })
+    const scene = screen === 'battle' ? new BattleScene({ store, onBattlePresentationStarted }) : new ExplorationScene({ store })
     const game = new Phaser.Game({
       type: Phaser.AUTO,
       parent: host.current,
@@ -26,6 +27,6 @@ export function PhaserGame({ screen, store }: { screen: Screen; store: GameStore
       scene,
     })
     return () => game.destroy(true)
-  }, [screen, store])
+  }, [onBattlePresentationStarted, screen, store])
   return createElement('div', { className: 'phaser-host', ref: host })
 }

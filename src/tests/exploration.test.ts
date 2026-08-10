@@ -35,6 +35,13 @@ describe('exploration', () => {
     expect(move(beforeExit, ['training_ruins_encounter_1', 'training_ruins_encounter_2', 'training_ruins_encounter_3']).questCompleted).toBe(false)
   })
 
+  it('identifies the approved depth-one side openings with a wall two cells ahead', () => {
+    // At (3,4) facing south, depth 1 is (3,5): both side cells are open while its front cell (3,6) is blocked.
+    expect(isWall('training_ruins', 3, 6, [])).toBe(true)
+    expect(isWall('training_ruins', 4, 5, [])).toBe(false)
+    expect(isWall('training_ruins', 2, 5, [])).toBe(false)
+  })
+
   it('uses the goblin den map, ordered encounters, and discovered secret door', () => {
     const map = getMapDefinition('goblin_den')
     expect(map.rows).toHaveLength(7)

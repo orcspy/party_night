@@ -1548,3 +1548,439 @@ result-screen: 100dvh, overflow hidden
 - overflow 선택 목록을 스크롤 영역 밖으로 옮기면 checkbox는 보이지만 항목을 읽지 못하거나 footer와 겹칠 수 있다. 선택 목록은 정보 scroll 영역에 유지하고 확정 버튼만 분리한다.
 - 긴 결과의 기준은 4인 성장 결과, 신규 스킬·커스텀 슬롯, 퀘스트·등급 해금과 다수 보상이 동시에 있는 성공 상태다. 일반 성공만 검증하면 재발 가능성이 있다.
 - 실제 Android Chrome과 iOS Safari의 주소창 변화·safe area·관성 스크롤은 문서·Node 테스트만으로 확정할 수 없어 모바일 실기 또는 동일 엔진의 responsive browser 검증이 필요하다.
+
+## 22. Android Chrome 전체 화면 토글 분석
+
+### 22.1 목적과 현재 경계
+
+- 사용자 확인 기준으로 PC와 iPhone Safari는 현재 화면 사용에 문제가 없고, Android phone Chrome의 landscape에서 URL 입력창·브라우저 UI가 가용 높이를 줄여 콘텐츠 일부를 가리는 현상이 개선 대상이다.
+- 현재 CSS는 menu·game·result shell에 `100dvh`를 사용해 브라우저가 보고한 동적 viewport 안에서 배치하지만 브라우저 UI 자체를 애플리케이션이 CSS로 제거하지는 못한다.
+- 현재 코드에는 Fullscreen API 사용, 전체 화면 상태, 토글 UI와 오류 처리가 없다. Phaser는 내부 논리 해상도 `640×360`과 `Phaser.Scale.FIT`을 사용하므로 viewport가 커지면 게임 판정을 변경하지 않고 canvas 표시 크기만 다시 맞출 수 있다.
+- 목표는 사용자의 명시적인 터치로 웹 문서 전체를 fullscreen으로 전환해 Android Chrome의 주소창·탐색 UI 영역을 게임에 할당하고, 같은 UI로 일반 화면으로 복귀하는 것이다.
+
+### 22.2 Web API 근거와 제약
+
+MDN Fullscreen API와 `requestFullscreen()` 기준:
+
+- `document.documentElement.requestFullscreen({ navigationUI: 'hide' })`는 루트 HTML과 모든 React·Phaser 자식을 전체 화면 대상으로 요청한다.
+- `document.exitFullscreen()`은 일반 화면 복귀를 요청한다.
+- 실제 상태는 Promise 성공 추정이 아니라 `document.fullscreenElement`와 `fullscreenchange` 이벤트로 동기화한다. Android back, 시스템 제스처, 탭·앱 전환 등 외부 종료도 같은 이벤트로 반영한다.
+- 진입에는 transient user activation이 필요하므로 버튼의 직접 `click` 처리 안에서 요청해야 한다. 최초 접속, 화면 전환 또는 저장 복원 시 자동 진입하지 않는다.
+- `document.fullscreenEnabled`가 false이거나 표준 method가 없으면 기능을 사용할 수 없다. Fullscreen API는 브라우저 전체에서 Baseline이 아니므로 미지원 환경에서는 무동작 버튼을 남기지 않는다.
+- top-level same-origin 문서는 기본 Permissions Policy `fullscreen=(self)` 범위지만 iframe 배포라면 상위 frame의 `allow="fullscreen"`이 별도로 필요하다. 현재 `/pn/` 직접 배포는 top-level 문서를 기준으로 한다.
+- 참고 근거: `https://developer.mozilla.org/en-US/docs/Web/API/Fullscreen_API`, `https://developer.mozilla.org/en-US/docs/Web/API/Element/requestFullscreen`, `https://developer.mozilla.org/en-US/docs/Web/API/Document/fullscreenchange_event`.
+
+### 22.3 오른쪽 하단 고정 배치 충돌 분석과 결정
+
+요청된 전역 오른쪽 하단 fixed 배치는 실제 플레이 UI와 충돌하므로 사용자가 허용한 대체 배치를 적용한다.
+
+| 화면 | 오른쪽 하단의 현재 책임 | 전역 fixed 버튼 위험 | 결정 위치 |
+|---|---|---|---|
+| 시작 | 이어하기·초기화 action 영역과 가까움 | 낮은 landscape에서 action 가림 | `menu-actions` 안의 우측 정렬 도구 |
+| 프로필 생성 | `프로필 생성` 버튼 | 필수 생성 action 터치 방해 | `setup-header` 우측 도구 그룹 |
+| 거점 | panel action과 우측 하단 `프로필 초기화` | 목록·관리 버튼 또는 초기화와 중첩 | `hub-header` 우측 도구 그룹 |
+| 탐사·전투 | 우측 HUD 하단의 스킬·대상·리롤·아이템 명령 | 핵심 전투·탐사 입력 직접 차단 | `game-stage` 내부 우측 상단 overlay |
+| 결과 | 하단 고정 `거점으로`/보상 확정 footer | 다음 단계 action 재차 차단 | `result-actions`의 우측 보조 버튼 |
+
+- 탐사 Phaser의 하단에는 좌회전·후진·전진·우회전 버튼이 있고 우측 HUD 하단에는 React 명령이 있으므로 gameplay 중 오른쪽 하단은 사용할 수 없다.
+- game-stage 우측 상단은 현재 탐사 위치 표시(좌측 상단), 중앙 map/조우 제목, 하단 이동 버튼과 겹치지 않는 최소 충돌 위치다. Phaser canvas 위에 React 버튼을 두되 클릭이 canvas로 전달되지 않게 독립 touch target으로 처리한다.
+- 메뉴·거점·결과에서는 기존 flow 안에 배치해 내용이나 action을 덮지 않는다. 화면별 물리 위치는 달라지지만 모든 화면에서 동일 아이콘·label·동작을 제공한다.
+- 버튼은 최소 `44×44px`, safe area 안쪽, 다른 필수 action보다 높은 시각 우선순위를 갖지 않는 중립 색상으로 한다.
+
+### 22.4 컴포넌트와 상태 흐름
+
+Fullscreen 상태는 game engine·store가 아니라 브라우저 UI adapter인 React `FullscreenToggle`이 소유한다.
+
+```text
+사용자 터치
+→ document.fullscreenElement 확인
+├─ null: documentElement.requestFullscreen({ navigationUI:'hide' })
+└─ value: document.exitFullscreen()
+→ fullscreenchange
+→ 실제 isFullscreen 갱신
+→ enter/exit 아이콘·aria-label 동기화
+```
+
+- `supported`, `isFullscreen`, `transitioning`, `error`만 component local state로 둔다.
+- profile·session·localStorage에는 fullscreen 상태를 저장하지 않는다. 새로고침 후 일반 화면에서 시작하고 사용자가 다시 선택한다.
+- screen 전환으로 toggle component가 재마운트되더라도 초기값을 `document.fullscreenElement`에서 읽어 fullscreen 상태를 이어 표시한다.
+- 요청 중에는 중복 터치를 막는다. Promise rejection과 `fullscreenerror`는 처리해 unhandled rejection을 만들지 않고 버튼을 재활성화한다.
+- 화면 방향 강제 고정은 이번 범위에서 제외한다. 기존 portrait 회전 안내와 사용자의 물리적 landscape 전환을 유지한다.
+
+### 22.5 viewport·Phaser·입력 영향
+
+- fullscreen 진입·종료 시 `100dvh`, menu/result 높이와 game-shell이 새 viewport로 재계산된다.
+- `.game-stage`의 aspect ratio와 Phaser `FIT`·CSS 100% canvas 계약을 유지한다. Fullscreen 전환을 이유로 Phaser instance, scene, game state를 재생성하지 않는다.
+- game-stage overlay 버튼은 `z-index`와 `pointer-events`를 갖고 canvas의 `pointerdown`으로 이벤트가 전달되지 않아야 한다. 이동·전투 명령과 fullscreen 토글이 동시에 발생하면 실패다.
+- portrait에서는 회전 안내가 최우선이므로 fullscreen toggle을 숨긴다. landscape 복귀 후 지원 환경이면 다시 표시한다.
+- fullscreen 중에도 safe-area inset을 유지하고, 버튼은 Android back이나 브라우저 강제 종료 후 즉시 일반 화면 아이콘으로 돌아와야 한다.
+
+### 22.6 위험·미확정 사항
+
+- `navigationUI: 'hide'`는 브라우저에 전달하는 요청 옵션이며 최종 표시 정책은 user agent가 통제한다. Android Chrome 실기에서 URL 입력창 제거와 실제 viewport 증가를 확인해야 한다.
+- 전체 화면 전환은 사용자의 직접 터치 없이는 거부된다. 자동 재시도·자동 전체 화면은 추가하지 않는다.
+- 미지원 iPhone Safari 등에서 버튼을 숨기므로 기존 정상 흐름은 유지되지만, 브라우저별 지원 여부는 `fullscreenEnabled`로 런타임 판정해야 한다.
+- fullscreen 전환 중 화면 회전·앱 전환·빠른 연속 터치가 겹치면 Promise rejection이나 외부 종료가 발생할 수 있으므로 event 기반 상태 동기화가 필수다.
+- game-stage 우측 상단이 향후 Phaser 정보·명령 위치로 사용되면 별도 slot 재검토가 필요하다. 현재 코드 기준으로는 오른쪽 하단보다 gameplay 영향이 작다.
+
+## 23. 결과·창고·캐릭터 정보 위계 개선 분석
+
+### 23.1 요청 범위와 현재 상태
+
+이번 변경은 결과·거점 React UI의 표시 문구와 시각적 정보 위계에 한정한다. 정산, 장착 가능 판정, 장비·스킬 instance, command와 저장 데이터는 변경하지 않는다.
+
+현재 코드 근거:
+
+- `ResultScreen`은 `summary.unlockedRarities`를 `신규 장비 등급:` label 뒤의 rarity badge 목록으로 표시한다.
+- `StoragePanel`의 스킬 행은 스킬 이름 아래에 내부 식별자인 `instance.skillInstanceId`와 현재 선택 캐릭터 기준 `장착 가능/직업 제한`을 표시한다.
+- `CharacterPanel`의 커스텀 스킬 행은 `커스텀 N`을 `<b>`, 장착 스킬 이름을 `<small>`에 배치해 슬롯 번호가 이름보다 크게 보인다.
+- 같은 화면의 장비 행은 장비 슬롯명을 `<b>`, 장착 장비 이름·rarity를 `<small>`에 배치해 슬롯명이 실제 장비보다 크게 보인다.
+- 공통 `.management-list small`은 10px이고 `<b>`에는 별도 축소 규칙이 없어 현재 역전된 크기 관계가 DOM element 선택에 의해 발생한다.
+
+### 23.2 결과 화면 상점 입하 알림
+
+- `unlockedRarities`의 의미는 단순 enum 해금보다 해당 등급 장비가 상점에 새로 제공된다는 사용자 행동 변화다.
+- 각 해금 rarity를 다음 완전한 문장으로 표시한다.
+
+```text
+상점에 신규 [고급]등급 장비가 입하 되었습니다.
+```
+
+- 대괄호 안은 `getRarityDisplayName(rarity)`의 `일반/고급/희귀/영웅/전설`을 사용한다. 사용자가 제시한 문구에 따라 대괄호와 `입하 되었습니다.` 띄어쓰기를 그대로 사용한다.
+- 배열에 복수 rarity가 있으면 하나를 누락하거나 합치지 않고 rarity마다 문장 한 줄을 렌더링한다.
+- rarity 색상 token은 대괄호 안 등급명에 유지하되 기존 `신규 장비 등급:` label은 제거한다.
+- 이 변경은 결과 요약의 `unlockedRarities` 값, 상점 해금 판정과 저장 상태를 변경하지 않는다.
+
+### 23.3 창고 스킬 장착 직업군 표시
+
+`CUSTOM_SKILL_ALLOWED_CLASSES`가 표시의 단일 기준이다.
+
+```text
+skillId
+→ CUSTOM_SKILL_ALLOWED_CLASSES[skillId]
+→ CLASS_DATA[classId].name
+→ 공용 또는 직업명 목록
+```
+
+- 허용 목록이 `warrior/rogue/archer/paladin/priest/mage` 여섯 직업 전체를 포함하면 `공용`으로 표시한다. 현재 데이터에는 문자열 sentinel `all`이 없으므로 **전체 ClassId 집합 포함 여부**가 all 의미다.
+- 전체가 아니면 원본 배열 순서대로 `전사 · 도적` 형식의 한글 직업명을 표시한다. 현재 전용 스킬은 대부분 한 직업이지만 다중 직업 데이터도 처리한다.
+- unknown skill 또는 허용 목록 누락은 내부 ID를 노출하지 않고 `장착 직업 정보 없음`으로 표시한다.
+- 스킬 행 metadata는 `장착 직업: 공용 · 장착 가능` 또는 `장착 직업: 전사 · 직업 제한` 형식으로 한다. 현재 선택 캐릭터의 compatibility 안내는 유지한다.
+- `instance.skillInstanceId`는 command key와 저장 identity로 계속 사용하지만 사용자에게 표시하지 않는다.
+- 장착 판정 자체는 `inventory.ts`와 같은 `CUSTOM_SKILL_ALLOWED_CLASSES`를 사용하므로 UI helper가 별도 허용 규칙을 만들면 안 된다.
+
+### 23.4 캐릭터 커스텀 스킬 정보 위계
+
+각 custom slot 행의 정보 우선순위를 다음처럼 바꾼다.
+
+```text
+작은 보조 label: 커스텀 1
+큰 주요 identity: [아이콘] 응급 치료
+우측 action: 해제
+```
+
+- `커스텀 N`은 9~10px monospace 보조 label로 표시한다.
+- 장착된 스킬 이름은 12~13px, 본문 대비가 높은 굵은 글씨로 표시하고 기존 active/passive 아이콘을 유지한다.
+- 빈 슬롯의 `비어 있음`, 잠긴 슬롯의 `LvN 잠금`은 스킬 이름이 아니므로 큰 강조를 사용하지 않고 muted 보조 상태로 유지한다.
+- slot index, unlock level `[3,7,10]`, instance와 `UNEQUIP_CUSTOM_SKILL` payload는 변경하지 않는다.
+
+### 23.5 캐릭터 장비 정보 위계
+
+각 장비 slot 행의 정보 우선순위를 다음처럼 바꾼다.
+
+```text
+작은 보조 label: 무기
+큰 주요 identity: [아이콘] 철제 한손검 [일반]
+우측 action: 해제
+```
+
+- `무기/보조 장비/머리/몸통` slot명은 9~10px monospace 보조 label로 표시한다.
+- 장착 장비 이름은 12~13px 굵은 주요 text로 올리고 아이콘·rarity 색·한글 badge를 같은 줄에 유지한다.
+- 빈 slot은 `비어 있음` muted 상태를 유지하며 존재하지 않는 장비 이름처럼 강조하지 않는다.
+- slot 순서, 장비 instance, rarity, `UNEQUIP_ITEM` command는 변경하지 않는다.
+
+### 23.6 공통 CSS 경계와 위험
+
+- 공통 `.management-list small`과 모든 `.content-copy b`를 뒤집으면 창고·상점·개인 아이템까지 변하므로 `character-loadout-label`, `character-loadout-name`, `character-loadout-empty`처럼 캐릭터 장착 행 전용 class를 사용한다.
+- 큰 스킬·장비 이름은 `overflow-wrap:anywhere`, `min-width:0`을 유지하고 action 버튼을 축소하지 않는다.
+- `management-list compact`의 2열 구조에서 이름·badge·해제 버튼이 겹칠 수 있으므로 640×360과 760px 이하 landscape에서 긴 이름을 확인한다.
+- 결과 화면은 최근 내부 scroll 구조를 사용하므로 복수 입하 문장이 action footer를 밀지는 않지만 scroll 높이와 문장 줄바꿈을 확인해야 한다.
+- 표시 helper는 UI presentation 계층에 두고 game engine·profile에 `공용` 문자열이나 직업 표시명을 저장하지 않는다.
+
+## 24. 전투 결과 확인 텀·적 공격 예고·상태 결과 로그 분석
+
+### 24.1 분석 범위와 확인 근거
+
+- 대상은 전투 command 이후의 순수 엔진 전이, store event 전달, Phaser 전투 연출, React HUD·명령·로그와 전투 종료 화면 전환이다.
+- 기준 코드는 `src/game/{types,combat,gameEngine}.ts`, `src/app/{gameStore,App}.tsx/ts`, `src/phaser/{PhaserGame,BattleScene}.ts`, `src/ui/{GameHud,BattleCommands}.tsx`, `src/styles.css`와 관련 combat·engine·store 테스트다.
+- 기존 `implements.md` 24절은 모든 `ROLL_RESOLVED`를 판정과 독립된 Phaser queue에서 1초 표시하고 애니메이션 완료를 기다리지 않고 상태·승패를 확정하도록 정한다. 이번 변경도 이 원칙을 유지해야 한다.
+- 사용자 요청의 “던전 이동 화면”은 실제 코드에서 두 목적지로 나뉜다. 일반 조우 승리는 `exploration`, 퀘스트 완료 조우 승리는 정산 후 `result`로 즉시 전환된다.
+
+### 24.2 현재 동기 전투 흐름과 인지 문제
+
+리롤 없는 플레이어 공격 한 번은 현재 다음 호출을 같은 dispatch 안에서 끝낸다.
+
+```text
+SELECT_TARGET
+→ beginRoll
+→ resolvePending
+→ 피해·회복·상태·쿨다운·승패 확정
+→ stepTurn
+→ advanceToPlayer
+   → 적 대상·스킬 선택과 공격 즉시 확정
+   → 다음 적 공격 즉시 확정
+   → 다음 플레이어 TURN_STARTED
+→ 최종 GameState와 전체 GameEvent[]를 subscriber에 한 번 전달
+```
+
+- `combat.advanceToPlayer`는 적 actor를 만나면 `beginRoll`을 즉시 호출하며, 적이 여러 명이어도 다음 플레이어 차례까지 한 reducer 호출에서 모두 처리한다.
+- `TURN_STARTED`는 현재 플레이어 차례에만 생성되고 actor ID도 없어 적 공격 시작 전 1초 예고를 구조적으로 식별할 수 없다.
+- `BattleCommands`의 `적 행동 중` 분기는 존재하지만 React가 관측하는 state는 이미 다음 플레이어 차례인 경우가 대부분이라 실제 인지용 텀으로 기능하지 않는다.
+- `BattleScene`은 한 event batch의 `ROLL_RESOLVED`를 순서대로 1초씩 보여 주지만 actor HP와 HUD는 subscriber가 받은 최종 state로 먼저 바뀐다. 현재 queue는 판정 지연이 아니라 이미 확정된 결과의 후행 표현이다.
+
+### 24.3 마지막 적 사망과 Scene 수명
+
+- 마지막 적 HP가 0이면 `resolvePending`, 적 차례 시작 출혈 처리 또는 전투 아이템 처리에서 즉시 `BATTLE_WON`이 생성된다.
+- `gameEngine.applyCombatUpdate`는 같은 dispatch 안에서 일반 조우의 `combat`을 제거하고 `exploration`으로 전환하거나, 완료 조우를 정산해 `session`을 제거하고 `result`로 전환한다.
+- `App`은 `state.screen`으로 Phaser를 keying하고 결과 화면에서는 Phaser 자체를 렌더링하지 않는다. 따라서 마지막 굴림 queue와 timer는 Scene shutdown 때 폐기된다.
+- 단순히 `BattleScene`의 1000ms를 2000ms로 바꾸면 Scene이 먼저 파괴되므로 요청을 해결하지 못한다.
+- 화염병 또는 출혈 tick으로 마지막 적이 쓰러지는 경로에는 terminal `ROLL_RESOLVED`가 없으므로 “마지막 다이스”를 임의 재사용해서도 안 된다. 이 경우 최종 쓰러짐 상태·전투 승리 문구·로그를 2초 동안 유지하는 fallback이 필요하다.
+
+### 24.4 상태 이상 성공·실패 로그의 현재 상태
+
+현재 확률 상태 적용 대상은 플레이어와 적 양쪽에 걸쳐 있다.
+
+| 상태 | 대표 스킬 |
+|---|---|
+| 기절 | `power_strike`, `ogre_smash`, `minotaur_gore`, `crushing_blow` |
+| 출혈 | `quick_stab`, `rending_bite`, `neurotoxin`의 부가 출혈 |
+| 마비 | `lightning_bolt`, `paralyzing_claw` |
+| 신경독 | `neurotoxin` |
+| 수면 | `sleep` |
+| 약점 노출 | `find_leak` |
+| 도발 | `taunt` |
+
+- `applyStatus`는 성공 시 `STATUS_APPLIED`와 “적용했다” 메시지를 만들지만 `statusId`가 없어 UI·테스트가 메시지 없이 상태 종류를 판별할 수 없다.
+- `chanceBySkill`의 실패 branch는 이벤트를 생성하지 않아 사용자는 저항·부여 실패와 처리 누락을 구분할 수 없다.
+- `find_leak`은 약점 노출 state를 확정 적용하지만 `STATUS_APPLIED`를 만들지 않는다.
+- `taunt`는 대상마다 확정 적용 event가 있고 다음 공격 대상 전환 성공·실패는 별도의 `TAUNT_TARGET_RESOLVED`로 기록된다. 도발 부여 성공과 후속 대상 전환 판정을 혼합하면 안 된다.
+- `neurotoxin` 성공은 신경독과 부가 출혈을 각각 적용한다. 주 상태 판정 실패 시 두 상태 모두 적용하지 않고 실패 event는 신경독 판정 한 건으로 남겨야 한다. 성공 시에는 실제로 적용된 신경독·출혈 두 상태를 각각 구조화해 현재 동작을 설명한다.
+- 공격으로 이미 쓰러진 대상에는 상태 적용 판정을 하지 않는 현재 조건을 유지하므로 성공·실패 로그도 만들지 않는다.
+- buff, 상태 제거와 cooldown은 이번 “디버프 부여 성공/실패” 범위가 아니며 기존 event를 유지한다.
+
+### 24.5 로그 색상 정보 유실
+
+- live `GameEvent`에는 `DAMAGE_APPLIED`, `HEAL_APPLIED`, `TRAP_TRIGGERED` 같은 type이 있으나 `appendEvents`가 `event.message`만 `string[]`에 저장한다.
+- `GameHud`는 문자열만 받으므로 메시지의 `피해`, `회복` 단어를 파싱하지 않는 한 색을 결정할 수 없다. 문자열 파싱은 기존 구조화 event 원칙과 문구 변경 안정성을 위반한다.
+- `.log-box p:last-child`는 마지막 로그를 공통 밝은색으로 덮으므로 damage·heal 전용 색을 추가할 때 selector 우선순위도 함께 정리해야 한다.
+- 세션 로그는 profile v2에 저장되지 않는 원정 메모리 상태이므로 구조화 entry로 바꾸어도 profile migration은 필요하지 않다.
+
+### 24.6 목표 책임 분리
+
+게임 판정과 사용자에게 보이는 진행 시간을 다음처럼 분리한다.
+
+```text
+사용자 command
+→ 순수 reducer가 피해·RNG·턴·승패·정산과 canonical screen을 즉시 확정
+→ DispatchEnvelope { sequence, previousState, state, events, terminalBattleFrame? }
+→ 전투 presentation plan
+   ├─ 실제 공격하는 적의 TURN_STARTED 앞 1000ms 예고
+   ├─ 기존 ROLL_RESOLVED 1000ms 표시
+   ├─ BATTLE_WON terminal battle 최소 2000ms 유지
+   └─ plan 재생 중 전투 command 입력 잠금
+→ plan 종료 후 이미 확정된 canonical screen/state를 표시
+```
+
+- engine에는 `setTimeout`을 넣지 않고 피해·RNG·AI·정산을 지연하지 않는다.
+- 애니메이션 callback이 `BATTLE_WON`, 보상 지급 또는 screen destination을 결정하지 않는다. canonical state와 profile 저장은 dispatch 시점에 이미 완료한다.
+- terminal battle frame은 저장하지 않는 읽기 전용 표시 snapshot이다. 마지막 `CombatState`와 해당 event가 반영된 구조화 로그만 보존하며 profile·session 원본으로 되돌려 쓰지 않는다.
+- 일반 조우와 완료 조우 모두 같은 2초 전투 화면 유지를 거친 뒤 reducer가 이미 정한 `exploration` 또는 `result`로 간다.
+- 적 공격 예고 중 canonical state가 다음 플레이어 차례여도 `BattleCommands`는 presentation busy 상태에서 모든 전투 입력을 숨기거나 비활성화한다. Fullscreen 같은 게임 command가 아닌 브라우저 UI는 유지할 수 있다.
+- 새 dispatch sequence가 들어오거나 component·Scene이 unmount되면 이전 timer와 queue를 취소한다. timer가 지연되거나 페이지가 새로고침되면 canonical state가 그대로 복구되어 게임 결과가 유실되지 않는다.
+
+### 24.7 적 공격 예고 의미
+
+- 실제로 공격할 살아 있는 적이 상태 tick·기절·마비·수면 검사를 통과한 뒤 `TURN_STARTED { actorId, actorSide:'enemy' }`를 생성한다.
+- presentation은 해당 event에서 적 이름과 “공격 준비”를 약 1000ms 표시한 뒤 그 적의 기존 roll overlay를 재생한다.
+- 복수 적은 원본 event 순서대로 각각 `예고 1000ms → 굴림 1000ms`를 재생한다. 첫 적에만 텀을 주고 뒤의 적을 한꺼번에 표시하지 않는다.
+- 행동 불능으로 `TURN_SKIPPED`된 적은 공격을 시작하지 않으므로 1초 공격 예고를 만들지 않는다.
+- 적이 먼저 행동하는 조우의 초기 event batch도 새 `BattleScene` 생성 전에 유실되지 않도록 store가 마지막 dispatch envelope를 읽을 수 있어야 한다.
+- 이 텀은 사용자의 인지와 입력 잠금을 위한 presentation 시간이며 turn order, cooldown 감소, 상태 수명과 RNG 소비 순서는 현재 reducer 결과를 유지한다.
+
+### 24.8 구조화 상태 결과와 로그 표시
+
+- `STATUS_APPLIED`와 신규 `STATUS_RESISTED`는 `actorId`, `targetId`, `skillId`, `statusId`를 공통으로 가진다.
+- 성공 메시지는 `{시전자}의 {스킬}: {대상}에게 {상태} 부여 성공.`, 실패 메시지는 `{시전자}의 {스킬}: {대상}에게 {상태} 부여 실패.` 형식을 사용한다.
+- 메시지에는 사용자가 제외한 잔여 행동·라운드 수를 넣지 않는다.
+- 상태명은 제한된 map으로 `기절/출혈/마비/신경독/수면/약점 노출/도발`만 제공하고 범용 상태 DSL을 만들지 않는다.
+- `find_leak`과 `taunt`처럼 적용 저항이 없는 상태는 성공 event만 만들며 가짜 실패 RNG를 소비하지 않는다.
+- `GameLogEntry`는 적어도 `message`, 원본 `eventType`, `kind: default|damage|heal`을 보존한다. `DAMAGE_APPLIED`와 `TRAP_TRIGGERED`는 damage, `HEAL_APPLIED`는 heal, 나머지는 default다.
+- GameHud는 `kind`를 DOM class 또는 `data-kind`로 전달하고 damage는 붉은색, heal은 녹색으로 표시한다. event message 내용은 색상 판정에 사용하지 않는다.
+
+### 24.9 위험과 회귀 경계
+
+- store listener 계약을 확장할 때 React, BattleScene, ExplorationScene와 store 테스트를 동시에 바꾸지 않으면 event가 중복 또는 유실될 수 있다. monotonic sequence로 한 dispatch를 한 번만 재생해야 한다.
+- terminal snapshot이 pre-attack state를 가리키면 마지막 적 HP와 로그가 잘못 보인다. 반드시 `update.combat`과 `appendEvents` 적용 후, canonical screen 전환 전에 capture해야 한다.
+- 화면만 battle로 유지한 동안 canonical result의 `RETURN_TO_HUB` 등 다음 화면 command가 노출되면 안 된다. 표시 state와 입력 가능 state를 함께 presentation busy로 잠근다.
+- 브라우저 timer는 정확한 frame clock이 아니므로 1000ms·2000ms는 최소 체감 기준이며 background tab에서는 늦게 끝날 수 있다. 이를 보정하려고 게임 RNG나 turn을 wall-clock에 연결하지 않는다.
+- 적 event를 한꺼번에 받은 최종 HP snapshot은 유지된다. 이번 범위는 공격 전 예고·굴림 순서·로그 인지를 보장하며 event별 중간 HP를 역산하는 별도 replay state machine은 만들지 않는다.
+- 기존 200건 상한, 로그 시간순·bottom 조건부 auto-follow, profile v2, 전투 공식, 상태 확률, boss 절반 규칙과 정산 결과는 변경하지 않는다.
+
+## 25. 탐사 통로 원근 경사·viewport 외부 노출 분석
+
+### 25.1 분석 범위와 실제 렌더 경계
+
+- 대상은 `src/phaser/ExplorationScene.ts`의 640×360 논리 캔버스 안에서 terrain floor·ceiling·side/front wall·marker·외곽 frame·좌표·던전명·이동 버튼을 합성하는 경계다.
+- terrain PNG와 `terrainAssets.ts` registry는 7개 map의 32×32 반복 타일을 정상 공급한다. 이번 현상은 이미지 내용이나 registry가 아니라 Scene의 geometry mask와 clipping 좌표에서 발생한다.
+- 실제 탐사 시야 외곽은 `FRAMES[0] = { left:70, right:570, top:62, bottom:258 }`이고 크기는 500×196이다.
+- 논리 캔버스의 상단 `(y<62)`에는 위치·던전명, 하단에는 y=261~315 범위의 이동 버튼이 있다. 좌우 `x<70`, `x>570`도 탐사 시야 틀 밖이다.
+
+현재 깊이 frame:
+
+| depth | 좌·우 | 위·아래 | 의미 |
+|---:|---|---|---|
+| 0 | 70~570 | 62~258 | 현재 칸 외곽 |
+| 1 | 166~474 | 92~232 | 한 칸 앞 |
+| 2 | 238~402 | 120~207 | 두 칸 앞 |
+| virtual 3 | 284~356 | 148~196 | 마지막 원근 수렴 frame |
+
+- 소실점은 `(320,172)`다.
+- side wall이 존재할 때는 `wallQuadPoints(current, far)`가 각 frame의 실제 꼭지점을 연결하므로 좌·우 막힌 벽의 위·아래 모서리는 정상적으로 이어진다.
+- side가 열려 있으면 별도 통로 polygon을 그리지 않고 side wall을 생략한다. 그 자리에 뒤쪽 전역 floor·ceiling mask가 노출되어 열린 통로의 위·아래 경계로 보인다.
+
+### 25.2 두 칸 앞 정면 벽 조건과 불일치 원인
+
+Scene의 depth별 판정은 다음과 같다.
+
+```text
+cx = current.x + forward.x × depth
+cy = current.y + forward.y × depth
+
+leftWall  = isWall(cx - right.x, cy - right.y)
+rightWall = isWall(cx + right.x, cy + right.y)
+frontWall = isWall(cx + forward.x, cy + forward.y)
+```
+
+- 사용자가 지적한 “두 칸 앞이 막히고 좌/우 통로가 열림”은 `depth === 1`, `frontWall === true`, `leftWall/rightWall === false`인 상태다.
+- depth 1의 정면 벽은 `farEdgeFor(1) = FRAMES[2]`이므로 `(238,120)~(402,207)`에 정확히 놓인다.
+- 현재 ceiling mask는 `(0,44) → (320,172) → (640,44)`, floor mask는 `(0,266) → (320,172) → (640,266)`인 단일 삼각형이다.
+- 단일 삼각형의 사선은 frame별 꼭지점을 통과하지 않는다. 왼쪽 기준 ceiling은 x=238에서 y=139.2지만 목표 정면 벽 꼭지점은 y=120이고, floor는 y=196.09지만 목표는 y=207이다.
+- 따라서 열린 side에서 보이는 위 경계는 정면 벽의 상단 꼭지점보다 약 19.2px 아래, 아래 경계는 하단 꼭지점보다 약 10.9px 위에 닿아 통로가 중앙의 좁은 띠처럼 왜곡된다.
+- 이 차이는 특정 depth의 조건문이나 벽 texture 음영 문제가 아니다. `FRAMES[0..2]`와 `VANISH_FRAME`의 모서리는 하나의 직선 위에 있지 않으므로 단일 삼각형 slope 하나로 모든 깊이를 맞출 수 없다.
+
+대표 재현 상태:
+
+```text
+training_ruins 위치 (3,4), south
+depth 1 셀       (3,5)
+두 칸 앞         (3,6) = 벽
+depth 1 좌측     (4,5) = 통로
+depth 1 우측     (2,5) = 통로
+```
+
+### 25.3 목표 frame-chain polygon
+
+floor·ceiling 경계를 각 원근 frame의 실제 모서리를 차례대로 통과하는 polygon으로 교체한다.
+
+천장 polygon:
+
+```text
+(70,62)
+→ (570,62)
+→ (474,92)
+→ (402,120)
+→ (356,148)
+→ (320,172)
+→ (284,148)
+→ (238,120)
+→ (166,92)
+→ close
+```
+
+바닥 polygon:
+
+```text
+(70,258)
+→ (166,232)
+→ (238,207)
+→ (284,196)
+→ (320,172)
+→ (356,196)
+→ (402,207)
+→ (474,232)
+→ (570,258)
+→ close
+```
+
+- 이 polygon은 depth 0→1, 1→2, 2→virtual frame의 side wall 상·하단과 동일한 선분을 사용한다.
+- 두 칸 앞 정면 벽의 네 꼭지점 `(238,120)`, `(402,120)`, `(238,207)`, `(402,207)`을 정확히 공유하므로 요청한 더 가파른 경사가 조건별 보정 band 없이 만들어진다.
+- loaded TileSprite의 GeometryMask와 texture fallback Graphics가 반드시 같은 point 배열을 사용해야 에셋 로딩 성공 여부에 따른 모양 차이가 없다.
+- TileSprite의 현재 640px bounds와 tile position은 유지하고 mask만 바꾼다. sprite bounds를 함께 줄이면 반복 무늬 원점이 달라져 기존 map별 tile 위상이 바뀔 수 있다.
+- 기존 `FRAMES`, `VANISH_FRAME`, front wall 크기, side wall 판정과 `DEEP_SHADE_ALPHA`는 변경하지 않는다.
+
+### 25.4 viewport 밖 terrain 노출 원인
+
+현재 terrain 배경 범위는 탐사 frame보다 크다.
+
+| 요소 | 현재 영역 |
+|---|---|
+| camera | 0~640 × 0~360 |
+| background wash | x=0~640, y=44~266 |
+| ceiling TileSprite | x=0~640, y=44~172 |
+| floor TileSprite | x=0~640, y=172~266 |
+| 탐사 외곽 frame | x=70~570, y=62~258 |
+
+- floor는 frame bottom 258보다 8px 아래까지 존재하고 이동 버튼은 y=261부터 시작하므로 버튼 사이와 주변에 terrain이 보일 수 있다.
+- ceiling도 frame top 62보다 18px 위에서 시작해 좌표·던전명 영역 아래로 texture가 노출된다.
+- canvas 전체를 Phaser `FIT`으로 표시하는 CSS는 내부 `(70,62)~(570,258)` 영역을 crop하지 않는다.
+- side/front wall mask는 frame 안이지만 공통 background wash와 floor·ceiling 삼각형은 외곽 frame을 기준으로 하지 않는다. 앞으로 추가되는 렌더 오브젝트도 공통 clip이 없으면 같은 문제가 반복될 수 있다.
+
+### 25.5 목표 viewport clipping 구조
+
+두 단계로 외곽 노출을 차단한다.
+
+1. background wash와 floor·ceiling polygon 자체를 `FRAMES[0]` 범위 안으로 제한한다.
+2. terrain·wall 렌더 위, marker·UI 아래에 불투명한 네 방향 cover를 둬 시야 틀 밖 픽셀을 최종 차단한다.
+
+```text
+top cover    x=0   y=0   width=640 height=62
+bottom cover x=0   y=258 width=640 height=102
+left cover   x=0   y=62  width=70  height=196
+right cover  x=570 y=62  width=70  height=196
+```
+
+권장 depth:
+
+```text
+background wash      -3
+ceiling TileSprite    -2
+floor TileSprite      -1
+world fallback         0
+wall TileSprite      3~10
+viewport cover        15
+outer frame           16
+encounter/boss marker 20
+좌표·던전명·버튼       50
+```
+
+- cover 색은 camera background와 같은 `#0b0b13`을 사용해 상단·하단 HUD 배경을 균일하게 만든다.
+- cover는 interactive가 아니므로 이동 버튼 pointer event를 막지 않는다.
+- 현재 marker 최대 영역은 frame 내부 y≈254 이하이므로 depth 20에서 cover 위에 두어도 잘리지 않는다.
+- 기존 outer frame stroke는 depth 0의 `world`에 포함되어 cover와 겹칠 수 있다. 외곽 frame만 별도 Graphics depth 16에서 다시 그리고, 내부 depth frame stroke는 기존 world에 유지한다.
+- cover를 CSS overlay로 만들지 않는다. 640×360 논리 좌표에서 Phaser 오브젝트와 동일하게 scale되어야 Fullscreen·화면비 변화에서도 경계가 유지된다.
+
+### 25.6 책임·호환성 경계
+
+- 원근 polygon·viewport·depth 수치는 순수 geometry 상수로 분리해 Scene mask와 테스트가 같은 값을 사용하도록 한다.
+- `isWall`, 비밀문 발견, encounter 순서, 탐사 좌표·방향과 이동 command는 변경하지 않는다.
+- terrain PNG, 생성 스크립트, map별 registry와 asset catalog는 변경할 필요가 없다.
+- floor·ceiling fallback도 동일 polygon을 사용하고 texture 미로딩 warning·fallback 흐름을 보존한다.
+- Phaser canvas 640×360, FIT/CENTER_BOTH, pixelArt, marker·버튼 위치와 Fullscreen toggle은 유지한다.
+
+### 25.7 위험과 검증 공백
+
+- cover가 outer frame보다 높은 depth에 있고 frame을 다시 그리지 않으면 3px 테두리의 바깥 절반이 사라질 수 있다.
+- cover를 marker보다 높게 두면 depth 0 근거리 encounter/boss marker 하단이 잘릴 수 있고, UI보다 높게 두면 버튼·좌표를 가릴 수 있다.
+- mask polygon과 fallback polygon을 별도로 하드코딩하면 한 경로만 수정되는 회귀가 생긴다. 단일 geometry export를 사용해야 한다.
+- 현재 자동 테스트는 이동·벽 판정만 다루며 Phaser mask·depth를 검증하지 않는다. pure geometry 테스트와 실제 Scene screenshot 검증을 함께 둬야 한다.
+- frame-chain은 기존 단일 직선보다 깊이별 선분 각도가 달라진다. 이는 요청한 꼭지점 정합을 위한 의도된 변화이며 7개 terrain 테마 모두에서 tile seam·aliasing을 확인해야 한다.

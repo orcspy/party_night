@@ -3,7 +3,7 @@ import { CUSTOM_SKILL_ALLOWED_CLASSES, EQUIPMENT_DATA, type CustomSkillId } from
 import { getEquipmentDisplayName, getEquipmentSlotDisplayName, getItemDisplayName, getSkillDisplayName } from '../game/displayNames'
 import type { GameCommand, ProfileV2 } from '../game/types'
 import { ContentIcon } from './ContentIcon'
-import { getEquipmentPresentation, getItemPresentation, getSkillPresentation } from './contentPresentation'
+import { getCustomSkillAllowedClassLabel, getEquipmentPresentation, getItemPresentation, getSkillPresentation } from './contentPresentation'
 
 export function StoragePanel({ profile, dispatch }: { profile: ProfileV2; dispatch: (command: GameCommand) => void }) {
   const [characterId, setCharacterId] = useState(profile.characters[0].characterId)
@@ -36,7 +36,7 @@ export function StoragePanel({ profile, dispatch }: { profile: ProfileV2; dispat
           const slotIndex = character.customSkillSlots.findIndex((slot, index) => !slot && character.level >= [3, 7, 10][index])
           const compatible = CUSTOM_SKILL_ALLOWED_CLASSES[instance.skillId as CustomSkillId]?.includes(character.classId)
           const presentation = getSkillPresentation(instance.skillId)
-          return <article key={instance.skillInstanceId}><span className="content-identity"><ContentIcon {...presentation} /><span className="content-copy"><b>{getSkillDisplayName(instance.skillId)}</b><small>{instance.skillInstanceId} · {compatible ? '장착 가능' : '직업 제한'}</small></span></span><div><button disabled={!compatible || slotIndex < 0} onClick={() => dispatch({ type: 'EQUIP_CUSTOM_SKILL', characterId: character.characterId, skillInstanceId: instance.skillInstanceId, slotIndex })}>장착</button><button onClick={() => dispatch({ type: 'SELL_SKILL', skillInstanceId: instance.skillInstanceId })}>판매</button></div></article>
+          return <article key={instance.skillInstanceId}><span className="content-identity"><ContentIcon {...presentation} /><span className="content-copy"><b>{getSkillDisplayName(instance.skillId)}</b><small>장착 직업: {getCustomSkillAllowedClassLabel(instance.skillId)} · {compatible ? '장착 가능' : '직업 제한'}</small></span></span><div><button disabled={!compatible || slotIndex < 0} onClick={() => dispatch({ type: 'EQUIP_CUSTOM_SKILL', characterId: character.characterId, skillInstanceId: instance.skillInstanceId, slotIndex })}>장착</button><button onClick={() => dispatch({ type: 'SELL_SKILL', skillInstanceId: instance.skillInstanceId })}>판매</button></div></article>
         })}
       </div>
     </div>

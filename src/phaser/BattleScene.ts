@@ -1,5 +1,7 @@
 import Phaser from 'phaser'
 import type { GameEvent, GameState } from '../game/types'
+import { buildBattlePresentationPlan, type BattlePresentationStep } from '../app/battlePresentation'
+import type { DispatchEnvelope } from '../app/gameStore'
 import type { SceneBridge } from './PhaserGame'
 import { queueEnemyAssets, enemySpriteKeyFor, enemyAssetReady } from './assets/enemyAssets'
 import { queueCharacterAsset, characterTextureKey, characterAssetReady } from './assets/characterAssets'
@@ -9,9 +11,10 @@ export class BattleScene extends Phaser.Scene {
   private state: GameState
   private layer!: Phaser.GameObjects.Container
   private diceOverlay!: Phaser.GameObjects.Container
-  private rollQueue: GameEvent[] = []
-  private rollTimer?: Phaser.Time.TimerEvent
-  private showingRoll = false
+  private presentationQueue: BattlePresentationStep[] = []
+  private presentationTimer?: Phaser.Time.TimerEvent
+  private showingPresentation = false
+  private lastSequence = 0
   private loggedFallbackContentIds = new Set<string>()
   private loggedPartyFallbackIds = new Set<string>()
   private requestedPartyCombos = new Set<string>()
@@ -37,11 +40,13 @@ export class BattleScene extends Phaser.Scene {
     this.add.text(320, 24, `조우 // ${enemies.map((actor) => actor.name).join(' · ') || '전투'}`, { fontFamily: 'monospace', fontSize: '15px', color: '#d7b860' }).setOrigin(0.5)
     this.layer = this.add.container(0, 0)
     this.diceOverlay = this.add.container(0, 0).setDepth(100)
-    this.unsubscribe = this.bridge.store.subscribe((state, events) => { this.state = state; this.renderActors(); this.animateEvents(events) })
-    const cleanup = () => { this.unsubscribe?.(); this.rollTimer?.remove(false); this.rollQueue = []; this.destroyed = true }
+    this.unsubscribe = this.bridge.store.subscribe((envelope) => this.consumeEnvelope(envelope))
+    const cleanup = () => { this.unsubscribe?.(); this.presentationTimer?.remove(false); this.presentationQueue = []; this.destroyed = true }
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, cleanup)
     this.events.once(Phaser.Scenes.Events.DESTROY, cleanup)
     this.renderActors()
+    const initialEnvelope = this.bridge.store.getSnapshot()
+    if (initialEnvelope.sequence > 0 && (initialEnvelope.battlePresentation || (initialEnvelope.state.screen === 'battle' && initialEnvelope.previousState.screen !== 'battle'))) this.consumeEnvelope(initialEnvelope)
     void this.loadPartyCharacterAssets()
   }
 
@@ -142,20 +147,65 @@ export class BattleScene extends Phaser.Scene {
     this.layer.add([body, head, label, health])
   }
 
-  private animateEvents(events: GameEvent[]) {
+  private consumeEnvelope(envelope: DispatchEnvelope) {
+    if (envelope.sequence <= this.lastSequence) return
+    this.lastSequence = envelope.sequence
+    this.state = envelope.battlePresentation
+      ? { ...envelope.state, screen: 'battle', session: envelope.battlePresentation.session }
+      : envelope.state
+    this.renderActors()
+    this.animateEvents(envelope)
+  }
+
+  private animateEvents(envelope: DispatchEnvelope) {
+    const events = envelope.events
     if (events.some((event) => event.type === 'DAMAGE_APPLIED')) this.cameras.main.shake(90, 0.005)
     if (events.some((event) => event.type === 'DICE_ROLLED')) this.cameras.main.flash(80, 218, 184, 96, false)
     if (events.some((event) => event.type === 'STATUS_APPLIED')) this.cameras.main.flash(100, 214, 175, 61, false)
-    this.rollQueue.push(...events.filter((event) => event.type === 'ROLL_RESOLVED' && event.finalDice))
-    this.showNextRoll()
+    const plan = buildBattlePresentationPlan(envelope)
+    if (plan.lockCommands) {
+      this.presentationTimer?.remove(false)
+      this.presentationTimer = undefined
+      this.presentationQueue = []
+      this.showingPresentation = false
+      this.diceOverlay.removeAll(true)
+      this.bridge.onBattlePresentationStarted?.(envelope.sequence)
+    }
+    this.presentationQueue.push(...plan.steps)
+    this.showNextPresentation()
   }
 
-  private showNextRoll() {
-    if (this.showingRoll || this.destroyed || !this.diceOverlay) return
-    const event = this.rollQueue.shift()
-    if (!event?.finalDice) return
-    this.showingRoll = true
+  private showNextPresentation() {
+    if (this.showingPresentation || this.destroyed || !this.diceOverlay) return
+    const step = this.presentationQueue.shift()
+    if (!step) return
+    this.showingPresentation = true
     this.diceOverlay.removeAll(true)
+
+    if (step.kind === 'enemy_windup') {
+      const actor = this.state.session?.combat?.participants.find((item) => item.id === step.actorId)
+      const background = this.add.rectangle(320, 178, 280, 72, 0x17111d, 0.92).setStrokeStyle(2, 0xc56f58)
+      const title = this.add.text(320, 167, actor?.name ?? '적', { fontFamily: 'monospace', fontSize: '15px', color: '#efb09a' }).setOrigin(0.5)
+      const message = this.add.text(320, 191, '공격 차례', { fontFamily: 'monospace', fontSize: '12px', color: '#d7b860' }).setOrigin(0.5)
+      this.diceOverlay.add([background, title, message])
+      this.scheduleNextPresentation(step.durationMs)
+      return
+    }
+
+    if (step.kind === 'victory') {
+      const background = this.add.rectangle(320, 178, 280, 72, 0x17111d, 0.92).setStrokeStyle(2, 0xd7b860)
+      const message = this.add.text(320, 178, '전투 승리', { fontFamily: 'monospace', fontSize: '18px', color: '#f1d77b' }).setOrigin(0.5)
+      this.diceOverlay.add([background, message])
+      this.scheduleNextPresentation(step.durationMs)
+      return
+    }
+
+    const event: GameEvent = step.event
+    if (!event.finalDice || event.finalDice.length === 0) {
+      this.showingPresentation = false
+      this.showNextPresentation()
+      return
+    }
     const width = Math.max(180, event.finalDice.length * 54 + 46)
     const background = this.add.rectangle(320, 178, width, 78, 0x17111d, 0.92).setStrokeStyle(2, 0xd7b860)
     const startX = 320 - ((event.finalDice.length - 1) * 54) / 2
@@ -166,10 +216,14 @@ export class BattleScene extends Phaser.Scene {
     })
     const total = this.add.text(320, 205, `합계 ${event.rollTotal ?? 0}`, { fontFamily: 'monospace', fontSize: '11px', color: '#d7b860' }).setOrigin(0.5)
     this.diceOverlay.add([background, ...dice, total])
-    this.rollTimer = this.time.delayedCall(1000, () => {
+    this.scheduleNextPresentation(step.durationMs)
+  }
+
+  private scheduleNextPresentation(durationMs: number) {
+    this.presentationTimer = this.time.delayedCall(durationMs, () => {
       this.diceOverlay.removeAll(true)
-      this.showingRoll = false
-      this.showNextRoll()
+      this.showingPresentation = false
+      this.showNextPresentation()
     })
   }
 }

@@ -7,10 +7,11 @@ import type { GameCommand, GameState, ItemId } from '../game/types'
 import { ContentIcon } from './ContentIcon'
 import { getItemPresentation, getSkillPresentation } from './contentPresentation'
 
-export function BattleCommands({ state, dispatch }: { state: GameState; dispatch: (command: GameCommand) => void }) {
+export function BattleCommands({ state, dispatch, presentationBusy = false }: { state: GameState; dispatch: (command: GameCommand) => void; presentationBusy?: boolean }) {
   const [selectedItemStackId, setSelectedItemStackId] = useState<string | null>(null)
   const combat = state.session?.combat
   if (!combat) return null
+  if (presentationBusy) return <section className="commands"><h2>{combat.outcome ? '전투 결과 확인 중...' : '적 행동 준비 중...'}</h2></section>
   const actor = currentActor(combat)
   if (!actor || actor.side !== 'party') return <section className="commands"><h2>적 행동 중</h2></section>
   const activeSkills = actor.skillIds.map((id) => SKILLS[id]).filter((skill) => skill?.activation === 'active')

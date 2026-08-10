@@ -61,6 +61,7 @@ describe('game store defeat flow', () => {
     store.dispatch({ type: 'SELECT_TARGET', targetId: enemy.id })
 
     expect(store.getState().screen).toBe('result')
+    expect(store.getSnapshot().battlePresentation?.session.combat).toMatchObject({ phase: 'ended', outcome: 'lost' })
     expect(store.getState().result).toEqual({ outcome: 'defeat', gold: 0, experience: 0 })
     expect(store.getState().profile?.gold).toBe(317)
 
@@ -77,10 +78,14 @@ describe('game store defeat flow', () => {
   it('notifies subscribers with engine events', () => {
     const store = createGameStore({ initialState: createInitialGameState() })
     const received: string[] = []
-    const unsubscribe = store.subscribe((_state, events) => received.push(...events.map((event) => event.type)))
+    const unsubscribe = store.subscribe((envelope) => { received.push(...envelope.events.map((event) => event.type)) })
     store.dispatch({ type: 'OPEN_PROFILE_CREATE' })
-    unsubscribe()
     expect(received).toEqual(['SCREEN_CHANGED'])
+    expect(store.getSnapshot()).toMatchObject({ sequence: 1, previousState: { screen: 'start' }, state: { screen: 'profile_create' } })
+    unsubscribe()
+    store.dispatch({ type: 'OPEN_PROFILE_CREATE' })
+    expect(received).toEqual(['SCREEN_CHANGED'])
+    expect(store.getSnapshot().sequence).toBe(2)
   })
 
   it('persists an accepted hub transaction', () => {

@@ -267,6 +267,14 @@ export interface ExplorationState {
 
 export type PhysicalReward = EquipmentInstance | ItemStack | SkillInstance
 
+export type GameLogKind = 'default' | 'damage' | 'heal'
+
+export interface GameLogEntry {
+  eventType: GameEventType
+  kind: GameLogKind
+  message: string
+}
+
 export interface ExpeditionSession {
   expeditionId: string
   questId: QuestId
@@ -281,7 +289,7 @@ export interface ExpeditionSession {
   triggeredTrapIds: string[]
   claimedSecretRewardIds: string[]
   pendingLoot: PendingRewardEntry[]
-  logs: string[]
+  logs: GameLogEntry[]
 }
 
 export interface GameResult {
@@ -341,17 +349,20 @@ export type GameEventType =
   | 'BATTLE_WON' | 'BATTLE_LOST' | 'QUEST_COMPLETED' | 'REWARD_GRANTED'
   | 'HEAL_APPLIED' | 'GROWTH_APPLIED' | 'UNLOCK_GRANTED' | 'REWARD_SELECTION_CHANGED'
   | 'STORAGE_CHANGED' | 'EQUIPMENT_CHANGED' | 'SHOP_TRANSACTION' | 'COMMAND_REJECTED'
-  | 'ROLL_RESOLVED' | 'STATUS_APPLIED' | 'TAUNT_TARGET_RESOLVED'
+  | 'ROLL_RESOLVED' | 'STATUS_APPLIED' | 'STATUS_RESISTED' | 'TAUNT_TARGET_RESOLVED'
   | 'COOLDOWN_STARTED' | 'COOLDOWN_TICKED' | 'SKILL_SELECTION_CANCELLED'
   | 'TRAP_DISCOVERED' | 'SECRET_ROOM_DISCOVERED' | 'TRAP_TRIGGERED'
   | 'ITEM_USED' | 'TURN_SKIPPED' | 'BUFF_APPLIED' | 'BUFF_EXPIRED'
   | 'STATUS_REMOVED'
   | 'QUEST_ENTRY_WARNING'
 
+export type CombatStatusId = 'stun' | 'bleed' | 'paralysis' | 'neurotoxin' | 'sleep' | 'exposed' | 'taunt'
+
 export interface GameEvent {
   type: GameEventType
   message: string
   actorId?: string
+  actorSide?: Side
   targetId?: string
   enemyId?: string
   sourceActorId?: string
@@ -367,4 +378,5 @@ export interface GameEvent {
   placementId?: string
   damage?: number
   itemId?: ItemId
+  statusId?: CombatStatusId
 }

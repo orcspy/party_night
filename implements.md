@@ -2357,3 +2357,1032 @@ Lv1 시작 무기 포함 기대값:
 - 결과를 축약·삭제하거나 자동으로 hub에 이동해 접근 문제를 우회하지 않는다.
 - game engine·저장 schema·정산 규칙·콘텐츠 수치를 UI overflow 수정과 함께 변경하지 않는다.
 - 전역 body 스크롤 허용, 신규 modal·페이지·UI 라이브러리 또는 production 전용 test/cheat 경로를 추가하지 않는다.
+
+## 30. 전체 화면·일반 화면 토글 구현 사양
+
+### 30.1 목표와 범위
+
+- Android phone Chrome landscape에서 브라우저 URL 입력창·탐색 UI로 줄어든 가용 높이를 사용자가 Fullscreen API로 확장할 수 있게 한다.
+- 지원 환경의 시작·프로필 생성·거점·탐사·전투·결과 모든 화면에서 전체 화면 진입·종료 UI에 접근할 수 있게 한다.
+- gameplay action과 겹치는 전역 오른쪽 하단 fixed 배치 대신 화면별 비중첩 slot을 사용한다.
+- 게임 상태, 화면 방향, 저장 schema와 콘텐츠 규칙은 변경하지 않는다.
+
+### 30.2 대상 파일
+
+| 파일 | 변경 책임 |
+|---|---|
+| `src/ui/FullscreenToggle.tsx` | Fullscreen API 지원 판정, 요청·종료, event 상태 동기화, 버튼 접근성 |
+| `src/ui/SetupScreen.tsx` | 시작 menu action과 프로필 header slot에 toggle 배치 |
+| `src/ui/HubScreen.tsx` | hub header 우측 도구 slot에 toggle 배치 |
+| `src/app/App.tsx` | 탐사·전투 game-stage 우측 상단에 toggle 배치 |
+| `src/ui/ResultScreen.tsx` | result action footer 우측 보조 slot에 toggle 배치 |
+| `src/styles.css` | 44px 버튼·상태 icon, 각 slot, game-stage overlay, safe area·portrait 규칙 |
+| `changelog.md` | 실제 구현·검증 결과 기록 |
+
+변경하지 않는 범위:
+
+- `src/game/**`, `gameStore`: 브라우저 표시 mode는 게임 command/state/event가 아님
+- `src/phaser/**`: `640×360`, `FIT`, scene·input 좌표 계약 유지
+- `src/app/saveV2.ts`: fullscreen mode를 profile에 저장하지 않음
+- `index.html`, Vite `/pn/` base와 production 배포 경로 유지
+- PWA standalone, Wake Lock, Pointer Lock, Screen Orientation lock은 추가하지 않음
+
+### 30.3 FullscreenToggle 계약
+
+```ts
+export function FullscreenToggle({ className = '' }: { className?: string })
+```
+
+local state:
+
+```ts
+supported: boolean
+isFullscreen: boolean
+transitioning: boolean
+error: boolean
+```
+
+초기화와 event:
+
+1. mount 시 `document.fullscreenEnabled === true`, `document.documentElement.requestFullscreen`과 `document.exitFullscreen` 존재 여부로 지원 상태를 계산한다.
+2. `isFullscreen`은 `document.fullscreenElement !== null`로 초기화한다.
+3. document의 `fullscreenchange`를 구독해 Android back, ESC, 탭·앱 전환을 포함한 실제 상태를 동기화한다.
+4. `fullscreenerror` 또는 Promise rejection 시 `transitioning=false`, `error=true`로 복구한다.
+5. unmount 시 두 listener를 제거한다.
+
+toggle click 처리:
+
+```ts
+if (transitioning) return
+setTransitioning(true)
+setError(false)
+try {
+  if (document.fullscreenElement) {
+    await document.exitFullscreen()
+  } else {
+    await document.documentElement.requestFullscreen({ navigationUI: 'hide' })
+  }
+} catch {
+  setError(true)
+} finally {
+  setTransitioning(false)
+}
+```
+
+- `requestFullscreen()` 호출은 다른 timer·effect로 넘기지 않고 button click call stack에서 즉시 시작한다.
+- Promise resolve만으로 mode를 반전하지 않고 `fullscreenchange`가 읽은 실제 상태를 사용한다.
+- 지원하지 않으면 `null`을 반환한다. prefixed WebKit API나 video fullscreen으로 일반 document fullscreen을 흉내 내지 않는다.
+- 화면 전환 후 재마운트 시 현재 `document.fullscreenElement`를 다시 읽어 상태를 보존한다.
+
+### 30.4 버튼 표시·접근성
+
+- `<button type="button" className="fullscreen-toggle ...">`을 사용한다.
+- 일반 화면: `aria-label="전체 화면으로 전환"`, `title="전체 화면"`, `aria-pressed=false`.
+- 전체 화면: `aria-label="일반 화면으로 전환"`, `title="전체 화면 종료"`, `aria-pressed=true`.
+- 시각 아이콘은 외부 icon package·이미지 없이 CSS corner glyph로 만들고 enter는 바깥 방향, exit는 안쪽 방향으로 구분한다. 아이콘만 표시하되 accessible name은 제거하지 않는다.
+- 실제 touch target은 최소 `44×44px`, disabled/transitioning 상태를 시각적으로 구분한다.
+- 오류 시 버튼에 일시적인 error outline과 `aria-live` 상태 텍스트를 제공하되 modal·alert로 플레이를 막지 않는다. 다음 터치에서 재시도할 수 있다.
+- fullscreen 종료 방법인 Android back·시스템 gesture·PC ESC를 차단하거나 keyboard lock을 요청하지 않는다.
+
+### 30.5 화면별 배치
+
+#### 시작·프로필 생성
+
+- start 화면은 기존 `menu-actions` 안에서 주요 시작 action 다음의 우측 정렬 square tool로 배치한다.
+- profile_create 화면은 `setup-header`의 wallet과 같은 우측 `screen-tools` 그룹에 배치한다.
+- 프로필 생성 action 위를 fixed overlay로 덮지 않는다.
+
+#### 거점
+
+- `hub-header` 우측에 `hub-summary + FullscreenToggle`을 묶은 `screen-tools`를 둔다.
+- 좁은 landscape에서 summary가 줄바꿈될 수는 있으나 tab·panel 높이와 퀘스트 입장 버튼을 가려서는 안 된다.
+
+#### 탐사·전투
+
+- `game-stage`에 `position: relative`를 추가하고 `PhaserGame` 다음에 toggle을 렌더한다.
+- toggle class는 game-stage 안에서 `position:absolute`, `top/right:max(6px, safe-area inset)`, `z-index`를 사용한다.
+- 하단 Phaser 이동 버튼과 우측 HUD command를 피하기 위해 오른쪽 하단에는 배치하지 않는다.
+- toggle pointer event가 canvas에 전달되어 이동·선택 command가 발생하지 않게 한다.
+
+#### 결과
+
+- 기존 `.result-actions`를 `display:flex`로 바꾸고 주요 action을 `flex:1`, toggle을 `44px` 보조 action으로 오른쪽에 둔다.
+- `거점으로` 또는 `선택 보관·나머지 포기`를 축소·가림·대체하지 않는다.
+
+#### Portrait
+
+- 기존 `.portrait-warning`이 표시되는 portrait에서는 `.fullscreen-toggle`과 오류 상태를 숨긴다.
+- landscape로 복귀하면 지원 상태와 실제 fullscreen 상태에 맞춰 다시 표시한다.
+
+### 30.6 CSS 계약
+
+공통 기준:
+
+```css
+.fullscreen-toggle {
+  width: 44px;
+  min-width: 44px;
+  height: 44px;
+  min-height: 44px;
+  flex: 0 0 44px;
+  padding: 0;
+  color: #eee8d8;
+  border: 1px solid #66563a;
+  background: rgba(23, 19, 31, .92);
+  touch-action: manipulation;
+}
+
+.game-stage { position: relative; }
+.game-fullscreen-toggle {
+  position: absolute;
+  top: max(6px, env(safe-area-inset-top));
+  right: max(6px, env(safe-area-inset-right));
+  z-index: 60;
+}
+```
+
+- hover에 의존하지 않고 normal·pressed·disabled·error를 border/color와 `aria-pressed`로 구분한다.
+- 전체 화면 자체는 `documentElement`를 대상으로 하며 별도 `:fullscreen` 크기 하드코딩 없이 기존 `100dvh/100vw`가 새 viewport를 사용하게 한다.
+- game-stage overlay 외 화면은 normal flow를 사용하고 fixed positioning을 추가하지 않는다.
+- `@media (orientation: portrait)`에서 toggle을 숨겨 회전 안내보다 높은 z-index를 만들지 않는다.
+
+### 30.7 오류·호환성 처리
+
+| 조건 | 동작 |
+|---|---|
+| API 지원·일반 화면 | 전체 화면 요청 |
+| API 지원·전체 화면 | 일반 화면 종료 요청 |
+| `fullscreenEnabled=false`/method 없음 | 버튼 렌더하지 않음, 기존 화면 유지 |
+| request/exit rejection | 오류 상태 표시, 중복 잠금 해제, 게임 진행 유지 |
+| Android back/ESC/앱 전환 | 브라우저 종료 허용, event로 일반 아이콘 동기화 |
+| screen 전환 | fullscreen 유지, 새 component가 실제 상태 재조회 |
+| iframe 배포 | 상위 frame에 `allow="fullscreen"`이 없으면 미지원/오류로 처리 |
+
+- fullscreen 실패를 게임 로그, profile message 또는 game event에 기록하지 않는다.
+- API 오류가 quest command, Phaser input, save와 결합되지 않게 한다.
+
+### 30.8 검증 사양
+
+자동·정적 검증:
+
+1. `npm run typecheck`, 전체 `npm run test`, `npm run build`가 성공한다.
+2. 신규 test dependency를 추가하지 않는다. Fullscreen browser API와 실제 viewport는 브라우저에서 검증한다.
+3. `FullscreenToggle`이 game domain import 없이 React·DOM API만 사용하는지 확인한다.
+
+Android phone Chrome HTTPS landscape 필수 시나리오:
+
+1. 일반 화면에서 URL 입력창 때문에 줄어든 viewport와 콘텐츠 상태를 확인한다.
+2. toggle을 터치해 `document.fullscreenElement === document.documentElement`가 되고 URL 입력창이 사라지며 `innerHeight/visualViewport.height`가 증가하는지 확인한다.
+3. fullscreen 진입 후 Phaser canvas·HUD·menu/result가 새 viewport 안에 맞고 가로·세로 overflow가 없는지 확인한다.
+4. 시작→프로필/거점→탐사→전투→결과 화면을 이동해 각 slot에서 toggle이 보이고 mode가 유지되는지 확인한다.
+5. 탐사에서 toggle 터치가 이동·회전 command를 발생시키지 않고, 전투에서 스킬·대상·리롤 버튼을 가리지 않는지 확인한다.
+6. 결과 화면에서 toggle이 `거점으로`/보상 확정 action을 가리지 않는지 확인한다.
+7. toggle로 종료하고 Android back·앱 전환으로도 종료해 아이콘과 `aria-pressed`가 일반 상태로 복구되는지 확인한다.
+8. 빠른 연속 터치와 fullscreen 요청 거부에서 unhandled rejection·중복 전환·게임 상태 변경이 없는지 확인한다.
+
+회귀 확인:
+
+- PC 지원 브라우저에서 enter/exit와 ESC 종료
+- iPhone Safari 미지원 판정 시 버튼 미표시와 기존 정상 화면
+- portrait 회전 안내가 toggle보다 우선
+- 640×360, 760px 이하, 844×390에서 화면별 배치 중첩 없음
+
+### 30.9 구현 순서
+
+1. `FullscreenToggle`과 표준 API 상태/event 처리를 구현한다.
+2. 시작·프로필·거점의 normal-flow slot에 연결한다.
+3. game-stage 우측 상단 overlay와 result action footer slot에 연결한다.
+4. 공통 icon·44px·pressed/error·portrait CSS를 적용한다.
+5. typecheck와 관련 기존 테스트를 수행한다.
+6. Android Chrome HTTPS에서 주소창 제거, viewport 변화, 전체 플레이 화면과 exit 경로를 검증한다.
+7. 전체 테스트·production build 후 실제 결과를 changelog에 기록한다.
+
+### 30.10 완료 기준과 금지 범위
+
+- Android phone Chrome landscape에서 사용자 터치로 URL 입력창 없는 fullscreen에 진입하고 같은 UI 또는 시스템 동작으로 종료할 수 있다.
+- 모든 게임 화면에서 toggle에 접근할 수 있고 기존 필수 버튼·Phaser 조작을 가리지 않는다.
+- 외부 fullscreen 종료와 화면 전환 후 아이콘·accessible name이 실제 mode와 일치한다.
+- fullscreen 실패·미지원이 게임 진행과 기존 PC·iPhone 화면을 깨뜨리지 않는다.
+- 자동 fullscreen, orientation 강제 lock, keyboard/ESC lock, PWA 전환을 추가하지 않는다.
+- game state·profile 저장·game event에 브라우저 fullscreen 상태를 넣지 않는다.
+- 전역 오른쪽 하단 fixed overlay로 기존 명령을 가리거나 신규 UI library를 추가하지 않는다.
+
+## 31. 결과·창고·캐릭터 표시 위계 수정 사양
+
+### 31.1 목표와 범위
+
+- 결과 화면의 장비 등급 해금을 상점 입하 의미가 드러나는 문장으로 바꾼다.
+- 창고 스킬에서 내부 instance ID 대신 장착 가능한 한글 직업군을 표시한다.
+- 캐릭터 화면에서 custom slot·장비 slot label은 작게, 실제 장착 스킬·장비 이름은 크게 표시한다.
+- 표시·DOM·CSS만 변경하고 정산·장착·판매·해제·저장 규칙은 유지한다.
+
+### 31.2 대상 파일
+
+| 파일 | 변경 책임 |
+|---|---|
+| `src/ui/ResultScreen.tsx` | rarity 해금 badge 목록을 상점 입하 문장으로 교체 |
+| `src/ui/StoragePanel.tsx` | skill instance ID 제거, 장착 직업군 label 표시 |
+| `src/ui/CharacterPanel.tsx` | custom/equipment slot label과 장착 콘텐츠 이름 DOM 위계 교체 |
+| `src/ui/contentPresentation.ts` | custom skill 허용 직업군 표시 helper |
+| `src/styles.css` | 입하 문장과 캐릭터 loadout 전용 font·wrap class |
+| `src/tests/assets.test.ts` | 장착 직업군 pure presentation helper 회귀 |
+| `changelog.md` | 실제 구현·검증 결과 기록 |
+
+변경하지 않는 범위:
+
+- `src/game/content.ts`: `CUSTOM_SKILL_ALLOWED_CLASSES`, `CLASS_DATA`, rarity 데이터 유지
+- `src/game/inventory.ts`: 장착 가능 판정 유지
+- `src/game/rewards.ts`, `gameEngine.ts`: `unlockedRarities` 정산과 해금 event 유지
+- profile version 2, instance ID, command payload와 localStorage 유지
+- 아이콘 PNG·rarity CSS token·Fullscreen·결과 scroll 구조 유지
+
+### 31.3 상점 입하 알림 구현
+
+기존 `rarity-unlock-list` block을 다음 구조로 교체한다.
+
+```tsx
+{summary.unlockedRarities.length > 0 && (
+  <div className="shop-arrival-list">
+    {summary.unlockedRarities.map((rarity) => (
+      <p className="shop-arrival-notice" data-rarity={rarity} key={rarity}>
+        상점에 신규 [<strong className="content-name">{getRarityDisplayName(rarity)}</strong>]등급 장비가 입하 되었습니다.
+      </p>
+    ))}
+  </div>
+)}
+```
+
+- 정확한 출력 예: `상점에 신규 [고급]등급 장비가 입하 되었습니다.`
+- 배열 순서와 key는 rarity 원본을 사용하고 각 rarity를 한 문장씩 출력한다.
+- 등급명은 기존 `data-rarity`와 `.content-name` token으로 색상을 유지한다.
+- 기존 `신규 장비 등급:` 문구와 `rarity-unlock-list` 전용 DOM은 제거한다.
+
+### 31.4 스킬 장착 직업군 presentation helper
+
+`contentPresentation.ts`에 다음 pure helper를 추가한다.
+
+```ts
+const ALL_CLASS_IDS: readonly ClassId[] = ['warrior', 'rogue', 'archer', 'paladin', 'priest', 'mage']
+
+export function getCustomSkillAllowedClassLabel(skillId: string): string {
+  const allowed = CUSTOM_SKILL_ALLOWED_CLASSES[skillId as CustomSkillId]
+  if (!allowed) return '장착 직업 정보 없음'
+  if (ALL_CLASS_IDS.every((classId) => allowed.includes(classId))) return '공용'
+  return allowed.map((classId) => CLASS_DATA[classId].name).join(' · ')
+}
+```
+
+- 단순 `allowed.length === 6`이 아니라 전체 ClassId가 모두 포함되는지 확인해 누락·중복 데이터에 안전하게 한다.
+- helper는 입력 배열을 정렬·변경하지 않고 승인된 원본 순서를 보존한다.
+- `StoragePanel`은 `instance.skillInstanceId` 표시를 제거하고 다음 metadata를 출력한다.
+
+```text
+장착 직업: 공용 · 장착 가능
+장착 직업: 전사 · 직업 제한
+```
+
+- 현재 선택 캐릭터의 `compatible` 계산과 장착 button disabled 조건은 그대로 둔다.
+- ID는 React key와 command payload에서 계속 사용한다.
+
+### 31.5 CharacterPanel custom slot DOM
+
+장착 상태:
+
+```tsx
+<span className="content-copy character-loadout-copy">
+  <small className="character-loadout-label">커스텀 {index + 1}</small>
+  <span className="content-identity character-loadout-identity">
+    <ContentIcon ... size="small" />
+    <b className="character-loadout-name">{getSkillDisplayName(slot.skillId)}</b>
+  </span>
+</span>
+```
+
+빈/잠금 상태:
+
+```tsx
+<small className="character-loadout-label">커스텀 {index + 1}</small>
+<span className="character-loadout-empty">비어 있음 또는 LvN 잠금</span>
+```
+
+- 기존 `<b>커스텀 N</b>`과 스킬 이름 `<small>` 관계를 사용하지 않는다.
+- 해제 버튼, slotIndex와 skillInstanceId는 기존 위치·payload를 유지한다.
+
+### 31.6 CharacterPanel 장비 slot DOM
+
+장착 상태:
+
+```tsx
+<span className="content-copy character-loadout-copy">
+  <small className="character-loadout-label">{getEquipmentSlotDisplayName(slot)}</small>
+  <span className="content-identity character-loadout-identity">
+    <ContentIcon ... size="small" />
+    <b className="character-loadout-name content-name">{getEquipmentDisplayName(instance.equipmentId)}</b>
+    <span className="rarity-badge">{presentation.rarityLabel}</span>
+  </span>
+</span>
+```
+
+- 빈 slot은 같은 작은 slot label 아래 `character-loadout-empty`로 `비어 있음`을 표시한다.
+- 기존 content-row·data-rarity, icon, rarity badge와 해제 command를 유지한다.
+- 장비 이름과 badge가 한 줄에 맞지 않으면 identity가 wrap되며 action button은 우측에서 최소 크기를 유지한다.
+
+### 31.7 CSS 사양
+
+```css
+.shop-arrival-list { display: grid; gap: 3px; margin: 5px; }
+.shop-arrival-notice { margin: 0; }
+
+.character-loadout-copy { gap: 4px; }
+.character-loadout-label {
+  color: #8d8397;
+  font: 9px/1.2 monospace;
+}
+.character-loadout-identity { min-width: 0; flex-wrap: wrap; }
+.character-loadout-name {
+  min-width: 0;
+  color: #eee8d8;
+  font-size: 13px;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+.character-loadout-empty { color: #8d8397; font-size: 10px; }
+```
+
+- rarity가 있는 장비 이름은 기존 `[data-rarity] .content-name` 규칙이 색상을 덮어 등급색을 유지한다.
+- `.management-list small`·`.content-copy b` 공통 규칙을 변경하지 않는다.
+- 500px 이하 높이에서도 주요 이름을 10px 이하로 축소하지 않고 panel scroll로 접근한다.
+
+### 31.8 자동·수동 검증
+
+자동 검증:
+
+1. `getCustomSkillAllowedClassLabel('first_aid') === '공용'`.
+2. `getCustomSkillAllowedClassLabel('cutlery_expert') === '전사'`.
+3. `getCustomSkillAllowedClassLabel('sleep') === '마법사'`.
+4. unknown skill은 `장착 직업 정보 없음`이며 원시 ID를 반환하지 않는다.
+5. helper 호출 전후 `CUSTOM_SKILL_ALLOWED_CLASSES`와 `CLASS_DATA`가 변경되지 않는다.
+6. `npm run typecheck`, 관련 테스트, 전체 `npm run test`, `npm run build`가 성공한다.
+
+브라우저 검증:
+
+- rarity 해금 결과에서 정확한 입하 문장·대괄호·한글 등급명·등급색을 확인한다.
+- 창고의 공용·전사·도적·궁수·성기사·사제·마법사 전용 스킬이 올바른 직업군을 표시하고 `skill_` instance 문자열이 보이지 않는지 확인한다.
+- 선택 캐릭터를 바꿔도 직업군 label은 유지되고 `장착 가능/직업 제한`만 정확히 바뀌는지 확인한다.
+- 캐릭터 화면에서 custom slot label과 장비 slot명이 장착 이름보다 작고, 긴 이름·rarity badge·해제 버튼이 겹치지 않는지 확인한다.
+- 640×360, 760px 이하, 844×390 landscape 및 결과 내부 scroll에서 가로 overflow와 action 가림이 없는지 확인한다.
+
+### 31.9 구현 순서
+
+1. custom skill allowed class label helper와 pure test를 추가한다.
+2. StoragePanel의 instance ID metadata를 직업군 label로 교체한다.
+3. ResultScreen의 rarity list를 입하 문장으로 교체한다.
+4. CharacterPanel custom/equipment DOM에 전용 label/name/empty class를 적용한다.
+5. 전용 CSS를 추가하고 공통 목록 회귀를 확인한다.
+6. typecheck·관련 테스트 후 브라우저에서 세 화면과 모바일 layout을 검증한다.
+7. 전체 테스트·build와 실제 결과를 changelog에 기록한다.
+
+### 31.10 완료 기준과 금지 범위
+
+- 사용자가 요청한 상점 입하 문구가 rarity마다 정확히 표시된다.
+- 창고 스킬 행에 instance ID가 노출되지 않고 공용 또는 한글 직업군이 표시된다.
+- custom/equipment slot label보다 실제 장착 이름이 명확히 크게 보인다.
+- 기존 장착 가능 판정, 장착·해제·판매 command와 저장 결과가 동일하다.
+- instance ID를 삭제·변경하거나 profile에 표시용 직업명·공용 값을 저장하지 않는다.
+- 공통 목록 전체의 font size를 뒤집거나 신규 UI library를 추가하지 않는다.
+
+## 32. 전투 텀·상태 결과 로그·로그 색상 구현 사양
+
+### 32.1 목표와 범위
+
+- 마지막 적이 사망한 event batch 이후 전투 화면을 최소 2000ms 유지해 마지막 다이스·쓰러짐 상태·로그를 확인한 뒤 기존 목적지로 전환한다.
+- 실제 공격을 수행하는 각 적의 차례 시작 전에 1000ms 공격 예고를 표시하고 그동안 전투 입력을 잠근다.
+- 플레이어와 적 스킬의 디버프 부여 성공·실패를 구조화 event와 로그로 남긴다. 잔여 행동·라운드 수는 로그에 표시하지 않는다.
+- 구조화된 로그 kind로 피해는 붉은색, 회복은 녹색으로 표시한다.
+- 피해·회복·상태 확률·RNG·turn order·승패·정산은 reducer에서 현재와 같이 즉시 확정하고 presentation timer에 의존시키지 않는다.
+
+### 32.2 변경·생성 대상
+
+| 파일 | 책임 |
+|---|---|
+| `src/game/types.ts` | `GameLogEntry`, log kind, combat status ID, `STATUS_RESISTED`, turn side와 status payload |
+| `src/game/combat.ts` | 양 진영 `TURN_STARTED`, 디버프 성공·실패 event, 약점 노출·도발 status metadata |
+| `src/game/gameEngine.ts` | 구조화 로그 저장, terminal battle frame capture와 canonical 즉시 전환 유지 |
+| `src/app/gameStore.ts` | monotonic dispatch envelope와 마지막 envelope 조회 |
+| `src/app/battlePresentation.ts` | event batch를 적 예고·roll·terminal hold plan으로 변환하는 순수 helper |
+| `src/app/App.tsx` | canonical state와 표시 state 분리, timer·입력 잠금·cleanup |
+| `src/phaser/PhaserGame.ts` | 초기 전투 envelope를 Scene bridge에 전달 |
+| `src/phaser/BattleScene.ts` | 적 공격 예고와 roll queue 순차 재생, terminal snapshot 렌더링 |
+| `src/phaser/ExplorationScene.ts` | 확장된 store listener envelope 계약 수용 |
+| `src/ui/BattleCommands.tsx` | presentation busy 중 command 차단과 안내 |
+| `src/ui/GameHud.tsx` | 구조화 로그 message·kind 렌더링 |
+| `src/styles.css` | 적 공격 예고, busy 안내, damage·heal 로그 색상 |
+| `src/tests/{combat,gameEngine,gameStore,battlePresentation}.test.ts` | 상태 결과·로그 분류·terminal frame·timing plan 회귀 |
+| `changelog.md` | 구현·검증 결과 기록 |
+
+변경하지 않는 범위:
+
+- `src/game/content.ts`의 스킬 확률·수치·상태 지속시간
+- `src/game/rng.ts`와 seed 소비 순서
+- `src/game/rewards.ts`의 정산·보상·해금
+- profile version 2와 localStorage schema
+- Phaser actor asset·탐사 이동·map·encounter 데이터
+- Fullscreen 토글과 결과 화면 내부 scroll
+
+### 32.3 타입 계약
+
+`src/game/types.ts`에 원정 메모리 로그를 구조화한다.
+
+```ts
+export type GameLogKind = 'default' | 'damage' | 'heal'
+
+export interface GameLogEntry {
+  eventType: GameEventType
+  kind: GameLogKind
+  message: string
+}
+
+export type CombatStatusId =
+  | 'stun'
+  | 'bleed'
+  | 'paralysis'
+  | 'neurotoxin'
+  | 'sleep'
+  | 'exposed'
+  | 'taunt'
+```
+
+- `ExpeditionSession.logs`를 `string[]`에서 `GameLogEntry[]`로 교체한다.
+- 세션은 profile에 저장되지 않으므로 save migration과 profile version 증가는 하지 않는다.
+- `GameEventType`에 `STATUS_RESISTED`를 추가한다.
+- `GameEvent`에 다음 optional payload를 추가한다.
+
+```ts
+actorSide?: Side
+statusId?: CombatStatusId
+```
+
+- `TURN_STARTED`는 party·enemy 모두 `actorId`, `actorSide`를 넣는다.
+- `STATUS_APPLIED`, `STATUS_RESISTED`는 `actorId`, `targetId`, `skillId`, `statusId`를 모두 넣는다.
+- 기존 `DAMAGE_APPLIED`, `HEAL_APPLIED`, `ROLL_RESOLVED`, `TAUNT_TARGET_RESOLVED` type과 payload는 유지한다.
+
+### 32.4 구조화 로그 저장과 색상 분류
+
+`gameEngine.appendEvents`는 message만 저장하지 않고 다음 순수 분류를 사용한다.
+
+```ts
+function getGameLogKind(event: GameEvent): GameLogKind {
+  if (event.type === 'DAMAGE_APPLIED' || event.type === 'TRAP_TRIGGERED') return 'damage'
+  if (event.type === 'HEAL_APPLIED') return 'heal'
+  return 'default'
+}
+```
+
+```text
+GameEvent
+→ { eventType: event.type, kind: getGameLogKind(event), message: event.message }
+→ 기존 logs 뒤에 추가
+→ 최신 200건 유지
+```
+
+- event 순서와 200건 상한을 유지한다.
+- `ACTOR_DEFEATED`, `STATUS_APPLIED`, `STATUS_RESISTED`, cooldown과 turn log는 default다.
+- trap은 탐사 중 발생하지만 실제 피해이므로 damage kind로 표시한다.
+- `GameHud`의 auto-follow dependency는 `logs.length`를 유지한다.
+- 기존 테스트의 `log.includes(...)`는 `log.message.includes(...)`, event message 배열 비교는 구조화 entry 비교로 갱신한다.
+
+### 32.5 디버프 부여 성공·실패 event
+
+상태 표시명은 `combat.ts`의 제한된 map 또는 작은 helper 하나에서 관리한다.
+
+```text
+stun         → 기절
+bleed        → 출혈
+paralysis    → 마비
+neurotoxin   → 신경독
+sleep        → 수면
+exposed      → 약점 노출
+taunt        → 도발
+```
+
+메시지 형식:
+
+```text
+{시전자명}의 {스킬명}: {대상명}에게 {상태명} 부여 성공.
+{시전자명}의 {스킬명}: {대상명}에게 {상태명} 부여 실패.
+```
+
+확률 상태 처리 순서:
+
+1. 현재 `chanceBySkill`과 boss 대상 절반 확률을 그대로 계산한다.
+2. 현재와 동일하게 seed RNG를 정확히 한 번 소비한다.
+3. 성공이면 실제 state를 변경하고 `STATUS_APPLIED`를 생성한다.
+4. 실패이면 state를 변경하지 않고 같은 payload의 `STATUS_RESISTED`를 생성한다.
+5. 피해로 target HP가 0이면 현재처럼 상태 판정과 성공·실패 event 모두 생략한다.
+
+스킬별 예외:
+
+- `neurotoxin`: 주 신경독 판정 실패 시 신경독·부가 출혈을 모두 적용하지 않고 `statusId:'neurotoxin'` 실패 한 건만 남긴다. 성공 시 실제 적용되는 신경독과 출혈을 각각 `STATUS_APPLIED`로 남기며 AGI 중복 감소 금지와 bleed 최대 5를 유지한다.
+- `find_leak`: 유효한 살아 있는 대상에 약점 노출을 확정 적용하고 `statusId:'exposed'` 성공 event를 한 건 추가한다. 별도 실패 RNG를 만들지 않는다.
+- `taunt`: 살아 있는 적마다 `statusId:'taunt'` 성공 event를 유지한다. 다음 공격의 redirect 성공·실패는 기존 `TAUNT_TARGET_RESOLVED`이며 `STATUS_RESISTED`로 바꾸지 않는다.
+- buff·상태 제거·쿨다운에는 가짜 디버프 성공·실패 event를 추가하지 않는다.
+- 모든 성공·실패 message에서 남은 turn·round·stack 수를 제외한다.
+
+### 32.6 양 진영 turn 시작 event
+
+`advanceToPlayer`의 actor 처리 순서를 유지하면서 실제 행동 경계를 구조화한다.
+
+```text
+actor 생존 확인
+→ 출혈 tick·승패
+→ 기절/마비/수면 skip
+→ 실제 행동 가능
+→ TURN_STARTED { actorId, actorSide }
+→ party면 입력 대기 반환
+→ enemy면 대상·스킬 선택 후 기존 beginRoll
+```
+
+- party event에도 누락된 `actorId`, `actorSide:'party'`를 넣는다.
+- enemy는 상태 skip을 모두 통과한 뒤 `actorSide:'enemy'` event를 먼저 넣는다.
+- `TURN_SKIPPED`된 적에는 `TURN_STARTED`를 추가하지 않아 1초 공격 예고가 발생하지 않게 한다.
+- target 선택, taunt RNG와 공격 RNG 순서를 바꾸지 않는다.
+- enemy turn event message는 `{적 이름}의 차례`로 하고 내부 ID를 표시하지 않는다.
+
+### 32.7 terminal battle frame과 즉시 canonical 전이
+
+`EngineResult`에 저장되지 않는 presentation metadata를 optional로 둔다.
+
+```ts
+export interface BattlePresentationFrame {
+  session: ExpeditionSession
+}
+
+export interface EngineResult {
+  state: GameState
+  events: GameEvent[]
+  persistence: PersistenceRequest
+  battlePresentation?: BattlePresentationFrame
+}
+```
+
+`applyCombatUpdate` 처리:
+
+1. `update.combat`과 `update.events`를 session에 반영해 최종 combat·구조화 로그를 만든다.
+2. outcome이 `won|lost`이면 이 시점의 session을 `battlePresentation.session`으로 capture한다.
+3. 그 뒤 기존과 동일하게 일반 승리는 `exploration`, 완료 승리는 정산된 `result`, 패배는 기존 `result` canonical state를 반환한다.
+4. profile 저장·보상 정산은 timer 전에 즉시 수행한다.
+
+- snapshot의 combat은 `phase:'ended'`, 실제 최종 HP와 outcome을 포함해야 한다.
+- snapshot을 `GameState.session`이나 profile에 재삽입해 저장하지 않는다.
+- 일반 조우의 snapshot 로그에는 terminal combat event까지 포함하고 아직 보이지 않은 `탐사로 돌아왔다.` screen message는 넣지 않는다.
+- 완료 조우의 settlement event는 canonical result에 유지하되 terminal 전투 HUD에는 마지막 전투 event까지만 보여도 된다.
+
+### 32.8 dispatch envelope와 presentation plan
+
+`gameStore`는 각 dispatch를 monotonic sequence로 감싼다.
+
+```ts
+export interface DispatchEnvelope {
+  sequence: number
+  previousState: GameState
+  state: GameState
+  events: GameEvent[]
+  battlePresentation?: BattlePresentationFrame
+}
+```
+
+- `dispatch`마다 sequence를 1 증가시키고 listener에 envelope를 한 번 전달한다.
+- `getState()`는 canonical state를 계속 반환한다.
+- `GameStore.getSnapshot(): DispatchEnvelope`는 현재 cached envelope를 반환하며 React `useSyncExternalStore`와 새 BattleScene이 같은 sequence를 안정적으로 읽게 한다. dispatch가 없을 때는 같은 object reference를 유지한다.
+- 초기 envelope는 sequence 0, 동일한 previous/current state, 빈 events다.
+- 기존 ExplorationScene과 테스트 subscriber는 `envelope.state`, `envelope.events`를 사용하도록 갱신한다.
+
+신규 `src/app/battlePresentation.ts`는 DOM·React·Phaser에 의존하지 않는 pure plan builder다.
+
+```ts
+export const ENEMY_WINDUP_MS = 1000
+export const ROLL_DISPLAY_MS = 1000
+export const VICTORY_HOLD_MS = 2000
+
+export type BattlePresentationStep =
+  | { kind: 'enemy_windup'; actorId: string; durationMs: 1000 }
+  | { kind: 'roll'; event: GameEvent; durationMs: 1000 }
+  | { kind: 'victory'; durationMs: number }
+
+export interface BattlePresentationPlan {
+  sequence: number
+  steps: BattlePresentationStep[]
+  durationMs: number
+  lockCommands: boolean
+  terminalOutcome: 'won' | 'lost' | null
+}
+```
+
+plan 규칙:
+
+1. event 원본 순서를 순회한다.
+2. enemy `TURN_STARTED`마다 1000ms `enemy_windup` step을 추가한다.
+3. `ROLL_RESOLVED`마다 기존 1000ms roll step을 추가한다.
+4. `BATTLE_WON`이면 총 표시 시간이 최소 2000ms가 되도록 마지막에 victory 잔여 step을 추가한다. terminal roll이 없어도 victory step으로 2000ms를 채운다.
+5. `BATTLE_LOST`가 enemy 공격 batch에 있으면 적 windup·roll plan이 끝날 때까지 terminal frame을 유지한다. 별도 승리 2000ms 규칙은 적용하지 않는다.
+6. enemy windup 또는 terminal outcome이 있는 plan만 `lockCommands=true`로 한다. 적이 끼지 않은 일반 player roll은 기존처럼 다음 command 가능 여부를 불필요하게 지연하지 않는다.
+
+### 32.9 App 표시 state와 timer
+
+`App`은 envelope의 canonical state와 현재 battle presentation을 구분한다.
+
+```text
+canonicalState = envelope.state
+
+active terminal plan:
+displayState = canonicalState의 screen을 battle로 대체
+displayState.session = envelope.battlePresentation.session
+commandsBusy = true
+
+plan 종료:
+displayState = canonicalState
+commandsBusy = false
+```
+
+- `BATTLE_WON` plan은 event batch 수신 시점부터 최소 2000ms 동안 battle 화면을 유지한다.
+- 일반 조우면 timer 후 exploration, 완료 조우면 timer 후 result로 이동한다. 목적지를 UI에서 다시 계산하지 않는다.
+- nonterminal enemy plan 중에는 canonical battle state를 표시하되 command UI를 잠근다.
+- sequence가 바뀌면 이전 timeout을 취소하고 최신 plan만 사용한다.
+- unmount·reset·screen 변경 cleanup에서 timeout을 제거한다.
+- timeout callback은 표시 state만 해제하고 store에 전투 완료 command를 dispatch하지 않는다.
+- 새로고침·timer throttling·연출 오류가 발생해도 `gameStore.getState()`의 canonical 결과와 저장 profile은 이미 확정되어 있어야 한다.
+
+### 32.10 BattleScene timeline
+
+- `BattleScene`은 raw `ROLL_RESOLVED[]` 대신 `BattlePresentationPlan.steps`를 순서대로 소비한다.
+- `enemy_windup` step은 중앙 overlay에 `{적 이름} 공격 준비`를 표시하고 1000ms 뒤 다음 step으로 이동한다.
+- `roll` step은 기존 dice box·합계 UI와 1000ms를 그대로 사용한다.
+- terminal direct skill 승리에서는 마지막 roll이 첫 1000ms 동안 보이고 남은 승리 hold 동안 최종 쓰러짐 상태와 로그가 유지된다.
+- terminal roll이 없는 화염병·출혈 승리는 `전투 승리` fallback overlay와 최종 상태를 유지한다. 이전 roll 값을 재사용하지 않는다.
+- store listener가 terminal envelope를 받으면 canonical result/exploration 대신 `battlePresentation.session`을 Scene의 render state로 사용해 마지막 적 HP 0 상태를 그린다.
+- 탐사→전투 전환 직후 적이 먼저 행동한 envelope는 Scene create 시 마지막 sequence를 한 번 읽어 초기 windup·roll을 재생한다.
+- Scene instance는 sequence별 plan을 최대 한 번 enqueue한다. shutdown/destroy에서 step timer·queue·overlay와 subscriber를 모두 정리한다.
+- camera shake·flash는 기존 event type 기준을 유지하고 게임 상태를 변경하지 않는다.
+
+### 32.11 BattleCommands·GameHud·CSS
+
+`BattleCommands`:
+
+- `presentationBusy?: boolean` prop을 받는다.
+- true이면 skill·target·reroll·item 버튼을 렌더링하지 않고 `전투 결과 확인 중...` 또는 enemy windup에서는 `적 행동 준비 중...` 안내만 표시한다.
+- presentation busy 중 사용자가 이전 DOM을 빠르게 누르더라도 dispatch하지 않도록 button 제거 또는 disabled 양쪽 중 하나를 확실히 적용한다.
+- canonical combat phase와 skill availability 계산은 변경하지 않는다.
+
+`GameHud`:
+
+```tsx
+{session.logs.map((log, index) => (
+  <p data-kind={log.kind} key={`${index}-${log.eventType}-${log.message}`}>
+    {log.message}
+  </p>
+))}
+```
+
+CSS:
+
+```css
+.log-box p[data-kind='damage'] { color: #ef8585; }
+.log-box p[data-kind='heal'] { color: #75c98b; }
+```
+
+- 위 색상 규칙은 `.log-box p:last-child` 뒤에 두거나 더 높은 specificity를 사용해 최신 피해·회복색이 공통 최신색으로 덮이지 않게 한다.
+- 색상만으로 정보가 사라지지 않도록 기존 `피해`, `회복` 문구는 유지한다.
+- enemy windup overlay는 기존 dice overlay depth와 640×360 중앙 안전 영역을 사용하며 Fullscreen 버튼과 겹치지 않는다.
+
+### 32.12 자동 검증
+
+`combat.test.ts`:
+
+1. party와 enemy 실제 행동 직전에 `TURN_STARTED`가 actorId·actorSide와 함께 생성된다.
+2. 기절·마비·수면으로 skip된 enemy에는 enemy `TURN_STARTED`가 없다.
+3. `power_strike`, `sleep`과 적 확률 상태 스킬의 성공 seed는 `STATUS_APPLIED`, 실패 seed는 `STATUS_RESISTED`를 정확한 status payload로 생성한다.
+4. 성공·실패 모두 동일 seed에서 재현되고 기존 최종 RNG state·boss 절반 확률이 유지된다.
+5. 실패 시 상태 map과 HP 외 상태가 바뀌지 않는다.
+6. `find_leak`은 exposed 성공, `taunt`는 대상별 taunt 성공을 만들고 가짜 resisted event가 없다.
+7. `neurotoxin` 실패는 주 실패 한 건과 상태 미적용, 성공은 neurotoxin·bleed 실제 적용 event를 남긴다.
+8. 모든 상태 성공·실패 message에 `라운드`, `턴`, `남음` 수치가 없다.
+
+`gameEngine.test.ts`:
+
+1. damage/heal/default event가 올바른 `GameLogEntry.kind`로 저장되고 순서·200건 상한이 유지된다.
+2. 함정 발동은 damage, 탐사 회복 아이템은 heal로 분류된다.
+3. 일반 encounter 승리의 canonical screen은 즉시 exploration이지만 `battlePresentation.session.combat`은 최종 won·적 HP 0이다.
+4. completion encounter 승리의 canonical screen·정산·profile 저장은 즉시 result이고 terminal frame은 별도로 존재한다.
+5. 화염병 승리에도 terminal frame이 있고 roll event를 조작하지 않는다.
+
+`gameStore.test.ts`:
+
+1. dispatch envelope sequence가 명령마다 1 증가한다.
+2. previous/current state와 events·battlePresentation이 같은 reducer 결과를 가리킨다.
+3. listener는 envelope당 한 번 호출되고 unsubscribe 후 호출되지 않는다.
+4. canonical state와 profile persistence는 presentation timer 없이 기존 결과를 보존한다.
+
+`battlePresentation.test.ts`:
+
+1. player roll 다음 enemy turn이면 `roll 1000 → enemy_windup 1000 → enemy roll 1000` 순서다.
+2. 적 2명은 각자 windup이 있고 원본 actor 순서를 유지한다.
+3. skipped enemy event에는 windup이 없다.
+4. direct `BATTLE_WON` plan은 최소 2000ms이며 terminal roll이 없어도 2000ms victory fallback을 만든다.
+5. 일반 player-only roll은 enemy lock을 만들지 않는다.
+6. plan builder는 event 배열과 state snapshot을 변경하지 않는다.
+
+React·Phaser timer 검증을 위해 신규 UI 테스트 library를 추가하지 않는다. 시간 계산은 pure plan test로 고정하고 실제 timer·Scene cleanup은 browser에서 확인한다.
+
+### 32.13 수동 검증
+
+1. 플레이어 공격과 첫 적 공격 사이에 약 1초의 `공격 준비` 텀이 있고 그동안 command를 누를 수 없다.
+2. 적이 2~3명이어도 각 공격 전에 텀이 있으며 roll·로그 순서가 뒤섞이지 않는다.
+3. 기절·마비·수면으로 행동을 건너뛴 적은 불필요한 공격 준비를 표시하지 않는다.
+4. 일반 조우 마지막 적 처치 후 정확한 최종 HP·다이스·피해·승리 로그를 보며 최소 2초 뒤 탐사로 돌아간다.
+5. 완료 조우 마지막 적 처치 후 같은 2초 확인을 거쳐 결과 화면으로 가고 보상이 중복 지급되지 않는다.
+6. 화염병·출혈로 마지막 적이 쓰러져도 2초 동안 최종 상태·승리 fallback을 보고 가짜 다이스가 나타나지 않는다.
+7. 플레이어와 적의 기절·출혈·마비·신경독·수면 성공/실패, 약점 노출·도발 성공이 시전자·스킬·대상·상태명으로 로그에 보이고 잔여 turn 수는 없다.
+8. 직접 피해·광역 피해·출혈·화염병·함정 로그는 붉은색, 스킬·아이템·흡수 회복은 녹색이다.
+9. 마지막 로그가 damage/heal이어도 공통 최신 로그색으로 덮이지 않는다.
+10. 640×360, 760px 이하, 844×390 landscape에서 windup·dice overlay, HUD log scroll과 Fullscreen 버튼이 겹치지 않는다.
+11. timer 중 앱 전환·화면 회전·Fullscreen 진입 후 복귀해도 중복 공격·중복 정산·멈춘 command가 없다.
+
+### 32.14 구현 순서
+
+1. `GameLogEntry`, status payload와 `STATUS_RESISTED` 타입을 추가하고 fixture를 갱신한다.
+2. `appendEvents`를 구조화 로그로 바꾸고 GameHud·CSS 색상을 연결한다.
+3. combat의 party/enemy `TURN_STARTED`와 디버프 성공·실패 event를 구현하고 단위 테스트한다.
+4. terminal battle frame을 `EngineResult`에 추가하되 canonical 즉시 정산·screen 전이를 회귀 테스트한다.
+5. gameStore dispatch envelope와 pure battle presentation plan을 구현한다.
+6. App의 표시 state·busy timer와 BattleCommands 입력 잠금을 연결한다.
+7. BattleScene을 windup·roll step queue로 바꾸고 초기 battle envelope·terminal snapshot·cleanup을 연결한다.
+8. 관련 테스트 후 typecheck·전체 test·build와 모바일 가로 수동 검증을 수행한다.
+9. 실제 변경 파일·검증 결과·미확정 browser 항목을 `changelog.md`에 기록한다.
+
+### 32.15 완료 기준과 금지 범위
+
+- 일반·완료 조우의 마지막 적 사망 후 전투 화면이 최소 2000ms 유지되고 기존 canonical 목적지로 정확히 전환된다.
+- 실제 공격하는 각 적 앞에 약 1000ms 예고가 있으며 plan 동안 전투 command가 실행되지 않는다.
+- 플레이어·적 디버프 성공과 실패가 구조화 로그에 모두 남고 잔여 turn 수가 노출되지 않는다.
+- 피해·회복 로그는 message 파싱 없이 각각 붉은색·녹색이다.
+- `npm run typecheck`, 전체 `npm run test`, `npm run build`가 성공한다.
+- Android Chrome·iOS Safari 가로 화면에서 timing·입력 잠금·로그색·일반/완료 전환을 확인한다.
+- combat/gameEngine 내부에 `setTimeout`, Promise delay와 wall-clock 판정을 넣지 않는다.
+- 애니메이션 완료 command로 피해·턴·승패·보상·screen destination을 확정하지 않는다.
+- profile에 presentation sequence·timer·terminal frame·로그 CSS kind를 저장하지 않는다.
+- status 성공/실패를 event message 파싱으로 판별하거나 기존 RNG를 추가 소비하지 않는다.
+- 2초 전환을 위해 `BATTLE_WON`·정산 자체를 지연하거나 마지막 다이스가 없는 경로에 이전 다이스를 재사용하지 않는다.
+- event별 중간 HP replay, 범용 상태 DSL, 신규 animation library와 dependency를 추가하지 않는다.
+
+## 33. 탐사 통로 원근 경사·viewport 가림 구현 사양
+
+### 33.1 목표와 범위
+
+- 두 칸 앞 정면 벽이 막히고 좌·우 통로가 열렸을 때 통로 floor·ceiling 사선이 정면 벽 네 꼭지점에 정확히 이어지게 한다.
+- 탐사 시야 외곽 frame 밖의 좌표·던전명·이동 버튼 영역에 terrain·wall·background 픽셀이 노출되지 않게 가린다.
+- loaded terrain과 Graphics fallback에 같은 geometry를 적용한다.
+- 탐사 판정·map·에셋 파일·registry·이동 입력은 변경하지 않는다.
+
+### 33.2 변경·생성 대상
+
+| 파일 | 책임 |
+|---|---|
+| `src/phaser/explorationGeometry.ts` | frame·소실점·floor/ceiling polygon·viewport cover·depth의 순수 단일 원본 |
+| `src/phaser/ExplorationScene.ts` | geometry import, polygon mask·fallback, 외곽 cover와 outer frame 적용 |
+| `src/tests/explorationGeometry.test.ts` | 꼭지점·polygon·cover·depth 순수 회귀 |
+| `src/tests/exploration.test.ts` | 실제 map의 depth 1 양쪽 열린 통로·두 칸 앞 벽 판정 회귀 |
+| `changelog.md` | 실제 구현·검증 결과 기록 |
+
+수정하지 않는 파일·범위:
+
+- `src/assets/terrain/*.png`
+- `assets-source/terrain/*.mjs`
+- `src/phaser/assets/terrainAssets.ts`
+- `asset-catalog.md`, `asset-plan.md`, `changelog-assets.md`: 에셋 자체 변경이 없으므로 상태 갱신 불필요
+- `src/game/{content,exploration,gameEngine}.ts`
+- Phaser 640×360 scale 설정과 React/CSS game shell
+
+### 33.3 순수 geometry 모듈
+
+신규 `src/phaser/explorationGeometry.ts`는 Phaser·DOM·game state를 import하지 않는다.
+
+```ts
+export interface ScreenPoint {
+  x: number
+  y: number
+}
+
+export interface ScreenRect {
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
+export interface DepthFrame {
+  left: number
+  right: number
+  top: number
+  bottom: number
+}
+```
+
+승인 좌표:
+
+```ts
+export const LOGICAL_WIDTH = 640
+export const LOGICAL_HEIGHT = 360
+
+export const EXPLORATION_FRAMES: readonly DepthFrame[] = [
+  { left: 70, right: 570, top: 62, bottom: 258 },
+  { left: 166, right: 474, top: 92, bottom: 232 },
+  { left: 238, right: 402, top: 120, bottom: 207 },
+]
+
+export const VANISH_POINT = { x: 320, y: 172 } as const
+export const VANISH_FRAME: DepthFrame = { left: 284, right: 356, top: 148, bottom: 196 }
+export const EXPLORATION_VIEWPORT = EXPLORATION_FRAMES[0]
+```
+
+- 현재 `FRAMES`, `VANISH_FRAME`, `farEdgeFor`, `wallQuadPoints`를 이 모듈로 이동하고 이름만 위 계약에 맞춘다.
+- 함수는 입력 frame·point 배열을 정렬·변경하지 않는다.
+- 기존 front wall·side wall이 같은 frame object를 계속 참조하게 한다.
+
+### 33.4 ceiling·floor frame-chain polygon
+
+다음 point 배열을 export한다.
+
+```ts
+export const CEILING_POLYGON: readonly ScreenPoint[] = [
+  { x: 70, y: 62 },
+  { x: 570, y: 62 },
+  { x: 474, y: 92 },
+  { x: 402, y: 120 },
+  { x: 356, y: 148 },
+  { x: 320, y: 172 },
+  { x: 284, y: 148 },
+  { x: 238, y: 120 },
+  { x: 166, y: 92 },
+]
+
+export const FLOOR_POLYGON: readonly ScreenPoint[] = [
+  { x: 70, y: 258 },
+  { x: 166, y: 232 },
+  { x: 238, y: 207 },
+  { x: 284, y: 196 },
+  { x: 320, y: 172 },
+  { x: 356, y: 196 },
+  { x: 402, y: 207 },
+  { x: 474, y: 232 },
+  { x: 570, y: 258 },
+]
+```
+
+- 가능하면 숫자를 다시 중복 작성하지 않고 `EXPLORATION_FRAMES`, `VANISH_FRAME`, `VANISH_POINT`에서 배열을 생성해 frame 변경 시 함께 갱신되게 한다.
+- 생성 결과의 원본 순서와 위 승인 배열이 정확히 같아야 한다.
+- ceiling은 외곽 좌상단→좌우 상단→오른쪽 frame chain→소실점→왼쪽 frame chain 순서로 닫힌다.
+- floor는 외곽 좌하단→왼쪽 frame chain→소실점→오른쪽 frame chain→외곽 우하단 순서로 닫힌다.
+- `fillTriangle`을 남겨 두지 않고 texture mask와 fallback 모두 `fillPoints(points, true)`를 사용한다.
+
+### 33.5 TileSprite mask와 fallback 변경
+
+`ExplorationScene.setupTerrainLayers()`:
+
+```ts
+floorMaskShape
+  .fillStyle(0xffffff)
+  .fillPoints(FLOOR_POLYGON, true)
+
+ceilingMaskShape
+  .fillStyle(0xffffff)
+  .fillPoints(CEILING_POLYGON, true)
+```
+
+- floor TileSprite `(0,172,640,94)`와 ceiling TileSprite `(0,44,640,128)`의 bounds·origin·depth·tile position은 유지한다.
+- GeometryMask shape는 기존처럼 `maskShapes`에 넣어 Scene shutdown/destroy에서 정리한다.
+
+`drawWorld()` fallback:
+
+```ts
+bg.fillStyle(0x171321).fillRect(70, 62, 500, 196)
+if (!floorReady) bg.fillStyle(0x28213a).fillPoints(FLOOR_POLYGON, true)
+if (!ceilingReady) bg.fillStyle(0x100f19).fillPoints(CEILING_POLYGON, true)
+```
+
+- background wash도 `EXPLORATION_VIEWPORT`에서 width·height를 계산해 그린다.
+- loaded/fallback 어느 한쪽에만 삼각형 좌표가 남아 있으면 완료로 처리하지 않는다.
+
+### 33.6 viewport cover와 outer frame
+
+geometry 모듈에서 cover를 export한다.
+
+```ts
+export const VIEWPORT_COVERS: readonly ScreenRect[] = [
+  { x: 0, y: 0, width: 640, height: 62 },
+  { x: 0, y: 258, width: 640, height: 102 },
+  { x: 0, y: 62, width: 70, height: 196 },
+  { x: 570, y: 62, width: 70, height: 196 },
+]
+
+export const EXPLORATION_DEPTHS = {
+  viewportCover: 15,
+  outerFrame: 16,
+  marker: 20,
+  ui: 50,
+} as const
+```
+
+Scene `create()`에서 정적 Graphics 두 개를 만든다.
+
+```text
+viewportCover depth 15
+→ #0b0b13으로 VIEWPORT_COVERS 네 사각형 fill
+
+outerFrame depth 16
+→ #897a58, line width 3으로 EXPLORATION_VIEWPORT strokeRect
+```
+
+- cover·outerFrame은 매 이동마다 다시 만들지 않는다.
+- cover Graphics에는 `setInteractive`를 호출하지 않는다.
+- `drawWorld()`의 frame loop에서 depth 0 outer frame stroke는 제거하고 depth 1·2 내부 frame만 기존 shade로 그린다.
+- marker의 기존 depth 20과 UI depth 50은 상수로 교체하거나 최소한 상수와 동일한지 유지한다.
+- cover는 wall sprite 최대 depth 10보다 높고 marker보다 낮아야 한다.
+- camera background도 기존 `#0b0b13`을 유지해 cover와 색 경계가 나지 않게 한다.
+
+### 33.7 원근 판정·front wall 유지 조건
+
+- `depth`, `cx/cy`, `leftWall`, `rightWall`, `frontWall` 계산은 변경하지 않는다.
+- depth 1에서 front wall은 계속 `FRAMES[2]` footprint `(238,120)~(402,207)`만 사용한다.
+- 정면 벽을 현재 frame 전체 폭으로 다시 넓히지 않는다. 기존 열린 옆 통로 가림 결함이 재발한다.
+- side wall mask는 기존 `wallQuadPoints(frame, far, side)`를 그대로 사용하되 pure geometry 모듈에서 import한다.
+- depth 2의 `VANISH_FRAME` 정면 cap과 열린 통로 `DEEP_SHADE_ALPHA=0.72`를 유지한다.
+- 비밀문 발견으로 `isWall` 결과가 바뀌는 경로도 같은 polygon을 사용한다.
+
+### 33.8 자동 테스트
+
+신규 `explorationGeometry.test.ts`:
+
+1. 논리 canvas, 3개 frame, `VANISH_FRAME`, 소실점이 승인 좌표와 같다.
+2. `farEdgeFor(0/1/2)`가 각각 frame 1, frame 2, virtual frame을 반환한다.
+3. 좌·우 `wallQuadPoints`가 current/far frame의 네 꼭지점을 원본 순서로 반환한다.
+4. `CEILING_POLYGON`이 `(166,92)→(238,120)`과 `(474,92)→(402,120)` 선분을 포함한다.
+5. `FLOOR_POLYGON`이 `(166,232)→(238,207)`과 `(474,232)→(402,207)` 선분을 포함한다.
+6. 두 polygon이 depth 1 front wall 네 꼭지점을 정확히 포함하고 모든 점이 viewport bounds 안에 있다.
+7. `VIEWPORT_COVERS`가 승인 네 사각형과 같고 viewport의 엄격한 내부와 겹치지 않으며 canvas 바깥으로 나가지 않는다.
+8. `viewportCover < outerFrame < marker < ui`이고 wall 최대 depth 10보다 cover가 높다.
+9. geometry 함수 호출 전후 입력 frame·배열이 변경되지 않는다.
+
+`exploration.test.ts`:
+
+```ts
+expect(isWall('training_ruins', 3, 6, [])).toBe(true)
+expect(isWall('training_ruins', 4, 5, [])).toBe(false)
+expect(isWall('training_ruins', 2, 5, [])).toBe(false)
+```
+
+- 위 assertion에 `(3,4), south`가 depth 1에서 양쪽 열린 통로와 두 칸 앞 벽을 만드는 재현 설명을 붙인다.
+- 이동·encounter·비밀문 기존 테스트를 변경하지 않는다.
+- Phaser·canvas 테스트 library를 새로 추가하지 않는다.
+
+### 33.9 수동·브라우저 검증
+
+논리 640×360과 844×390 landscape에서 다음을 확인한다.
+
+1. 훈련 폐허 `(3,4), south`: 양쪽 열린 통로의 위 사선이 `(238,120)/(402,120)`, 아래 사선이 `(238,207)/(402,207)` 정면 벽 꼭지점에 닿는다.
+2. `(3,4), north`: 왼쪽 열린 통로와 두 칸 앞 벽 정합.
+3. `(5,4), south`, `(1,2), north`: 오른쪽 열린 통로가 정면 벽에 다시 가려지지 않는다.
+4. 정면 벽이 한 칸·두 칸·세 칸 앞일 때 각 frame 경계가 끊기지 않는다.
+5. depth 2가 열려 있을 때 virtual frame의 검은 음영이 유지된다.
+6. x<70, x>570, y<62, y>258 영역에 floor·ceiling·wall texture pixel이 없다.
+7. 위치·던전명·네 이동 버튼 사이 배경이 `#0b0b13`으로 균일하고 텍스트·버튼은 가려지지 않는다.
+8. 네 이동 버튼 pointer 입력, 좌표 갱신과 방향 회전이 정상이다.
+9. 일반·boss encounter marker, 함정 원, 비밀문 outline이 frame에서 잘리지 않는다.
+10. 7개 map terrain 모두에서 polygon seam·외곽 누출이 없고 fallback 강제 상태도 같은 형태다.
+11. Fullscreen 진입·종료 및 Android Chrome·iOS Safari landscape에서 내부 경계가 canvas scale과 함께 유지된다.
+
+화면 검증은 가능하면 고대비 terrain theme에서 viewport 외부 pixel을 확인하고, 기존 favicon 404 외 terrain load error·fallback warning이 없는지 console도 확인한다.
+
+### 33.10 구현 순서
+
+1. 기존 Scene geometry를 `explorationGeometry.ts`로 이동하고 순수 테스트를 추가한다.
+2. floor·ceiling loaded mask를 frame-chain `fillPoints`로 교체한다.
+3. background wash와 fallback polygon을 같은 geometry로 교체한다.
+4. viewport cover·outer frame depth를 추가하고 기존 depth 0 outer stroke를 제거한다.
+5. 실제 map 재현 판정 테스트를 추가한다.
+6. typecheck·관련 테스트 후 640×360 screenshot으로 양쪽/한쪽 통로와 외곽 가림을 검증한다.
+7. 전체 test·build와 844×390·Fullscreen·모바일 가로 회귀를 확인한다.
+8. 실제 변경·검증 결과를 `changelog.md`에 기록한다.
+
+### 33.11 완료 기준과 금지 범위
+
+- 두 칸 앞 벽과 열린 좌·우 통로의 네 원근 경계가 `FRAMES[2]` 꼭지점에 정확히 연결된다.
+- terrain 로딩 성공·fallback 양쪽이 같은 polygon을 사용한다.
+- 탐사 외곽 frame 밖에는 terrain·wall·background wash가 보이지 않고 좌표·던전명·버튼·marker는 유지된다.
+- 기존 side/front wall 판정, 비밀문, marker, 이동·회전 command와 탐사 저장 결과가 동일하다.
+- `npm run typecheck`, 전체 `npm run test`, `npm run build`가 성공한다.
+- Android Chrome·iOS Safari 가로 화면에서 외곽 누출·통로 정합·버튼 입력을 확인한다.
+- 특정 map·좌표만 대상으로 보정 polygon을 하드코딩하지 않는다.
+- 정면 벽을 현재 frame 전체 폭으로 확대하거나 side 통로에 가짜 벽을 추가하지 않는다.
+- CSS crop, DOM overlay 또는 canvas 크기 변경으로 Phaser 내부 geometry 문제를 우회하지 않는다.
+- terrain PNG·registry·생성 스크립트를 불필요하게 다시 만들지 않는다.
+- 신규 렌더·geometry·test library와 dependency를 추가하지 않는다.

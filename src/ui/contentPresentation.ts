@@ -1,6 +1,6 @@
-import { EQUIPMENT_DATA, ITEM_DATA, SKILLS } from '../game/content'
+import { CLASS_DATA, CUSTOM_SKILL_ALLOWED_CLASSES, EQUIPMENT_DATA, ITEM_DATA, SKILLS, type CustomSkillId } from '../game/content'
 import { getEquipmentDisplayName, getItemDisplayName, getSkillDisplayName } from '../game/displayNames'
-import type { EquipmentFamily, ItemId, PendingRewardEntry, Rarity } from '../game/types'
+import type { ClassId, EquipmentFamily, ItemId, PendingRewardEntry, Rarity } from '../game/types'
 
 export const CONTENT_ICON_KEYS = [
   'item_potion',
@@ -34,6 +34,8 @@ const RARITY_LABELS: Record<Rarity, string> = {
   heroic: '영웅',
   legendary: '전설',
 }
+
+const ALL_CLASS_IDS: readonly ClassId[] = ['warrior', 'rogue', 'archer', 'paladin', 'priest', 'mage']
 
 export const RARITY_CSS_TOKENS: Record<Rarity, string> = {
   common: '--rarity-common',
@@ -91,6 +93,13 @@ export function getSkillPresentation(skillId: string): ContentPresentation {
     rarity: 'neutral',
     rarityLabel: null,
   }
+}
+
+export function getCustomSkillAllowedClassLabel(skillId: string): string {
+  const allowed = CUSTOM_SKILL_ALLOWED_CLASSES[skillId as CustomSkillId]
+  if (!allowed) return '장착 직업 정보 없음'
+  if (ALL_CLASS_IDS.every((classId) => allowed.includes(classId))) return '공용'
+  return allowed.map((classId) => CLASS_DATA[classId].name).join(' · ')
 }
 
 export function getRewardPresentation(reward: PendingRewardEntry): ContentPresentation {

@@ -3,6 +3,7 @@ import { getQuestDisplayName, getSkillDisplayName } from '../game/displayNames'
 import { usedStorageSlots } from '../game/inventory'
 import { ContentIcon } from './ContentIcon'
 import { getRarityDisplayName, getRewardPresentation, getSkillPresentation } from './contentPresentation'
+import { FullscreenToggle } from './FullscreenToggle'
 
 export function ResultScreen({ state, dispatch }: { state: GameState; dispatch: (command: GameCommand) => void }) {
   const victory = state.result?.outcome === 'victory'
@@ -42,9 +43,8 @@ export function ResultScreen({ state, dispatch }: { state: GameState; dispatch: 
               ))}
               <p>{summary.unlockedQuestIds.length > 0 ? `${summary.unlockedQuestIds.map(getQuestDisplayName).join(' · ')} 해금` : '추가 퀘스트 해금 없음'}</p>
               {summary.unlockedRarities.length > 0 && (
-                <div className="rarity-unlock-list">
-                  <span>신규 장비 등급:</span>
-                  {summary.unlockedRarities.map((rarity) => <span className="rarity-badge" data-rarity={rarity} key={rarity}>{getRarityDisplayName(rarity)}</span>)}
+                <div className="shop-arrival-list">
+                  {summary.unlockedRarities.map((rarity) => <p className="shop-arrival-notice" data-rarity={rarity} key={rarity}>상점에 신규 [<strong className="content-name">{getRarityDisplayName(rarity)}</strong>]등급 장비가 입하 되었습니다.</p>)}
                 </div>
               )}
               {summary.questId === 'underground_dungeon_quest' && <p>만능 치료제가 상점에 추가되었습니다.</p>}
@@ -89,6 +89,7 @@ export function ResultScreen({ state, dispatch }: { state: GameState; dispatch: 
         ) : (
           <button className="primary" onClick={() => dispatch({ type: 'RETURN_TO_HUB' })}>거점으로</button>
         )}
+        <FullscreenToggle />
       </footer>
     </main>
   )

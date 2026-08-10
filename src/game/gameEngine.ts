@@ -6,14 +6,19 @@ import { consumeCharacterItem, equipCustomSkill, equipEquipment, moveItemToChara
 import { normalizeSeed } from './rng'
 import { confirmRewardSelection, createSecretRoomReward, setRewardSelection, settleAncientSite, settleDeepForestRuins, settleGoblinDen, settleOldCastle, settleTrainingRuins, settleUndergroundDungeon, settleVolcanicCave } from './rewards'
 import { buyEquipment, buyItem, buySkill, sellEquipment, sellItem, sellSkill } from './shop'
-import type { ExpeditionSession, GameCommand, GameEvent, GameState, ItemId, MainCharacterConfig, ProfileV2, QuestId } from './types'
+import type { ExpeditionSession, GameCommand, GameEvent, GameLogKind, GameState, ItemId, MainCharacterConfig, ProfileV2, QuestId } from './types'
 
 export type PersistenceRequest = 'none' | 'save_profile' | 'clear_profile'
+
+export interface BattlePresentationFrame {
+  session: ExpeditionSession
+}
 
 export interface EngineResult {
   state: GameState
   events: GameEvent[]
   persistence: PersistenceRequest
+  battlePresentation?: BattlePresentationFrame
 }
 
 export function createInitialGameState(profile: ProfileV2 | null = null): GameState {
@@ -51,7 +56,15 @@ export function createProfile(command: Extract<GameCommand, { type: 'CREATE_PROF
 
 function appendEvents(session: ExpeditionSession, events: GameEvent[]): ExpeditionSession {
   if (events.length === 0) return session
-  return { ...session, logs: [...session.logs, ...events.map((event) => event.message)].slice(-200) }
+  const kindFor = (event: GameEvent): GameLogKind => {
+    if (event.type === 'DAMAGE_APPLIED' || event.type === 'TRAP_TRIGGERED') return 'damage'
+    if (event.type === 'HEAL_APPLIED') return 'heal'
+    return 'default'
+  }
+  return {
+    ...session,
+    logs: [...session.logs, ...events.map((event) => ({ eventType: event.type, kind: kindFor(event), message: event.message }))].slice(-200),
+  }
 }
 
 function reject(state: GameState, command: GameCommand, message: string): EngineResult {
@@ -140,6 +153,7 @@ function applyCombatUpdate(state: GameState, command: GameCommand, update: Comba
     return { state, events: update.events, persistence: 'none' }
   }
   let session = appendEvents({ ...state.session, rngState: update.rngState, combat: update.combat }, update.events)
+  const battlePresentation = update.combat.outcome ? { session } : undefined
   if (update.combat.outcome === 'won') {
     const partyHp = new Map(update.combat.participants.filter((actor) => actor.side === 'party').map((actor) => [actor.id, actor.currentHp]))
     const completedEncounterIds = session.completedEncounterIds.includes(update.combat.battleId)
@@ -179,16 +193,17 @@ function applyCombatUpdate(state: GameState, command: GameCommand, update: Comba
         state: { ...state, screen: 'result', profile: settled.value.profile, session: null, result: { outcome: 'victory', gold: goldGranted, experience: experiencePerCharacter, settlement: settled.value.summary, rewardEntries: settled.value.rewards } },
         events: settlementEvents,
         persistence: 'save_profile',
+        battlePresentation,
       }
     }
     const events = [...update.events, { type: 'SCREEN_CHANGED' as const, message: '탐사로 돌아왔다.' }]
-    return { state: { ...state, screen: 'exploration', session }, events, persistence: 'none' }
+    return { state: { ...state, screen: 'exploration', session }, events, persistence: 'none', battlePresentation }
   }
   if (update.combat.outcome === 'lost') {
     const partyHp = new Map(update.combat.participants.filter((actor) => actor.side === 'party').map((actor) => [actor.id, actor.currentHp]))
     session = { ...session, party: session.party.map((actor) => ({ ...actor, currentHp: Math.min(actor.maxHp, partyHp.get(actor.id) ?? actor.currentHp) })) }
     const events = [...update.events, { type: 'SCREEN_CHANGED' as const, message: '원정이 끝났다.' }]
-    return { state: { ...state, screen: 'result', session, result: { outcome: 'defeat', gold: 0, experience: 0 } }, events, persistence: 'none' }
+    return { state: { ...state, screen: 'result', session, result: { outcome: 'defeat', gold: 0, experience: 0 } }, events, persistence: 'none', battlePresentation }
   }
   return { state: { ...state, session }, events: update.events, persistence: 'none' }
 }
@@ -356,8 +371,12 @@ export function reduceGame(state: GameState, command: GameCommand): EngineResult
     }
     if (moved.encounterStarted && moved.encounterId) {
       const battle = startCombat(session.party, createEncounterEnemies(moved.encounterId), session.rngState, moved.encounterId)
-      session = appendEvents({ ...session, combat: battle.combat, rngState: battle.rngState }, battle.events)
-      return { state: { ...state, screen: 'battle', session }, events: [...emittedEvents, ...battle.events], persistence }
+      const applied = applyCombatUpdate({ ...state, screen: 'battle', session }, command, battle)
+      return {
+        ...applied,
+        events: [...emittedEvents, ...applied.events],
+        persistence: applied.persistence === 'none' ? persistence : applied.persistence,
+      }
     }
     return { state: { ...state, session }, events: emittedEvents, persistence }
   }

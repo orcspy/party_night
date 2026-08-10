@@ -41,7 +41,7 @@ export function GameHud({ state }: { state: GameState }) {
       })}</section>}
       <section className="log-box" aria-label="게임 로그">
         <h2>LOG</h2>
-        <div className="log-viewport" ref={logViewport} onScroll={(event) => { const element = event.currentTarget; followLatest.current = element.scrollHeight - element.scrollTop - element.clientHeight <= 16 }}>{session.logs.map((log, index) => <p key={`${index}-${log}`}>{log}</p>)}</div>
+        <div className="log-viewport" ref={logViewport} onScroll={(event) => { const element = event.currentTarget; followLatest.current = element.scrollHeight - element.scrollTop - element.clientHeight <= 16 }}>{session.logs.map((log, index) => <p data-kind={log.kind} key={`${index}-${log.eventType}-${log.message}`}>{log.message}</p>)}</div>
       </section>
     </>
   )
