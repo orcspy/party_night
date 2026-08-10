@@ -11,14 +11,14 @@ const GROWTH_BY_CLASS: Record<ClassId, AttributeGrowth[]> = {
   mage: [[0,0,1,0,1,0],[0,0,1,0,0,1],[0,0,1,1,0,0],[0,0,1,0,1,0],[0,0,1,1,0,0],[0,0,1,0,1,0],[0,0,1,0,0,1],[0,0,1,1,0,0],[0,1,0,0,1,0]].map(growth),
 }
 
-const CLASS_SKILLS: Record<ClassId, [string, string, string]> = {
+export const CLASS_SKILL_IDS = {
   warrior: ['power_strike', 'taunt', 'ability_reinforcement'],
   rogue: ['quick_stab', 'seek_trap', 'wound_break'],
   archer: ['aimed_shot', 'find_leak', 'head_shot'],
   paladin: ['holy_strike', 'protection_pledge', 'sacred_rage'],
   priest: ['heal', 'smite', 'celestial_shroud'],
   mage: ['arcane_bolt', 'lightning_bolt', 'fire_ball'],
-}
+} as const satisfies Record<ClassId, readonly [string, string, string]>
 
 function growth(values: number[]): AttributeGrowth {
   return { str: values[0], dex: values[1], int: values[2], con: values[3], agi: values[4], luck: values[5] }
@@ -42,7 +42,7 @@ export function expectedGrowth(classId: ClassId, level: number): AttributeGrowth
 }
 
 export function getUnlockedClassSkillIds(classId: ClassId, level: number): string[] {
-  const skills = CLASS_SKILLS[classId]
+  const skills = CLASS_SKILL_IDS[classId]
   return [skills[0], ...(level >= 2 ? [skills[1]] : []), ...(level >= 5 ? [skills[2]] : [])]
 }
 

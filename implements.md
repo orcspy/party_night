@@ -3735,3 +3735,567 @@ Android Chrome과 iOS Safari의 640×360·844×390 가로 화면에서 확인한
 - `THIRD_PARTY_NOTICES.md`를 data URI·JS 문자열·bundle 주석만으로 대체하거나 production output에서 누락하지 않는다.
 - 최종 notice의 MIT/ISC copyright·permission text를 번역·요약·재작성하거나 서로 다른 copyright를 통합하지 않는다.
 - 동의 체크·강제 표시·외부 페이지·설정 화면 확장·공용 modal framework·신규 dependency를 추가하지 않는다.
+
+## 35. 결과 해금 문구·스킬 직업군·전체 스킬 정보 구현 사양
+
+### 35.1 목표와 License 영향 경계
+
+- 결과 화면의 `신규 스킬`을 `신규 직업 스킬`, `신규 커스텀 슬롯`을 `신규 커스텀 스킬 슬롯`으로 변경한다.
+- 스킬 판매 행의 instance 설명을 실제 사용 가능 직업군으로 교체한다.
+- 상점 category 오른쪽에 조건 없이 열리는 `스킬 정보`를 추가하고 플레이어 스킬 32개의 9열 표를 제공한다.
+- 구현은 기존 React·TypeScript·CSS와 현재 content만 사용한다. package·lockfile·asset·registry·runtime dependency를 변경하지 않으므로 확정 License 4문서와 배포 notice를 갱신하지 않는다.
+
+### 35.2 변경·생성 대상
+
+| 파일 | 책임 |
+|---|---|
+| `src/ui/ResultScreen.tsx` | 직업 스킬·커스텀 스킬 슬롯 label 변경 |
+| `src/ui/ShopPanel.tsx` | category 확장, 판매 스킬 직업군 문구, 무조건 접근 info 화면 분기 |
+| `src/ui/SkillInfoTable.tsx` | 9열 semantic table과 행 렌더 |
+| `src/game/characters.ts` | 직업 스킬 tuple을 `CLASS_SKILL_IDS`로 export하고 기존 해금 함수가 재사용 |
+| `src/game/skillInfo.ts` | 플레이어 스킬 32개 metadata·effect note·정렬·표시 행의 순수 단일 원본 |
+| `src/ui/contentPresentation.ts` | 기존 `getCustomSkillAllowedClassLabel` 재사용; 필요한 경우 class label 공통 helper만 최소 확장 |
+| `src/styles.css` | 4개 category, skill table scroll·sticky·열 폭·모바일 touch 규칙 |
+| `src/tests/skillInfo.test.ts` | 행 완전성·순서·표시값·raw effect_note 대조·불변성 |
+| `src/tests/assets.test.ts` | 판매 직업군 helper 기존 회귀 유지 또는 대표 multi/public assertion 보강 |
+| `changelog.md` | 실제 구현·검증 및 License 비변경 결과 기록 |
+
+수정하지 않는 범위:
+
+- `package.json`, `package-lock.json`, License 4문서, asset·registry
+- `src/game/combat.ts`, `gameEngine.ts`, `inventory.ts`, `shop.ts`, save/profile schema
+- 스킬 수치·효과·RNG·상태·쿨다운 판정·가격·offer 생성·instance 생성
+- `raw_data_table.md`: effect note 기준으로 읽기만 함
+
+### 35.3 결과 화면 문구
+
+`ResultScreen` 캐릭터 성장 행의 label을 다음처럼 변경한다.
+
+```text
+현재: 신규 스킬 {목록 또는 없음}
+목표: 신규 직업 스킬 {목록 또는 없음}
+
+현재: 신규 커스텀 슬롯 {번호 또는 없음}
+목표: 신규 커스텀 스킬 슬롯 {번호 또는 없음}
+```
+
+- `unlockedClassSkillIds`가 비면 접근 가능한 결합 text가 정확히 `신규 직업 스킬 없음`이어야 한다.
+- 값이 있으면 기존 skill icon·한글 이름 목록을 유지하고 label만 `신규 직업 스킬`로 변경한다.
+- `unlockedCustomSlotIndices`가 비면 `신규 커스텀 스킬 슬롯 없음`, 값이 있으면 기존처럼 1-based 번호를 쉼표로 표시한다.
+- 성장·EXP·해금 데이터와 settlement type은 변경하지 않는다.
+
+### 35.4 스킬 상점 사용 가능 직업군
+
+skill 판매 category의 `<small>` 문구:
+
+```tsx
+G {skillPrice} · 사용 가능 직업: {getCustomSkillAllowedClassLabel(skillId)}
+```
+
+- `first_aid` 등 전 직업 허용 skill은 `사용 가능 직업: 공용`이다.
+- `cutlery_expert`는 `전사`, `neurotoxin`은 `도적`, `sacrifice`는 `성기사`, `breathing_control`은 `궁수`, `bless`는 `사제`, `sleep`은 `마법사`다.
+- 내부 `skillId`, `skillInstanceId`와 `구매 시 고유 인스턴스 생성` 문구를 노출하지 않는다.
+- `BUY_SKILL`, 가격·골드·창고 full disable과 구매 후 instance 생성 로직은 그대로 유지한다.
+
+### 35.5 플레이어 스킬 정보 데이터
+
+`characters.ts`:
+
+```ts
+export const CLASS_SKILL_IDS: Record<ClassId, readonly [string, string, string]> = {
+  warrior: ['power_strike', 'taunt', 'ability_reinforcement'],
+  rogue: ['quick_stab', 'seek_trap', 'wound_break'],
+  archer: ['aimed_shot', 'find_leak', 'head_shot'],
+  paladin: ['holy_strike', 'protection_pledge', 'sacred_rage'],
+  priest: ['heal', 'smite', 'celestial_shroud'],
+  mage: ['arcane_bolt', 'lightning_bolt', 'fire_ball'],
+}
+```
+
+- 기존 `getUnlockedClassSkillIds`가 같은 export를 사용한다. 배열·해금 순서와 반환 결과는 바꾸지 않는다.
+
+`skillInfo.ts` 공개 계약:
+
+```ts
+export const SKILL_INFO_CLASS_ORDER = ['warrior', 'paladin', 'rogue', 'archer', 'priest', 'mage'] as const
+
+export interface PlayerSkillInfoRow {
+  skillId: string
+  name: string
+  classLabel: string
+  classificationLabel: '액티브' | '패시브'
+  unlockLevel: number
+  targetLabel: string
+  diceLabel: string
+  fixedModifierLabel: string
+  cooldownLabel: string
+  effectNote: string
+}
+
+export function getPlayerSkillInfoRows(): readonly PlayerSkillInfoRow[]
+```
+
+플레이어 집합:
+
+```text
+직업 18 = CLASS_SKILL_IDS의 합집합
+커스텀 13 = CUSTOM_SKILL_DATA의 전체 key
+공용 기본 1 = basic_attack
+총 32, 중복 0
+```
+
+- `SKILLS` 전체를 열거하지 않는다. 적 전용 9종이 섞이기 때문이다.
+- `PLAYER_SKILL_EFFECT_NOTES`는 위 32개 key를 모두 가지며 `raw_data_table.md` 7.2·7.3 `effect_note`를 문구 그대로 복사한다.
+- production module은 `raw_data_table.md`를 import하지 않는다. test만 `?raw`로 읽어 map과 대조한다.
+- 반환 행은 새 배열·새 객체이며 `SKILLS`, class tuple, allowed classes와 effect map을 정렬·수정하지 않는다.
+
+### 35.6 표시값 변환
+
+```ts
+const CLASS_UNLOCK_LEVELS = [1, 2, 5] as const
+const CUSTOM_UNLOCK_LEVEL = 3
+```
+
+classification:
+
+```text
+active  → 액티브
+passive → 패시브
+```
+
+- 직업/커스텀/기본 구분은 정렬 metadata로만 유지하고 사용자가 요청하지 않은 추가 열을 만들지 않는다.
+
+target:
+
+```text
+single_enemy → 적 1명
+all_enemies  → 모든 적
+single_ally  → 아군 1명
+self         → 자신
+protection_pledge override → 모든 아군
+```
+
+수치:
+
+```text
+diceCount 0       → 없음
+diceCount N       → Nd6
+fixedModifier > 0 → +N
+fixedModifier = 0 → 0
+fixedModifier < 0 → -N
+cooldown N        → N라운드
+unlimited         → 없음
+once_per_battle   → 전투당 1회
+```
+
+- skill 이름, activation, target, dice, fixed modifier, cooldown은 현재 `SKILLS`를 기준으로 한다.
+- effect 열만 사용자가 지정한 raw `effect_note`를 그대로 사용한다.
+- custom unlock은 raw 7.3의 과거 Lv5가 아니라 현재 승인·실행 규칙인 Lv3이다.
+
+### 35.7 고정 정렬
+
+정확한 row ID 순서:
+
+```text
+power_strike
+taunt
+ability_reinforcement
+cutlery_expert
+club_expert
+
+holy_strike
+protection_pledge
+sacred_rage
+sacrifice
+
+quick_stab
+seek_trap
+wound_break
+neurotoxin
+
+aimed_shot
+find_leak
+head_shot
+breathing_control
+
+heal
+smite
+celestial_shroud
+bless
+
+arcane_bolt
+lightning_bolt
+fire_ball
+sleep
+
+basic_attack
+first_aid
+spell_boost
+str_reinforcement
+goblin_killer
+kobold_killer
+bone_crusher
+```
+
+- 각 직업은 직업 skill Lv1·2·5 다음 해당 직업 custom skill 순서다.
+- 마지막 공용 7종은 기본 공격 먼저, 전 직업 허용 custom skill은 raw 7.3 순서다.
+- `classLabel`은 각 직업 group에서 한글 직업명, 마지막 group은 `공용`이다.
+- row는 총 32개이며 같은 custom skill을 여러 직업 group에 중복 표시하지 않는다.
+
+### 35.8 상점 category와 무조건 접근
+
+```ts
+type ShopCategory = 'equipment' | 'item' | 'skill' | 'skill_info'
+```
+
+button 순서:
+
+```text
+장비 → 아이템 → 스킬 → 스킬 정보
+```
+
+- `스킬 정보` button에는 `disabled`를 두지 않는다.
+- skill offer가 0이어도 `스킬` button만 기존처럼 disabled이고 `스킬 정보`는 열린다.
+- profile level, quest completion, shop rarity, skill offer, gold, storage capacity와 관계없이 32행 전체를 표시한다.
+- info category에서는 창고 full 구매 경고, 구매 수량, 구매 버튼과 소비 아이템 안내 footer를 숨기고 설명용 표만 표시한다.
+- category 변경은 local UI state이며 game command·persistence를 발생시키지 않는다.
+
+### 35.9 표 DOM·CSS
+
+`SkillInfoTable`:
+
+```tsx
+<div className="skill-info-viewport" role="region" aria-label="전체 스킬 정보" tabIndex={0}>
+  <table className="skill-info-table">
+    <thead>
+      <tr>
+        <th>스킬 이름</th>
+        <th>직업 구분</th>
+        <th>분류</th>
+        <th>해금 레벨</th>
+        <th>대상</th>
+        <th>다이스</th>
+        <th>고정 보정</th>
+        <th>쿨타임</th>
+        <th>효과</th>
+      </tr>
+    </thead>
+    <tbody>{/* 32 rows */}</tbody>
+  </table>
+</div>
+```
+
+CSS 기준:
+
+- `.category-buttons`는 4개 button이 좁은 landscape에서도 wrap되며 각 button 최소 높이 38px를 유지한다.
+- viewport는 `max-width:100%`, `overflow:auto`, `overscroll-behavior:contain`, `-webkit-overflow-scrolling:touch`, `touch-action:pan-x pan-y`다.
+- table은 `border-collapse:collapse`, `min-width` 약 1100~1200px로 열 내용을 과도하게 줄바꿈하지 않는다.
+- `<th>`는 `position:sticky; top:0`, 첫 번째 `<th>/<td>`는 `position:sticky; left:0`으로 긴 표에서 이름 기준을 유지한다. 교차 header의 z-index·background를 별도로 지정한다.
+- effect 열은 최소 320px, 나머지는 내용별 최소 폭을 두고 `effectNote`는 정상 줄바꿈한다.
+- 색상만으로 직업·분류를 구분하지 않고 모든 값은 text로 표시한다.
+
+### 35.10 자동 테스트
+
+신규 `skillInfo.test.ts`:
+
+1. 결과가 32행이고 모든 `skillId`가 유일하다.
+2. ID 순서가 35.7 승인 배열과 정확히 같다.
+3. 직업 group은 전사·성기사·도적·궁수·사제·마법사, 마지막 7행은 `공용`이다.
+4. 직업 skill unlock은 각 group에서 Lv1·2·5, 모든 custom skill은 Lv3, basic attack은 Lv1이다.
+5. active/passive가 각각 `액티브`·`패시브`로 표시되고 직업/custom/basic 정렬 metadata가 행 순서에만 반영된다.
+6. target·dice·fixed·cooldown label 대표값: taunt, protection pledge, find leak, heal, fire ball, first aid, passive.
+7. raw Markdown 7.2·7.3 표를 test에서만 파싱해 32개 effectNote key·문구와 정확히 일치한다.
+8. `SKILLS`의 적 전용 9종이 없고 class/custom/basic 합집합에서 누락이 없다.
+9. 공용 allowed class 6개, 단일 직업 custom 7개의 class label이 정확하다.
+10. 호출 전후 `SKILLS`, `CLASS_SKILL_IDS`, `CUSTOM_SKILL_DATA`, `CUSTOM_SKILL_ALLOWED_CLASSES`, effect map JSON이 같다.
+
+기존 `assets.test.ts`:
+
+- `getCustomSkillAllowedClassLabel`의 `공용`, 전사, 마법사, unknown 회귀를 유지한다.
+- 필요한 경우 6개 단일 직업 제한 custom을 모두 한글 직업명으로 assertion한다.
+
+UI library를 추가하지 않는다. 정확한 결과 문구·category enable·table header·scroll은 browser에서 확인한다.
+
+### 35.11 수동 검증
+
+1. 퀘스트 완료 시 해금 없음 캐릭터가 `신규 직업 스킬 없음`, `신규 커스텀 스킬 슬롯 없음`으로 보인다.
+2. Lv2·Lv5 직업 스킬 해금과 Lv3·7·10 slot 해금에서는 변경 label 뒤 기존 아이콘·이름·번호가 유지된다.
+3. 스킬 판매 행에서 고유 instance 문구가 사라지고 각 offer가 `공용` 또는 정확한 직업명을 보인다.
+4. skill offer 0개·창고 full·골드 0·초기/후반 profile 모두 `스킬 정보` button을 누를 수 있다.
+5. 표 header 9개와 32행, 고정 정렬, 공용 마지막 group이 정확하다.
+6. 640×360·844×390 Android Chrome과 iOS Safari에서 가로·세로 scroll, sticky header·첫 열, category wrap과 back navigation이 정상이다.
+7. info 확인 중 game command·profile save·shop offer·gold·storage가 바뀌지 않는다.
+8. License modal·notice 파일·License 문서 내용과 production network request가 변경되지 않는다.
+
+### 35.12 구현 순서
+
+1. `CLASS_SKILL_IDS`를 export하고 기존 character 테스트로 해금 회귀를 확인한다.
+2. `skillInfo.ts` effect map·metadata·32행 builder와 raw table 대조 테스트를 구현한다.
+3. ResultScreen 두 label을 변경한다.
+4. skill 판매 문구를 기존 allowed-class helper에 연결한다.
+5. `SkillInfoTable`과 `skill_info` category를 추가하고 무조건 접근 경계를 적용한다.
+6. table·category responsive CSS를 추가한다.
+7. typecheck·관련 테스트·전체 test·build를 실행한다.
+8. 모바일 가로에서 결과 문구·offer 직업군·32행 표·scroll을 수동 검증한다.
+9. License 문서·package·asset이 변경되지 않았음을 확인하고 실제 결과를 changelog에 기록한다.
+
+### 35.13 완료 기준과 금지 범위
+
+- 결과 화면의 두 label과 없음 문구가 사용자 지정 표현과 정확히 같다.
+- 판매 skill마다 가격과 사용 가능 직업군이 보이고 instance 내부 설명은 없다.
+- `스킬 정보`는 모든 거점 profile 상태에서 enabled이며 플레이어 32개 스킬 전체를 지정 순서·9열로 표시한다.
+- effect 열은 raw 7.2·7.3 effect_note와 일치하고 구조 수치는 현재 `SKILLS`·해금 규칙과 일치한다.
+- 적 스킬·내부 ID·instance·개발용 metadata가 표에 노출되지 않는다.
+- 기존 구매·해금·전투·profile·RNG 결과가 바뀌지 않는다.
+- 신규 package·asset을 추가하거나 License 4문서·lockfile을 변경하지 않는다.
+- `npm run typecheck`, 전체 `npm run test`, `npm run build`가 성공한다.
+- 9열 요구를 card 목록으로 바꾸거나 공용 custom skill을 직업마다 중복 표시하지 않는다.
+- `raw_data_table.md` 전체를 production bundle에 import하거나 effect note를 JSX에 분산 복제하지 않는다.
+
+## 36. 스킬 정보 표 폭·장비 보너스·아이템 효과 설명 수정 사양
+
+### 36.1 목표와 변경 범위
+
+- 신경독의 스킬 정보 effect note를 사용자 최종 문구로 교체한다.
+- 스킬 표 header·숫자 표시·열 폭을 축소하고 9열 전체를 현재 viewport 가로 폭 안에 맞춘다.
+- 장비 판매 행의 가능 문구를 양수 장착 보너스로 교체한다.
+- 아이템 판매 행의 합계 가격을 실제 effect 설명으로 교체한다.
+- 스킬·아이템 효과 판정, 장비 modifier 값, 가격·수량·구매·장착·저장 규칙은 변경하지 않는다.
+- 이 36절은 35.6의 cooldown label, 35.9의 가로 scroll table, 35.10·35.13의 32개 raw exact 조건 중 해당 부분을 대체한다. 나머지 32행 범위·정렬·무조건 접근 조건은 유지한다.
+
+License 영향은 없다. 기존 React·TypeScript·CSS와 현재 content data만 사용하며 package·lockfile·asset·registry·License 4문서는 수정하지 않는다.
+
+### 36.2 변경 대상
+
+| 파일 | 변경 책임 |
+|---|---|
+| `src/game/skillInfo.ts` | 신경독 override, numeric cooldown row contract |
+| `src/ui/SkillInfoTable.tsx` | 축약 header, 숫자-only Lv/cooldown, colgroup |
+| `src/ui/contentPresentation.ts` | 양수 장비 modifier와 아이템 effect 설명 helper |
+| `src/ui/ShopPanel.tsx` | 장비 bonus·불가 warning, 아이템 효과 문구 연결 |
+| `src/styles.css` | table fixed layout·100% 열 비율·wrap·세로 scroll, 장착 불가 inline 강조색 |
+| `src/tests/skillInfo.test.ts` | 신경독 override, 숫자 cooldown 계약 |
+| `src/tests/assets.test.ts` | 장비 modifier·아이템 effect presentation helper 검증 |
+| `changelog.md` | 실제 구현·검증 결과 기록 |
+
+수정 금지 범위:
+
+- `raw_data_table.md`, `SKILLS`, `EQUIPMENT_DATA`, `ITEM_DATA`의 실행 수치
+- combat·inventory·shop command·profile schema
+- License 문서·package·lockfile·asset
+
+### 36.3 스킬 정보 row 계약
+
+`PlayerSkillInfoRow`의 cooldown 표시 field를 숫자로 바꾼다.
+
+```ts
+interface PlayerSkillInfoRow {
+  skillId: PlayerSkillInfoId
+  name: string
+  classLabel: string
+  classificationLabel: '액티브' | '패시브'
+  unlockLevel: number
+  targetLabel: string
+  diceLabel: string
+  fixedModifierLabel: string
+  cooldownRounds: number
+  effectNote: string
+}
+```
+
+변환 규칙:
+
+```text
+useLimit cooldown N → cooldownRounds N
+useLimit unlimited  → cooldownRounds 0
+```
+
+- 현재 32개에 없는 `once_per_battle`은 `1`로 변환하지 않는다. 해당 값이 player 집합에 들어오면 명시적 오류 또는 exhaustive assertion으로 test에서 드러나야 한다.
+- `unlockLevel`과 `cooldownRounds`는 component에서 prefix·suffix 없이 각각 숫자만 렌더한다.
+- `diceLabel`은 기존 `Nd6`/`없음`, `fixedModifierLabel`은 `+N`/`0`/`-N`을 유지한다.
+
+신경독:
+
+```ts
+neurotoxin: '100% 확률로 적 신경독 중독(대상의 전투 agi 50% down 중복 불가)+출혈'
+```
+
+- raw Markdown은 수정하지 않는다.
+- raw exact 검증 loop에서 `neurotoxin`을 제외하고, 별도 assertion으로 위 문자열을 검사한다.
+- raw의 기존 신경독 문자열이 사용자 override로 잘못 되돌아오지 않는 것도 assertion한다.
+
+### 36.4 table DOM
+
+header:
+
+```text
+스킬 이름 | 직업 | 분류 | Lv | 대상 | 다이스 | 보정 | 쿨타임 | 효과
+```
+
+cell:
+
+```tsx
+<td>{row.unlockLevel}</td>
+<td>{row.cooldownRounds}</td>
+```
+
+table에 다음 colgroup을 둔다.
+
+```tsx
+<colgroup>
+  <col className="skill-info-col-name" />
+  <col className="skill-info-col-class" />
+  <col className="skill-info-col-classification" />
+  <col className="skill-info-col-level" />
+  <col className="skill-info-col-target" />
+  <col className="skill-info-col-dice" />
+  <col className="skill-info-col-modifier" />
+  <col className="skill-info-col-cooldown" />
+  <col className="skill-info-col-effect" />
+</colgroup>
+```
+
+열 비율:
+
+```text
+name 14% | class 7% | classification 8% | level 5% | target 10%
+dice 7% | modifier 7% | cooldown 7% | effect 35%
+```
+
+합계는 정확히 100%다.
+
+### 36.5 table CSS
+
+```css
+.skill-info-viewport {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+  touch-action: pan-y;
+}
+
+.skill-info-table {
+  width: 100%;
+  min-width: 0;
+  table-layout: fixed;
+}
+```
+
+- 기존 `min-width:1160px`, 열별 70~340px minimum, first-column sticky와 `pan-x`를 제거한다.
+- header sticky는 유지한다.
+- 기본 cell은 `white-space:normal; overflow-wrap:anywhere`; level·dice·modifier·cooldown은 중앙 정렬한다.
+- level·cooldown cell만 `white-space:nowrap`을 적용한다.
+- cell padding은 4~5px 범위로 줄인다. font는 현재 10px를 우선 유지하되 640×360에서 overflow가 확인될 때만 9px까지 줄인다.
+- effect text는 축약하지 않고 wrap한다. ellipsis·가로 scroll·card 변환을 사용하지 않는다.
+
+### 36.6 장비 modifier presentation
+
+`contentPresentation.ts`에 다음 순수 helper를 둔다.
+
+```ts
+export function getPositiveEquipmentModifierLabels(equipmentId: string): readonly string[]
+```
+
+- 순서는 `str,dex,int,con,agi,luck`으로 고정한다.
+- `EQUIPMENT_DATA[equipmentId].modifiers[key] > 0`만 `{key} + {value}`로 반환한다.
+- 0·음수는 반환하지 않는다. unknown ID는 빈 배열이다.
+- 입력 definition을 수정하지 않고 호출마다 새 배열을 반환한다.
+
+장비 행:
+
+```tsx
+const modifierLabels = getPositiveEquipmentModifierLabels(equipmentId)
+
+{rarity} · G {buyPrice} · {slot}
+{modifierLabels.map((label) => <> · {label}</>)}
+{!compatible && <> · <span className="equipment-compatibility-warning">현재 파티 장착 불가</span></>}
+```
+
+- `파티 장착 가능`은 어떤 장비에도 표시하지 않는다.
+- 후속 사용자 확정에 따라 문구는 `현재 선택된 파티원 장착 불가`로 바꾸지 않고 `현재 파티 장착 불가`를 유지한다. `compatible`도 현재처럼 파티 전체 character 중 허용 class가 하나라도 있는지 판정한다.
+- `.equipment-compatibility-warning`은 기존 `.warning` 계열과 같은 `color:#e4a56f` 및 `font-weight:700`을 적용한다. 경고 phrase 외 rarity·가격·slot·modifier에는 적용하지 않는다.
+- 현재 45개 장비는 양수 modifier가 하나 이상이므로 빈 보너스 문구가 발생하지 않는다. 미래 all-zero 장비에는 임의의 `보너스 없음`을 추가하지 않고 modifier segment를 생략한다.
+
+### 36.7 아이템 effect presentation
+
+`contentPresentation.ts`:
+
+```ts
+const ITEM_EFFECT_DESCRIPTIONS: Record<ItemData['effect'], string> = {
+  heal_10: '아군 1명 HP 10 회복',
+  skill_cost: '응급 치료 사용 비용',
+  remove_one: '출혈·신경독·마비·수면·능력 감소 중 하나 제거',
+  damage_10: '적 1명 DEF 무시 피해 10',
+  survey: '현재·인접 칸 함정·비밀문 1회 탐지',
+  heal_22: '아군 1명 HP 22 회복',
+  buff_str: '3라운드 STR +2',
+  buff_agi: '3라운드 AGI +2',
+  remove_all: '제거 가능 상태·능력 감소 전부 제거',
+}
+
+export function getItemEffectDescription(itemId: string): string
+```
+
+- known item은 definition.effect의 map 값을 반환한다.
+- unknown item은 `효과 정보 없음`을 반환한다.
+- map은 `Record<ItemData['effect'], string>`으로 effect union 추가 시 typecheck가 누락을 잡게 한다.
+
+아이템 판매 행:
+
+```tsx
+<small>개당 G {definition.buyPrice} · {getItemEffectDescription(itemId)}</small>
+```
+
+- `합계 G` text만 제거한다.
+- `quantity`, 구매 button disable과 `BUY_ITEM` command에는 계속 `buyPrice * quantity`를 사용한다.
+
+### 36.8 자동 검증
+
+`skillInfo.test.ts`:
+
+1. 32개 ID·순서·직업·해금 level 불변성을 유지한다.
+2. cooldown skill은 `2`, `4`, `5`, unlimited skill은 `0`을 반환한다.
+3. 모든 `cooldownRounds`는 0 이상의 정수다.
+4. Lv는 기존 number field를 유지하고 component가 prefix를 붙이지 않는지 수동/정적 확인한다.
+5. raw exact 대조는 31개를 통과한다.
+6. 신경독은 사용자 override 문자열과 정확히 같고 raw의 기존 문구와 다르다.
+
+`assets.test.ts` 또는 별도 presentation test:
+
+1. common sword는 `['str + 1']`, uncommon sword는 `['str + 2','dex + 1']`이다.
+2. 45개 장비 label에 `+ 0`·음수가 없고 source modifier를 변경하지 않는다.
+3. 9개 item ID가 36.7의 정확한 설명을 반환한다.
+4. unknown equipment는 빈 배열, unknown item은 `효과 정보 없음`이다.
+5. helper 호출 전후 `EQUIPMENT_DATA`, `ITEM_DATA`가 같다.
+
+### 36.9 수동 검증
+
+1. header가 `스킬 이름 | 직업 | 분류 | Lv | 대상 | 다이스 | 보정 | 쿨타임 | 효과`로 보인다.
+2. Lv cell은 숫자만, cooldown은 round 수 또는 `0`만 보인다.
+3. 신경독 효과 문구 앞·뒤의 `누적 가능` 표현이 제거됐다.
+4. 640×360·844×390 landscape에서 table 오른쪽이 viewport를 넘지 않고 가로 scroll이 생기지 않는다.
+5. 긴 효과는 cell 안에서 wrap되고 세로 scroll·sticky header가 동작한다.
+6. 장비 45개에서 `파티 장착 가능`이 없고 양수 modifier만 소문자 key 형식으로 보인다. incompatible 장비는 기존 `현재 파티 장착 불가` 문구만 경고색·굵은 글꼴로 보이고 다른 정보는 기존 색상을 유지한다.
+7. 아이템 9개에 단가와 실제 효과가 보이고 합계 text는 없다.
+8. 수량을 바꾸면 표시 합계는 없지만 실제 구매 금액·gold disable·구매 수량은 기존대로 적용된다.
+
+### 36.10 구현 순서와 완료 기준
+
+1. `skillInfo.ts`의 신경독 note와 numeric cooldown contract를 변경하고 관련 test를 먼저 갱신한다.
+2. table header·cell·colgroup을 변경한다.
+3. fixed 100% table CSS와 wrapping을 적용한다.
+4. 장비 positive modifier helper와 test를 추가하고 ShopPanel에 연결한다.
+5. item effect description map/helper와 test를 추가하고 합계 text를 교체한다.
+6. `npm run typecheck`, 관련 test, 전체 `npm run test`, `npm run build`를 실행한다.
+7. 두 landscape viewport에서 table 폭과 상점 문구를 수동 검증한다.
+
+완료 조건:
+
+- 신경독 문구와 9개 header가 사용자 최종 표현과 정확히 같다.
+- Lv·cooldown은 숫자만 표시되고 unlimited는 `0`이다.
+- table은 9열을 유지하면서 viewport 가로 폭 100% 안에 있고 가로 scroll이 없다.
+- 장비는 양수 modifier만 표시하고 `파티 장착 가능`을 표시하지 않는다.
+- incompatible 장비의 `현재 파티 장착 불가` 문구는 유지되며 해당 phrase에만 `#e4a56f` 강조색과 굵은 글꼴이 적용된다.
+- 아이템은 단가·효과를 표시하고 합계 text를 표시하지 않지만 구매 계산은 유지한다.
+- gameplay data·가격·구매·장착·profile·License·dependency가 변경되지 않는다.

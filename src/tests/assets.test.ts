@@ -5,7 +5,7 @@ import { REGISTERED_ENEMY_CONTENT_IDS, enemySpriteKeyFor } from '../phaser/asset
 import { characterTextureKey } from '../phaser/assets/characterAssets'
 import { MARKER_KEYS, REGISTERED_TERRAIN_MAP_IDS, terrainTextureKey } from '../phaser/assets/terrainAssets'
 import { CONTENT_ICON_URLS } from '../ui/ContentIcon'
-import { CONTENT_ICON_KEYS, getCustomSkillAllowedClassLabel, getEquipmentPresentation, getItemPresentation, getRarityDisplayName, getRewardPresentation, getSkillPresentation, RARITY_CSS_TOKENS } from '../ui/contentPresentation'
+import { CONTENT_ICON_KEYS, getCustomSkillAllowedClassLabel, getEquipmentPresentation, getItemEffectDescription, getItemPresentation, getPositiveEquipmentModifierLabels, getRarityDisplayName, getRewardPresentation, getSkillPresentation, RARITY_CSS_TOKENS } from '../ui/contentPresentation'
 import type { EquipmentFamily, PendingRewardEntry, Rarity } from '../game/types'
 
 const TERRAIN_MAP_IDS = ['training_ruins', 'goblin_den', 'ancient_site', 'underground_dungeon', 'old_castle', 'volcanic_cave', 'deep_forest_ruins']
@@ -107,6 +107,25 @@ describe('content presentation assets', () => {
     expect(getCustomSkillAllowedClassLabel('sleep')).toBe('마법사')
     expect(getCustomSkillAllowedClassLabel('unknown_skill')).toBe('장착 직업 정보 없음')
     expect(JSON.stringify({ classes: CLASS_DATA, allowed: CUSTOM_SKILL_ALLOWED_CLASSES })).toBe(before)
+  })
+
+  it('formats positive equipment modifiers and item effects for shop presentation', () => {
+    const before = JSON.stringify({ equipment: EQUIPMENT_DATA, items: ITEM_DATA })
+    expect(getPositiveEquipmentModifierLabels('common_sword')).toEqual(['str + 1'])
+    expect(getPositiveEquipmentModifierLabels('uncommon_sword')).toEqual(['str + 2', 'dex + 1'])
+    expect(getPositiveEquipmentModifierLabels('unknown_equipment')).toEqual([])
+    for (const equipmentId of Object.keys(EQUIPMENT_DATA)) {
+      const labels = getPositiveEquipmentModifierLabels(equipmentId)
+      expect(labels.length).toBeGreaterThan(0)
+      expect(labels.every((label) => !label.endsWith('+ 0') && !label.includes('+ -'))).toBe(true)
+    }
+    expect(Object.keys(ITEM_DATA).map((itemId) => getItemEffectDescription(itemId))).toEqual([
+      '아군 1명 HP 10 회복', '응급 치료 사용 비용', '출혈·신경독·마비·수면·능력 감소 중 하나 제거',
+      '적 1명 DEF 무시 피해 10', '현재·인접 칸 함정·비밀문 1회 탐지', '아군 1명 HP 22 회복',
+      '3라운드 STR +2', '3라운드 AGI +2', '제거 가능 상태·능력 감소 전부 제거',
+    ])
+    expect(getItemEffectDescription('unknown_item')).toBe('효과 정보 없음')
+    expect(JSON.stringify({ equipment: EQUIPMENT_DATA, items: ITEM_DATA })).toBe(before)
   })
 
   it('delegates rewards to selectors and does not mutate definitions or inputs', () => {

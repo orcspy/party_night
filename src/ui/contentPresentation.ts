@@ -1,4 +1,4 @@
-import { CLASS_DATA, CUSTOM_SKILL_ALLOWED_CLASSES, EQUIPMENT_DATA, ITEM_DATA, SKILLS, type CustomSkillId } from '../game/content'
+import { CLASS_DATA, CUSTOM_SKILL_ALLOWED_CLASSES, EQUIPMENT_DATA, ITEM_DATA, SKILLS, type CustomSkillId, type ItemData } from '../game/content'
 import { getEquipmentDisplayName, getItemDisplayName, getSkillDisplayName } from '../game/displayNames'
 import type { ClassId, EquipmentFamily, ItemId, PendingRewardEntry, Rarity } from '../game/types'
 
@@ -36,6 +36,19 @@ const RARITY_LABELS: Record<Rarity, string> = {
 }
 
 const ALL_CLASS_IDS: readonly ClassId[] = ['warrior', 'rogue', 'archer', 'paladin', 'priest', 'mage']
+const EQUIPMENT_MODIFIER_KEYS = ['str', 'dex', 'int', 'con', 'agi', 'luck'] as const
+
+const ITEM_EFFECT_DESCRIPTIONS: Record<ItemData['effect'], string> = {
+  heal_10: '아군 1명 HP 10 회복',
+  skill_cost: '응급 치료 사용 비용',
+  remove_one: '출혈·신경독·마비·수면·능력 감소 중 하나 제거',
+  damage_10: '적 1명 DEF 무시 피해 10',
+  survey: '현재·인접 칸 함정·비밀문 1회 탐지',
+  heal_22: '아군 1명 HP 22 회복',
+  buff_str: '3라운드 STR +2',
+  buff_agi: '3라운드 AGI +2',
+  remove_all: '제거 가능 상태·능력 감소 전부 제거',
+}
 
 export const RARITY_CSS_TOKENS: Record<Rarity, string> = {
   common: '--rarity-common',
@@ -73,6 +86,12 @@ export function getEquipmentPresentation(equipmentId: string): ContentPresentati
   }
 }
 
+export function getPositiveEquipmentModifierLabels(equipmentId: string): readonly string[] {
+  const definition = EQUIPMENT_DATA[equipmentId]
+  if (!definition) return []
+  return EQUIPMENT_MODIFIER_KEYS.flatMap((key) => definition.modifiers[key] > 0 ? [`${key} + ${definition.modifiers[key]}`] : [])
+}
+
 export function getItemPresentation(itemId: string): ContentPresentation {
   const known = ITEM_DATA[itemId as ItemId] !== undefined
   return {
@@ -82,6 +101,11 @@ export function getItemPresentation(itemId: string): ContentPresentation {
     rarity: 'neutral',
     rarityLabel: null,
   }
+}
+
+export function getItemEffectDescription(itemId: string): string {
+  const definition = ITEM_DATA[itemId as ItemId]
+  return definition ? ITEM_EFFECT_DESCRIPTIONS[definition.effect] : '효과 정보 없음'
 }
 
 export function getSkillPresentation(skillId: string): ContentPresentation {

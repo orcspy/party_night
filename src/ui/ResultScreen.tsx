@@ -29,7 +29,7 @@ export function ResultScreen({ state, dispatch }: { state: GameState; dispatch: 
               <h2>성장·해금</h2>
               {summary.characterResults.map((result) => (
                 <div className="settlement-character" key={result.characterId}>
-                  <span>{state.profile?.characters.find((character) => character.characterId === result.characterId)?.name}: Lv {result.previousLevel} → {result.level} · EXP +{summary.experiencePerCharacter} · 신규 스킬</span>
+                  <span>{state.profile?.characters.find((character) => character.characterId === result.characterId)?.name}: Lv {result.previousLevel} → {result.level} · EXP +{summary.experiencePerCharacter} · 신규 직업 스킬 {result.unlockedClassSkillIds.length === 0 ? '없음' : ''}</span>
                   {result.unlockedClassSkillIds.length > 0 ? (
                     <span className="content-inline-list">
                       {result.unlockedClassSkillIds.map((skillId) => {
@@ -37,8 +37,8 @@ export function ResultScreen({ state, dispatch }: { state: GameState; dispatch: 
                         return <span className="content-inline" key={skillId}><ContentIcon {...presentation} size="small" />{getSkillDisplayName(skillId)}</span>
                       })}
                     </span>
-                  ) : <span>없음</span>}
-                  <span>· 신규 커스텀 슬롯 {(result.unlockedCustomSlotIndices ?? []).map((index) => index + 1).join(', ') || '없음'}</span>
+                  ) : null}
+                  <span>· 신규 커스텀 스킬 슬롯 {(result.unlockedCustomSlotIndices ?? []).map((index) => index + 1).join(', ') || '없음'}</span>
                 </div>
               ))}
               <p>{summary.unlockedQuestIds.length > 0 ? `${summary.unlockedQuestIds.map(getQuestDisplayName).join(' · ')} 해금` : '추가 퀘스트 해금 없음'}</p>

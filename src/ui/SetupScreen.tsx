@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { CLASS_DATA, createInitialCharacters, deriveCombatStats, getFinalAttributes, RACE_DATA } from '../game/content'
 import type { ClassId, GameCommand, GameState, Gender, MainCharacterConfig, PersistentCharacter, RaceId } from '../game/types'
 import { FullscreenToggle } from './FullscreenToggle'
+import { LicenseModal } from './LicenseModal'
 
 interface Props {
   state: GameState
@@ -10,6 +11,8 @@ interface Props {
 
 export function SetupScreen({ state, dispatch }: Props) {
   const [config, setConfig] = useState<MainCharacterConfig>({ name: '', raceId: 'human', classId: 'warrior', gender: '남성' })
+  const [licenseOpen, setLicenseOpen] = useState(false)
+  const licenseTriggerRef = useRef<HTMLButtonElement>(null)
   if (state.screen === 'start') {
     return (
       <main className="menu-screen start-screen">
@@ -18,10 +21,14 @@ export function SetupScreen({ state, dispatch }: Props) {
         <h1>PARTY NIGHT</h1>
         <p className="subtitle">네 명의 모험가, 한 번의 주사위.</p>
         <div className="menu-actions">
-          <button className="primary" onClick={() => dispatch({ type: state.profile ? 'LOAD_PROFILE' : 'OPEN_PROFILE_CREATE' })}>{state.profile ? '이어하기' : '새 게임'}</button>
+          <div className="start-primary-row">
+            <button className="primary" onClick={() => dispatch({ type: state.profile ? 'LOAD_PROFILE' : 'OPEN_PROFILE_CREATE' })}>{state.profile ? '이어하기' : '새 게임'}</button>
+            <button ref={licenseTriggerRef} type="button" className="license-trigger" aria-haspopup="dialog" aria-expanded={licenseOpen} onClick={() => setLicenseOpen(true)}>License</button>
+          </div>
           {state.profile && <button className="danger" onClick={() => dispatch({ type: 'RESET_PROFILE' })}>저장 초기화</button>}
           <FullscreenToggle className="start-fullscreen-toggle" />
         </div>
+        {licenseOpen && <LicenseModal returnFocusRef={licenseTriggerRef} onClose={() => setLicenseOpen(false)} />}
       </main>
     )
   }

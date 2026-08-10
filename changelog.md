@@ -1155,3 +1155,123 @@ asset 문서와 실제 asset 파일들에 대한 file수, file size, registry기
 - 핵심 결과: 신규 화면 text 두 code block과 notice sections 2~7을 fail-closed로 추출하고 `Third-Party License Texts` scroll 영역과 `?url&no-inline` 별도 notice file을 제공하는 최종 사양으로 재작성했다. 개발 전용 section 8, asset·maintenance sections 9~10, audit summary, LICENSE의 `송현도 (orcspy)` 표기와 폐기 문서 내용은 게임 modal에서 제외한다.
 - 검증·커밋 범위: `README.md`, `architecture.md`, `implements.md`, `changelog.md`와 신규 License 관련 Markdown 4개만 로컬 commit 대상으로 한다. 사용자 지시에 없는 `Party_Night_license_final_v0.2.0.zip`은 binary archive이므로 stage·commit하지 않는다. 원격 push는 요청되지 않아 수행하지 않는다.
 - 위험·미확정 사항: 실제 License 버튼·modal·parser·CSS·테스트는 아직 구현되지 않았다. 구현 후 typecheck·전체 test·build, 별도 notice asset과 Android Chrome·iOS Safari scroll/focus 검증이 필요하다. Planner 문서 적용 작업이므로 코드·test·build는 실행하지 않는다.
+
+## 2026-08-10 14:01:16 +09:00 | Planner | 결과 해금 문구·스킬 직업군·전체 스킬 정보 설계
+
+- 대상: 퀘스트 결과 성장 문구, 스킬 판매 행의 사용 가능 직업군, 거점 상점 `스킬 정보` category와 플레이어 스킬 32개 9열 표
+- 사용자 작업 지시 원문:
+
+```text
+퀘스트 완료 화면에서 "신규 스킬 없음" 구문을 "신규 직업 스킬 없음"으로 변경.
+퀘스트 완료 화면에서 "신규 커스텀 슬롯 x" 구문을 "신규 커스텀 스킬 슬롯 x"로 변경.
+스킬 상점에서 스킬 설명 구문의 "구입시 고유 인스턴스 생성" 구문을 해당 스킬의 사용가능 직업군 표시로 변경.
+
+거점의 상점에서 [장비][아이템][스킬] 오른쪽에 [스킬 정보] 항목을 신설(거점에서 아무조건 없이 확인 가능 할 것) 후 아래와 같은 포멧으로 모든 스킬(직업스킬, 커스텀 스킬)에 대해서 정리된 표로 정보를 제공 할 것.
+전사, 성기사, 도적, 궁수, 사제, 마법사순서 + 직업 스킬, 커스텀 스킬(직업군)순으로 정렬. 제일 마지막에 공용 스킬을 기술.
+| 스킬 이름 | 직업 구분 | 분류 | 해금 레벨 | 대상 | 다이스 | 고정 보정 | 쿨타임 | 효과(effect_note 를 기술) |
+를 설계 할 것. 설계 작업 전 [스킬 정보] 기능 구현에 license관련 확정 내용이 변경될 소지가 있을지 확인 하고 해당 상황이 발생 시 작업을 중지하고 사용자에게 알릴 것.
+```
+
+- 사용한 기준 문서: 루트 `AGENTS.md`, `raw_data_table.md` 7.2·7.3·22.7, `architecture.md`, `implements.md`; 현재 `src/ui/{ResultScreen,ShopPanel,contentPresentation}.tsx/ts`, `src/game/{content,characters,types,displayNames}.ts`, `src/styles.css`, 관련 characters·assets·shop·stage 테스트; 확정 `GAME_LICENSE_SCREEN_TEXT.md`, `LICENSE`, `THIRD_PARTY_NOTICES.md`, `LICENSE_AUDIT_SUMMARY.md`, `package.json`
+- License 사전 판정: 기존 React·TypeScript·CSS와 현재 스킬 data만 사용하는 표시 기능이며 신규 package·외부 asset·registry·runtime/vendored dependency·network resource를 추가하지 않는다. package/lockfile과 License 4문서의 component·version·notice·asset 판정이 바뀔 소지가 없어 사용자 중단 조건이 발생하지 않았음을 확인하고 설계를 계속했다.
+- 조사 범위: 결과 화면의 분리된 label/없음 DOM, ShopPanel 3개 category·offer disabled·storage warning·skill 판매 문구, 직업 skill tuple·Lv1/2/5 해금, custom 13종 allowed classes·Lv3 slot 규칙, SKILLS의 player/enemy 혼재, raw effect_note와 22.7 실행 정규화, 기존 allowed-class helper·table/scroll CSS 제약
+- 생성·갱신 문서: `architecture.md` 신규 27절, `implements.md` 신규 35절, `changelog.md`; 코드·설정·테스트·raw data·License·asset 문서는 수정하지 않음
+- 결정 근거: 플레이어 정보 범위를 직업 18+custom 13+basic attack 1의 32종으로 확정하고 적 전용 9종은 제외했다. 구조 수치는 현재 `SKILLS`·해금 규칙, 효과 문구는 사용자 지정대로 raw 7.2·7.3 `effect_note`를 사용한다. production에서 raw Markdown을 import하지 않고 순수 effect map을 test에서만 원문과 대조한다.
+- 핵심 결과: 전사→성기사→도적→궁수→사제→마법사 순으로 각 직업 skill Lv1/2/5 뒤 단일 직업 custom을 배치하고 마지막에 basic attack과 공용 custom 6종을 두는 중복 없는 32행 순서를 확정했다. `분류` 열은 raw 표와 현재 `activation`에 맞춘 `액티브`·`패시브`만 표시하고 직업/custom/basic 구분은 정렬 metadata에만 사용한다. `skill_info`는 offer·골드·창고·진행도와 무관하게 enabled이며 semantic 9열 table, 독립 scroll·sticky header/첫 열로 표시하도록 설계했다.
+- 핵심 결과: 판매 skill은 기존 `getCustomSkillAllowedClassLabel`을 재사용해 `G {가격} · 사용 가능 직업: {공용/직업명}`을 표시하고 구매·instance 규칙은 유지한다. 결과 화면은 `신규 직업 스킬`, `신규 커스텀 스킬 슬롯`으로 label을 바꾸며 없음·해금 값 모두 같은 표현을 사용한다.
+- 위험·미확정 사항: raw effect_note 일부는 현재 정규화 실행 설명과 표현 차이가 있으나 사용자가 effect_note 기술을 명시했으므로 effect 열에는 원문을 보존하고 dice·target·cooldown은 실제 `SKILLS`를 사용하도록 출처를 분리했다. 9열은 mobile에서 축소하지 않고 scroll이 필요하다. Planner 작업이므로 코드·테스트·typecheck·build·브라우저 실행은 수행하지 않았다.
+
+## 2026-08-10 14:13:38 +09:00 | Coder | 기능 추가·확장
+
+- 작업 루트·모드: `D:\Work\Private\jobs\20260807\party_night\party_night` · 원본 직접 작업
+- 사용자 작업 지시 원문:
+
+```text
+/agent Coder
+위의 기능 설계안과 문서를 기반으로 작업을 진행 할 것.
+```
+
+- 사용한 설계문서: `implements.md` 35절을 최우선 기준으로 사용하고 `architecture.md` 27절, `AGENTS.md`, `raw_data_table.md` 7.2·7.3을 보조 기준으로 사용했다.
+- 조사 범위: `ResultScreen.tsx`, `ShopPanel.tsx`, `contentPresentation.ts`, `characters.ts`, `content.ts`, `types.ts`, `styles.css`, Vitest/Vite/TypeScript 설정과 직접 관련된 characters·assets 테스트를 확인했다.
+- 검증 단계: 별도 지정이 없어 `1단계 기본 검증`을 적용했다.
+- 변경 파일: `src/game/characters.ts`, 신규 `src/game/skillInfo.ts`, 신규 `src/ui/SkillInfoTable.tsx`, `src/ui/ResultScreen.tsx`, `src/ui/ShopPanel.tsx`, `src/styles.css`, 신규 `src/tests/skillInfo.test.ts`, `changelog.md`.
+- 결정 근거: 게임 실행 수치와 표시 이름은 현재 `SKILLS`, 직업 스킬 순서와 해금은 `CLASS_SKILL_IDS` 및 Lv1·2·5, 커스텀 해금은 현재 슬롯 규칙 Lv3을 사용했다. 효과 열만 사용자 지정대로 raw 7.2·7.3의 `effect_note` 원문을 사용하고 production에서는 Markdown을 import하지 않았다.
+- 핵심 구현: 결과 화면 문구를 `신규 직업 스킬`, `신규 커스텀 스킬 슬롯`으로 변경했다. 스킬 판매 행은 기존 직업 제한 helper를 재사용해 가격과 `사용 가능 직업: 공용/직업명`을 표시한다. 상점에 조건 없이 활성화되는 `스킬 정보` category를 추가하고 전사→성기사→도적→궁수→사제→마법사→공용 순의 중복 없는 플레이어 스킬 32개를 9열 semantic table로 표시한다.
+- 핵심 구현: 순수 `getPlayerSkillInfoRows()`가 직업·custom·공용 그룹, 액티브/패시브, 현재 대상·다이스·보정·쿨타임, raw effect note를 결합한다. 적 전용 스킬은 명시 집합에 포함하지 않는다. 표에는 독립 가로·세로 scroll, sticky header·첫 열, touch pan과 4개 category wrap을 적용했다.
+- 호환성·의존성 변경: `CLASS_SKILL_IDS`를 readonly export로 전환했지만 기존 해금 함수의 배열·반환 결과는 유지했다. package·lockfile·외부 asset·License 4문서·profile schema·구매 command와 instance 생성 규칙은 변경하지 않았고 신규 의존성도 없다.
+- 검증 결과: `npm run typecheck` 성공. `npm run test -- src/tests/skillInfo.test.ts` 성공(1 file, 4 tests). 32행 수·고정 순서·중복 없음·직업 label·해금 레벨·대표 실행 표시값·raw effect note 32개 일치·원본 data 불변성을 확인했다.
+- 실패·미확정 사항: 실패와 구현 미확정 사항은 없다. 선택된 1단계 범위에 따라 전체 테스트·build·실제 브라우저 실행·모바일 수동 검증은 수행하지 않았다.
+
+## 2026-08-10 14:37:54 +09:00 | Planner | 스킬 정보 표·장비 보너스·아이템 효과 수정 설계
+
+- 대상: 거점 상점의 스킬 정보 9열 표, 장비 판매 정보, 아이템 판매 정보
+- 사용자 작업 지시 원문:
+
+```text
+방금 제시 했던 스킬 정보 관련 수정 사항은 폐기하고 다음의 지시 사항으로 작업 할 것.
+스킬 정보 관련 수정.
+[누적 가능 100% 확률로 적 신경독 중독(대상의 전투 agi 50% down 중복 불가)+출혈(누적가능)] 구문을 [100% 확률로 적 신경독 중독(대상의 전투 agi 50% down 중복 불가)+출혈] 로 변경.
+"직업 구분" 을 "직업" 으로 축약 하고 해당 열의 가로 사이즈 비율을 줄일것.
+"해금 레벨" 을 "Lv" 로 축약 하고 해당 열의 가로 사이즈 비율을 줄일것. ( 해당 열의 내용들은 숫자로만 표현 할 것 )
+"고정 보정" 을 "보정" 으로 축약 하고 해당 열의 가로 사이즈 비율을 줄일것.
+"스킬 이름", "분류", "다이스", "쿨타임", "효과" 열의 가로 사이즈 비율을 줄일것. ( 쿨타임 열의 내용들은 숫자로만 표현 할 것. 없음은 "0"으로 표기 )
+스킬 정보 테이블의 가로 길이가 현재 표시되는 틀을 넘어가지 않도록 위와 같이 전체적인 항목들의 가로 비율을 조정.
+장비 상점의 장비 정보에 "파티 장착 가능" 구문을 삭제 하고 해당 장비의 장착 보너스 스텟에 대해서 상승하는 스텟에 대해서만 "str + x" 등의 포멧으로 표현.
+아이템 상점의 상품 정보에 합계 가격 정보구문을 아이템의 효과 설명으로 대체.
+위의 조건에 맞도록 수정 설계를 진행 할 것.
+```
+
+- 사용한 기준 문서: `AGENTS.md`, `architecture.md` 27절, `implements.md` 35절, `raw_data_table.md` 7.3·22절; 현재 `src/game/{skillInfo,content,types}.ts`, `src/ui/{SkillInfoTable,ShopPanel,contentPresentation}.tsx/ts`, `src/styles.css`, `src/tests/{skillInfo,assets,shop}.test.ts`
+- 조사 범위: 신경독 effect note와 raw exact test, 9개 table header·cell formatter, 1160px table minimum·열별 최소 폭·가로 scroll, 45개 장비 modifier·허용 직업과 상점 compatibility 문구, 9개 item effect union·실행 resolver·단가/합계 표시와 구매 수량 계산
+- 생성·갱신 문서: `architecture.md` 신규 28절, `implements.md` 신규 36절, `changelog.md`; 코드·설정·테스트·raw data·License·asset 문서는 수정하지 않음
+- 결정 근거: 사용자가 직전 입력을 명시적으로 폐기했으므로 이번 최종 지시만 적용했다. 숫자-only 조건은 최종 문장대로 Lv와 cooldown에 한정했다. 신경독은 raw 원본을 바꾸지 않고 사용자 표시 override로 분리하며, 나머지 31개 effect note는 raw exact 계약을 유지한다.
+- 핵심 결과: header를 `스킬 이름 | 직업 | 분류 | Lv | 대상 | 다이스 | 보정 | 쿨타임 | 효과`로 바꾸고 Lv는 숫자, cooldown은 round 수·unlimited `0`으로 설계했다. table은 min-width와 가로 scroll·첫 열 sticky를 제거하고 fixed-layout 100%와 14/7/8/5/10/7/7/7/35% colgroup, text wrapping, 세로 scroll·sticky header로 현재 viewport 안에 맞춘다.
+- 핵심 결과: 장비는 `str,dex,int,con,agi,luck` 순으로 양수 modifier만 `{key} + {value}`로 표시하며 `파티 장착 가능`은 제거하고 incompatible warning은 유지한다. 아이템은 `개당 G 가격 · effect 설명`을 표시하되 수량별 실제 차감·disable 계산은 유지한다. effect union의 9개 설명은 exhaustive presentation map으로 관리한다.
+- License·의존성 영향: 문자열·presentation helper·CSS 변경만 필요하고 신규 package·asset·network resource가 없어 License 4문서와 dependency closure의 변경은 없다.
+- 위험·미확정 사항: 현재 player skill에는 `once_per_battle`이 없어 숫자 cooldown mapping 대상이 아니다. 향후 추가 시 `1`을 round cooldown으로 오해하지 않도록 fail-closed 검증이 필요하다. 640×360·844×390에서 긴 효과 text wrapping과 table 무가로-overflow를 실제 확인해야 한다. Planner 작업이므로 코드·test·typecheck·build·브라우저 실행은 수행하지 않았다.
+
+## 2026-08-10 14:45:27 +09:00 | Planner | 장비 장착 불가 문구 강조색 보완 설계
+
+- 대상: 장비 상점의 incompatible 장비 경고 phrase
+- 사용자 작업 지시 원문: `문구 변경 지시는 철회. 강조색만 적용 할 것.`
+- 사용한 기준 문서: `architecture.md` 28.4, `implements.md` 36.2·36.6·36.9·36.10; 현재 `src/ui/ShopPanel.tsx`, `src/styles.css`
+- 조사 범위: 현재 ShopPanel의 파티 전체 compatibility 판정, 기존 `현재 파티 장착 불가` text, 공통 `.warning`의 `#e4a56f` 색상
+- 생성·갱신 문서: `architecture.md` 28.4, `implements.md` 36절, `changelog.md`; 코드·CSS·테스트는 수정하지 않음
+- 결정 근거: 사용자가 직전 `현재 선택된 파티원 장착 불가` 문구 변경을 철회했으므로 선택 파티원 상태·판정을 추가하지 않는다. 기존 파티 전체 판정과 `현재 파티 장착 불가` 문구를 유지하고 색상 강조만 설계한다.
+- 핵심 결과: incompatible 장비에서 `현재 파티 장착 불가` phrase만 전용 `.equipment-compatibility-warning` span으로 감싸고 기존 경고 계열 `color:#e4a56f`와 `font-weight:700`을 적용한다. rarity·가격·slot·modifier에는 강조색을 적용하지 않는다.
+- License·호환성 영향: inline markup·기존 CSS 색상 재사용만 필요하며 dependency·asset·License·구매·장착·profile 규칙의 변경은 없다.
+- 위험·미확정 사항: 없음. 실제 CSS 반영과 브라우저 대비 확인은 Coder 단계에서 수행한다.
+
+## 2026-08-10 14:54:08 +09:00 | Coder | 상점 표시 수정·License 화면 기능 추가
+
+- 작업 루트·모드: `D:\Work\Private\jobs\20260807\party_night\party_night` · 원본 직접 작업
+- 사용자 작업 지시 원문:
+
+```text
+/agent Codre
+위의 수정안들과 수정 설계문서를 기반으로 작업을 진행 할 것. ( 초기화면에 license 버튼과 내용 출력 기능도 작업에 포함 할 것. 미정 사항이 있을 경우 작업 전에 사용자에게 확인 할 것 )
+```
+
+- 사용한 설계문서: `implements.md` 34절·36절을 최우선 기준으로 사용하고 `architecture.md` 26절·28절, `AGENTS.md`, 최종 `GAME_LICENSE_SCREEN_TEXT.md`, `LICENSE`, `THIRD_PARTY_NOTICES.md`, `LICENSE_AUDIT_SUMMARY.md`, `raw_data_table.md`를 보조 기준으로 사용했다.
+- 조사 범위: 현재 `SetupScreen` start action·Fullscreen·orientation warning, Vite raw/url import, License 화면 text와 notice sections 2~7 경계, 스킬 정보 row/table/CSS, 장비 modifier·compatibility, item effect resolver·상점 수량 계산, 직접 관련 Vitest 설정과 presentation 테스트를 확인했다.
+- 검증 단계: 별도 지정이 없어 `1단계 기본 검증`을 적용했다.
+- 변경 파일: `src/game/skillInfo.ts`, `src/ui/{SkillInfoTable,contentPresentation,ShopPanel,SetupScreen}.tsx/ts`, 신규 `src/ui/licenseContent.ts`, 신규 `src/ui/LicenseModal.tsx`, `src/styles.css`, `src/tests/{skillInfo,assets}.test.ts`, 신규 `src/tests/licenseContent.test.ts`, `changelog.md`.
+- 결정 근거: 신경독 effect는 최종 사용자 문구를 raw 예외 override로 적용하고 나머지 effect는 raw 원문을 유지했다. Lv·cooldown만 숫자로 표시하고 현재 player skill의 unlimited는 `0`, cooldown은 round 수로 변환했다. License는 수동 확정 두 Markdown만 runtime 입력으로 사용하고 `LICENSE`·audit summary는 browser bundle에 넣지 않았다.
+- 핵심 구현: 스킬 정보 header를 `스킬 이름 | 직업 | 분류 | Lv | 대상 | 다이스 | 보정 | 쿨타임 | 효과`로 축약하고 fixed-layout 100% colgroup·cell wrapping·세로 scroll로 가로 overflow를 제거했다. 신경독 문구를 최종 표현으로 변경하고 cooldown 숫자 contract를 fail-closed로 구현했다.
+- 핵심 구현: 장비 상점은 양수 modifier만 `str + N` 형식으로 표시하고 `파티 장착 가능`을 제거했다. incompatible 장비의 기존 `현재 파티 장착 불가` phrase만 `#e4a56f`·굵은 글꼴로 강조했다. 아이템 상점은 합계 text 대신 effect union의 완전한 사용자 설명을 표시하면서 실제 수량별 가격·disable·구매 command는 유지했다.
+- 핵심 구현: 시작 화면의 새 게임/이어하기 오른쪽에 항상 `License` 버튼을 추가했다. final 화면 문구와 runtime notice sections 2~7을 fail-closed로 추출하고 기본 권리·8개 runtime/vendored 구성요소, 펼침 가능한 원 notice text와 별도 notice 파일 링크를 modal에 표시한다. 닫기·backdrop·Escape·Tab focus trap·trigger focus 복귀, safe-area·독립 touch scroll·portrait stacking을 구현했다.
+- 호환성·의존성 변경: gameplay·profile·RNG·가격·구매·장착 규칙과 License 원문 4개, package·lockfile·asset은 변경하지 않았다. 신규 package 없이 React·TypeScript·CSS와 Vite 기본 raw/url import만 사용했다.
+- 검증 결과: `npm run typecheck` 성공. `npm run test -- src/tests/skillInfo.test.ts src/tests/assets.test.ts src/tests/licenseContent.test.ts` 성공(3 files, 18 tests). 스킬 32행·신경독 override·숫자 cooldown, 장비 양수 modifier·9개 item 효과, 최종 License text·8종 목록·notice sections 2~7·제외 범위·실패 입력 차단을 확인했다.
+- 실패·미확정 사항: 구현을 막는 미확정 사항과 기본 검증 실패는 없다. 1단계 범위에 따라 전체 테스트·production build·별도 emitted notice asset의 `dist` 존재와 `/pn/` URL·실제 브라우저·Android/iOS focus/scroll/회전·스킬 표 실제 폭은 검증하지 않았다.
+
+## 2026-08-10 15:07:44 +09:00 | Coder | 수동 회귀 확인·전체 작업 commit/push
+
+- 작업 루트·모드: `D:\Work\Private\jobs\20260807\party_night\party_night` · 원본 직접 작업
+- 사용자 작업 지시 원문: `수정 항목들 확인 완료, 사용자 전체 수동 회귀 테스트 완료. 현재 작업된 모든 사항에 대해서 commit 및 push할 것.`
+- 사용한 설계문서: `implements.md` 34~36절, `architecture.md` 26~28절 및 이번 작업에 누적된 `changelog.md`
+- 조사 범위: `git status`, 전체 tracked diff·공백 오류, 신규 License/skill info source·test 파일, 최근 10개 commit과 `origin` remote, 사용자 수동 회귀 완료 결과
+- 검증 단계: 선행 Coder의 `1단계 기본 검증` 결과와 사용자가 완료한 전체 수동 회귀 테스트를 commit 기준으로 사용했다.
+- commit 대상: `architecture.md`, `implements.md`, `changelog.md`, 결과·상점·스킬 정보·License 관련 source/CSS/test 신규·수정 파일 전체. 기존 미추적 binary archive `Party_Night_license_final_v0.2.0.zip`은 source 작업 산출물이 아니고 선행 작업에서 명시적으로 제외됐으므로 stage하지 않는다.
+- 결정 근거: 사용자가 수정 항목 확인과 전체 수동 회귀 완료를 명시하고 현재 작업 전체의 commit/push를 승인했다. 현재 `main`은 `origin/main`보다 선행 License 문서 commit 1개가 앞서므로 신규 구현 commit과 함께 원격으로 push한다.
+- 검증 결과: 선행 `npm run typecheck` 성공, 관련 3 files·18 tests 성공, 사용자 전체 수동 회귀 테스트 완료, pre-commit `git diff --check` 공백 오류 없음. 전체 자동 test·production build는 이번 commit 지시에서 추가 실행하지 않았다.
+- 실패·미확정 사항: 없음. commit·push 명령 결과와 최종 원격 동기화 상태는 명령 실행 후 사용자에게 직접 보고한다.
