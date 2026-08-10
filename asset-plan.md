@@ -4,6 +4,8 @@
 
 이 문서는 AGENTS.md 12항에 따라 교체 대상, 신규 에셋, 변경 파일, fallback, 검증 방법을 기록한다. 실제 진행 상태는 이 문서를 계속 갱신한다.
 
+> **v0.2.0 final 상태(2026-08-10):** terrain 7/7 map, enemy 16/16, character 288종, content icon 11종이 현재 런타임에 연결되어 있다. 다이스·함정·비밀문은 별도 승인 asset ID 없이 Phaser Graphics 표현을 유지한다. 전체 20 test files·142 tests와 production build가 통과했고, Android phone Chrome 및 iOS Safari 실기 검증과 Lv1→Lv10 통합 진행을 완료했다. production base는 `/party_night/`이다. 아래 단계별 검증 문구 중 `/pn/`, 일부 test 수, '마일스톤 미검증' 표시는 **당시 변경 단위의 역사적 기록**으로 읽고 현재 상태 판정에는 이 final 요약을 우선한다.
+
 ## 진행 상태 요약
 
 | 단계 | 내용 | 상태 |
@@ -12,10 +14,10 @@
 | 2 | 에셋 registry/loader 구현 (`src/phaser/assets/`) | 완료 |
 | 3 | `ExplorationScene.ts`에 이미지 적용 + fallback 배선 | 완료 |
 | 4 | 조우/출구 마커 좌표 배치 및 판정 위치 일치 검증 | 완료 |
-| 5 | 전투(파티/적/다이스) 에셋 | 부분 진행 — 적(고블린 2종) 배선 완료, 파티(종족×직업×성별×1P~4P, 288종) 제작+배선 완료(`Actor.raceId`/`gender` 최소 인터페이스 추가), 다이스는 미착수 |
-| 6 | v0.2.0 map별 terrain 7종·`marker_boss` | 에셋·registry 완료, 구현된 3개 맵 배선 완료 |
-| 7 | v0.2.0 적 16종 | 에셋·registry 완료, 구현된 5개 enemy 배선 완료 |
-| 8 | 아이템·장비·스킬 대표 아이콘 11종 | 생성·React UI 배선·등급색 적용 완료 |
+| 5 | 전투(파티/적/다이스) 에셋 | v0.2.0 범위 완료 — 적 16종·파티 288종 제작/배선 완료, 다이스는 별도 승인 asset ID 없이 Graphics 유지 |
+| 6 | v0.2.0 map별 terrain 7종·`marker_boss` | 완료 — terrain 7/7 map 및 marker runtime 배선 |
+| 7 | v0.2.0 적 16종 | 완료 — enemy 16/16 runtime 배선 |
+| 8 | 아이템·장비·스킬 대표 아이콘 11종 | 완료 — 생성·React UI 배선·등급색 적용 |
 
 ## 교체 대상 조사 (기존 상태)
 

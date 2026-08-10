@@ -1318,3 +1318,16 @@ test.log 파일을 참고하여 수동 회귀 테스트에 대한 정보를 문�
 - 결정 근거: `test.log`에는 브라우저 실행 기록이 없지만 사용자가 iOS Safari와 Android phone Chrome에서 실제 동작 확인 완료를 명시했으므로 사용자 실기기 검증 결과로 별도 기록한다.
 - 핵심 결과: 최신 상태의 전체 수동 회귀와 iOS Safari·Android phone Chrome 실동작 확인을 완료 상태로 반영했다. 자동 142 tests·build 결과와 모바일 실기기 보고의 증거 출처는 계속 구분한다.
 - 위험·미확정 사항: 기기 모델, OS·브라우저 version, 정확한 viewport, 배포 URL과 focus·회전·Fullscreen별 결과는 제공되지 않아 임의로 확정하지 않았다. Planner 문서 작업이므로 검증 명령이나 브라우저 실행은 수행하지 않았다.
+
+## 2026-08-10 16:57:00 +09:00 | Planner | final 출품용 공개 문서 정합화
+
+- 대상: `party_night-final.zip` 기준 공개 README·에셋 현황·라이선스 감사 문서의 final 상태 정합화
+- 사용자 작업 지시 원문: `관련 문서들을 수정해서 다운로드 받을 수 있게 할 것.`
+- 사용한 기준 문서/파일: `README.md`, `asset-plan.md`, `asset-catalog.md`, `LICENSE_AUDIT_SUMMARY.md`, `LICENSE`, `THIRD_PARTY_NOTICES.md`, `package.json`, `package-lock.json`, `vite.config.ts`, `.github/workflows/deploy.yml`, `src/assets/**`, `src/tests/**`, 최신 `architecture.md`·`implements.md`·`changelog.md`
+- 조사 범위: 최종 Play/Repository URL, v0.2.0·`/party_night/` production base, 20 test files·142 tests와 production build 기록, Android phone Chrome/iOS Safari 실동작 완료, 350 PNG/346 runtime asset 구성, 7/7 terrain map·16/16 enemy 연결, root proprietary License와 asset catalog 문구 정합성, package-lock 154개 license 분포
+- 변경 파일: `README.md`, `asset-plan.md`, `asset-catalog.md`, `LICENSE_AUDIT_SUMMARY.md`, `changelog.md`. 코드·설정·테스트·asset binary·License 원문은 변경하지 않음.
+- 핵심 변경: README를 개발 단계 보고 중심에서 공개/출품용 진입 문서로 정리했다. Play/Repository URL, 게임 특징, `npm ci` 실행법, final 검증 상태, 7개 퀘스트·Lv1~10 범위, Pure TypeScript engine 구조, Known Limitations, License/Third-Party와 프로젝트 문서 링크를 추가했다. 존재하지 않는 `test.log` 직접 참조, 현재 수치와 혼동되는 122 tests/단계 10 설명, `가져온 전용 draft 에셋` 표현을 제거했다.
+- 핵심 변경: `asset-plan.md`와 `asset-catalog.md` 상단에 v0.2.0 final 상태를 명시하고 terrain 7/7, enemy 16/16, character 288, content icon 11, 20 files·142 tests, 모바일 실기와 `/party_night/` base를 현재 판정으로 고정했다. 과거 `/pn/`·단계별 미검증 문구는 역사 기록임을 명시해 일괄 삭제하지 않았다.
+- 라이선스 정합화: `asset-catalog.md`의 자체 생성 에셋 `사용 제약 없음` 표현을 제거하고 `외부 attribution 없음 + 사용 조건은 루트 LICENSE 적용`으로 통일했다. `LICENSE_AUDIT_SUMMARY.md`의 검수 기준을 `party_night-final.zip`으로 갱신하고 package-lock 154개(MIT 143, ISC 6, Apache-2.0 3, BSD-3-Clause 1, CC-BY-4.0 1), PNG 350개/현재 runtime 346개/역사적 dungeon 4개를 final 감사 요약에 반영했다.
+- 검증 결과: 원본 `party_night-final.zip`과 비교해 문서 5개만 변경되었음을 확인했다. README에서 `test.log`, `122개`, `단계 10`, `가져온 전용`, `npm install`, `/pn/` 잔존이 없음을 확인했고, asset current table의 `registry 준비` 잔존과 자체 asset `사용 제약 없음` 표현이 없음을 확인했다. 코드·설정 미변경이므로 typecheck/test/build는 재실행하지 않았다.
+- 실패·미확정 사항: final 그래픽 자체는 여전히 draft/procedural asset 상태다. changelog/implements 등 과거 시점의 `/pn/`, 122 tests, 변경 단위 미검증 문구는 역사 기록이므로 이번 작업에서 수정하지 않았다.

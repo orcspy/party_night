@@ -6,6 +6,8 @@ AGENTS.md 6항에 따라 에셋 ID·용도·경로·출처·라이선스·규격
 
 > 현재 기준: 아래 초기 `dungeon_*` 기록은 역사적 항목이다. 현재 런타임 기준은 문서 하단의 **v0.2.0 terrain·적 통합 카탈로그**와 `src/phaser/assets/{terrainAssets,enemyAssets}.ts`다.
 
+> **v0.2.0 final 상태(2026-08-10):** 실제 media file은 PNG 350개이며, 현재 runtime 대상은 terrain 28 + marker 3 + enemy 16 + character 288 + content icon 11 = **346개**다. `dungeon_{floor,ceiling,wall_side,wall_front}.png` 4개는 역사적 잔존 파일이며 현재 registry에서 참조하지 않는다. 7개 map과 16개 enemy가 모두 실제 Scene에 연결되어 있고, 전체 20 test files·142 tests / production build / Android phone Chrome / iOS Safari 실기 검증이 완료됐다. 아래 개별 단계의 과거 '미검증' 문구는 당시 작업 단위 이력이며 현재 final 판정에는 이 요약을 우선한다.
+
 ## 탐사 지형(Exploration Terrain)
 
 ### dungeon_floor
@@ -13,7 +15,7 @@ AGENTS.md 6항에 따라 에셋 ID·용도·경로·출처·라이선스·규격
 - 용도: 탐사 원근 복도의 바닥 반복 타일 (기존 `fillTriangle(#28213a)` 대체)
 - 런타임 경로: `src/assets/terrain/dungeon_floor.png`
 - 출처/생성 방법: 절차적 생성 — `assets-source/terrain/generate_terrain_tiles.mjs` (자체 작성 Node 스크립트, 외부 소스 없음). 석재 블록 16×16, 줄눈 2px, 약한 베벨(delta 10)로 걷는 바닥은 벽보다 차분하게 유지.
-- 라이선스/attribution: 없음 (자체 생성 원본, 사용 제약 없음)
+- 라이선스/attribution: 외부 attribution 없음. 자체 생성 원본이며 사용 조건은 루트 `LICENSE`를 따른다.
 - 이미지 크기: 32×32px, 프레임 수 1(단일 정적 타일, 애니메이션 없음)
 - animation: 없음
 - anchor: 좌상단(0,0), TileSprite 반복 배치 전제
@@ -25,7 +27,7 @@ AGENTS.md 6항에 따라 에셋 ID·용도·경로·출처·라이선스·규격
 - 용도: 탐사 원근 복도의 천장 반복 타일 (기존 `fillTriangle(#100f19)` 대체)
 - 런타임 경로: `src/assets/terrain/dungeon_ceiling.png`
 - 출처/생성 방법: 절차적 생성 — `assets-source/terrain/generate_terrain_tiles.mjs`. 석재 블록 16×16, 줄눈 2px, 베벨 없음(가장 어둡고 차분한 면으로 유지).
-- 라이선스/attribution: 없음 (자체 생성 원본)
+- 라이선스/attribution: 외부 attribution 없음. 자체 생성 원본이며 사용 조건은 루트 `LICENSE`를 따른다.
 - 이미지 크기: 32×32px, 프레임 수 1
 - animation: 없음
 - anchor: 좌상단(0,0), TileSprite 반복 배치 전제
@@ -37,7 +39,7 @@ AGENTS.md 6항에 따라 에셋 ID·용도·경로·출처·라이선스·규격
 - 용도: 탐사 원근 복도의 좌/우측 벽 반복 타일 (기존 `fillRect(#312944)` 대체, 좌우 공용)
 - 런타임 경로: `src/assets/terrain/dungeon_wall_side.png`
 - 출처/생성 방법: 절차적 생성 — `assets-source/terrain/generate_terrain_tiles.mjs`. 벽돌 16×8 러닝본드, 줄눈 3px(두껍게), 강한 베벨(delta 24, 블록 내부 좌상단 하이라이트/우하단 그림자)로 벽돌 하나하나가 도드라진 두꺼운 석조 벽으로 보이도록 함.
-- 라이선스/attribution: 없음 (자체 생성 원본)
+- 라이선스/attribution: 외부 attribution 없음. 자체 생성 원본이며 사용 조건은 루트 `LICENSE`를 따른다.
 - 이미지 크기: 32×32px, 프레임 수 1
 - animation: 없음
 - anchor: 좌상단(0,0), TileSprite 반복 배치 전제
@@ -49,7 +51,7 @@ AGENTS.md 6항에 따라 에셋 ID·용도·경로·출처·라이선스·규격
 - 용도: 탐사 원근 복도의 정면 막다른 벽 반복 타일 (기존 `fillRect(#3c324c)` + `lineBetween` 가로줄 대체)
 - 런타임 경로: `src/assets/terrain/dungeon_wall_front.png`
 - 출처/생성 방법: 절차적 생성 — `assets-source/terrain/generate_terrain_tiles.mjs`. 벽돌 16×8 러닝본드, 줄눈 3px, 베벨(delta 18) + 밝은 줄눈(`#665877`)으로 정면에서 빛을 받는 막다른 벽 느낌을 강조.
-- 라이선스/attribution: 없음 (자체 생성 원본)
+- 라이선스/attribution: 외부 attribution 없음. 자체 생성 원본이며 사용 조건은 루트 `LICENSE`를 따른다.
 - 이미지 크기: 32×32px, 프레임 수 1
 - animation: 없음
 - anchor: 좌상단(0,0), TileSprite 반복 배치 전제
@@ -61,7 +63,7 @@ AGENTS.md 6항에 따라 에셋 ID·용도·경로·출처·라이선스·규격
 - 용도: 조우(`E`) 셀 위치 표시 아이콘 (신규 표현, 기존 코드에 대응 요소 없음)
 - 런타임 경로: `src/assets/terrain/marker_encounter.png`
 - 출처/생성 방법: 절차적 생성 — `assets-source/terrain/generate_terrain_tiles.mjs` (다이아몬드 링 + 코어 도형)
-- 라이선스/attribution: 없음 (자체 생성 원본)
+- 라이선스/attribution: 외부 attribution 없음. 자체 생성 원본이며 사용 조건은 루트 `LICENSE`를 따른다.
 - 이미지 크기: 24×24px, 프레임 수 1, 배경 투명(alpha 0)
 - animation: 없음
 - anchor: 중앙(0.5, 0.5)
@@ -73,7 +75,7 @@ AGENTS.md 6항에 따라 에셋 ID·용도·경로·출처·라이선스·규격
 - 용도: 퀘스트 출구(`X`) 셀 위치 표시 아이콘 (신규 표현, 기존 코드에 대응 요소 없음)
 - 런타임 경로: `src/assets/terrain/marker_exit.png`
 - 출처/생성 방법: 절차적 생성 — `assets-source/terrain/generate_terrain_tiles.mjs` (상향 화살표 도형)
-- 라이선스/attribution: 없음 (자체 생성 원본)
+- 라이선스/attribution: 외부 attribution 없음. 자체 생성 원본이며 사용 조건은 루트 `LICENSE`를 따른다.
 - 이미지 크기: 24×24px, 프레임 수 1, 배경 투명(alpha 0)
 - animation: 없음
 - anchor: 중앙(0.5, 0.5)
@@ -99,7 +101,7 @@ node assets-source/terrain/generate_terrain_tiles.mjs
 - 용도: 전투 화면 적 파티 슬롯의 "고블린 정찰병"(`contentId: goblin_scout`, `src/game/content.ts` `createEnemies()`) 표현. 기존 `BattleScene.ts`의 사각형(몸통 70×80 + 머리 42×34) placeholder를 대체.
 - 런타임 경로: `src/assets/enemies/goblin_scout.png`
 - 출처/생성 방법: 절차적 생성 — `assets-source/enemies/generate_goblin_sprites.mjs` (자체 작성 Node 스크립트, 외부 소스 없음). 타원/삼각형/사각형 히트테스트 조합으로 정면 기준 인간형 실루엣(머리·뾰족귀·몸통·팔·다리·무기)을 픽셀 단위로 채색하고, 실루엣 외곽 1px에 자동 아웃라인을 적용. 정찰병은 가죽 갈색 튜닉 + 단검(칼날/손잡이) 무장.
-- 라이선스/attribution: 없음 (자체 생성 원본, 사용 제약 없음)
+- 라이선스/attribution: 외부 attribution 없음. 자체 생성 원본이며 사용 조건은 루트 `LICENSE`를 따른다.
 - 이미지 크기: 32×40px, 프레임 수 1(단일 정적 idle 프레임, 애니메이션 없음)
 - animation: 없음. `BattleScene.ts`에서 `setTint()`로 생존(흰색, 무변화)/패배(`0x29252e`, 기존 사각형 placeholder의 패배 색상과 동일) 2개 상태만 표현.
 - anchor: 하단 중앙(0.5, 1), Phaser Scene 표시 배율 2x(정수 배율)로 64×80 표시
@@ -111,7 +113,7 @@ node assets-source/terrain/generate_terrain_tiles.mjs
 - 용도: 전투 화면 적 파티 슬롯의 "고블린 경비병"(`contentId: goblin_guard`) 표현.
 - 런타임 경로: `src/assets/enemies/goblin_guard.png`
 - 출처/생성 방법: 절차적 생성 — `assets-source/enemies/generate_goblin_sprites.mjs`. goblin_scout과 동일한 골격에 팔레트만 강철 회색 갑옷/부츠로 교체, 왼팔 대신 원형 방패(이중 타원으로 테두리 표현), 무기는 단검 대신 장창(자루+삼각형 창날+날밑)으로 변경해 두 적이 시각적으로 구분되도록 했다.
-- 라이선스/attribution: 없음 (자체 생성 원본)
+- 라이선스/attribution: 외부 attribution 없음. 자체 생성 원본이며 사용 조건은 루트 `LICENSE`를 따른다.
 - 이미지 크기: 32×40px, 프레임 수 1
 - animation: 없음(goblin_scout과 동일한 생존/패배 2상태 tint 처리)
 - anchor: 하단 중앙(0.5, 1), 2x 배율 표시
@@ -139,7 +141,7 @@ node assets-source/enemies/generate_goblin_sprites.mjs
   - `slot` ∈ `1`,`2`,`3`,`4` (1P~4P 파티 슬롯)
   - 총 4×6×3×4 = **288개 파일**, 총 용량 약 83KB(평균 296B/파일)
 - 출처/생성 방법: 절차적 생성 — `assets-source/characters/generate_character_sprites.mjs` (자체 작성 Node 스크립트, 외부 소스 없음). `generate_goblin_sprites.mjs`와 동일한 도형 히트테스트(타원/사각형/삼각형/고리) + 실루엣 아웃라인 기법을 재사용하되, 파츠에 최종 색상 대신 **역할(role)** 을 태깅한 뒤 (종족, 직업, 성별, 슬롯) 조합마다 역할→색상 팔레트를 다르게 resolve하는 방식으로 확장했다.
-- 라이선스/attribution: 없음 (자체 생성 원본)
+- 라이선스/attribution: 외부 attribution 없음. 자체 생성 원본이며 사용 조건은 루트 `LICENSE`를 따른다.
 - 이미지 크기: 32×40px, 프레임 수 1(정적 idle, 애니메이션 없음)
 - anchor: 하단 중앙(0.5, 1) — 고블린 적 스프라이트와 동일 컨벤션, 향후 적용 시 동일 배율(2x 권장)로 표시
 - 상태: `draft`
@@ -237,7 +239,7 @@ node assets-source/characters/generate_character_sprites.mjs
 ## v0.2.0 terrain·적 통합 카탈로그 (현재 기준)
 
 - 가져온 원본: `E:\Work\20260806\assets_pn` (`d16b6ed` 기준 에셋 작업본)
-- 출처/라이선스: `assets-source/terrain`·`assets-source/enemies`의 Node 내장 모듈 기반 절차적 생성 원본. 외부 이미지·attribution·사용 제약 없음.
+- 출처/라이선스: `assets-source/terrain`·`assets-source/enemies`의 Node 내장 모듈 기반 절차적 생성 원본. 외부 이미지·attribution 요구 없음. 프로젝트 원본 에셋의 사용 조건은 루트 `LICENSE`를 따른다.
 - 상태: 모든 이미지는 최종 아트가 아닌 `draft`다.
 - 런타임 계약: terrain은 32×32 단일 반복 TileSprite, 적은 32×40·36×44·40×48 단일 idle 이미지, 적 anchor `(0.5,1)`, 정수 2배 표시.
 
@@ -248,7 +250,7 @@ node assets-source/characters/generate_character_sprites.mjs
 | `training_ruins` | `terrain_training_ruins` | `terrain_training_ruins_{floor,ceiling,wall_side,wall_front}.png` | 실제 맵 배선 |
 | `goblin_den` | `terrain_goblin_den` | `terrain_goblin_den_{floor,ceiling,wall_side,wall_front}.png` | 실제 맵 배선 |
 | `ancient_site` | `terrain_ancient_site` | `terrain_ancient_site_{floor,ceiling,wall_side,wall_front}.png` | 실제 맵 배선 |
-| `underground_dungeon` | `terrain_underground_dungeon` | `terrain_underground_dungeon_{floor,ceiling,wall_side,wall_front}.png` | registry 준비, 맵 구현 대기 |
+| `underground_dungeon` | `terrain_underground_dungeon` | `terrain_underground_dungeon_{floor,ceiling,wall_side,wall_front}.png` | 실제 맵 배선 |
 | `old_castle` | `terrain_old_castle` | `terrain_old_castle_{floor,ceiling,wall_side,wall_front}.png` | 옛 고성 맵 적용 완료 |
 | `volcanic_cave` | `terrain_volcanic_cave` | `terrain_volcanic_cave_{floor,ceiling,wall_side,wall_front}.png` | 화산 동굴 맵 적용 완료 |
 | `deep_forest_ruins` | `terrain_deep_forest_ruins` | `terrain_deep_forest_ruins_{floor,ceiling,wall_side,wall_front}.png` | 깊은 숲 폐허 맵 적용 완료 |
@@ -267,17 +269,17 @@ node assets-source/characters/generate_character_sprites.mjs
 | `hobgoblin_boss` | `enemy_hobgoblin_boss` | 40×48 | 실제 조우 배선 |
 | `orc_raider` | `enemy_orc_raider` | 32×40 | 실제 조우 배선 |
 | `ogre` | `enemy_ogre` | 40×48 | 실제 조우 배선 |
-| `kobold_skirmisher` | `enemy_kobold_skirmisher` | 32×40 | registry 준비 |
-| `gnoll_brute` | `enemy_gnoll_brute` | 36×44 | registry 준비 |
-| `minotaur_boss` | `enemy_minotaur_boss` | 40×48 | registry 준비 |
-| `skeleton_soldier` | `enemy_skeleton_soldier` | 32×40 | registry 준비 |
-| `zombie` | `enemy_zombie` | 32×40 | registry 준비 |
-| `ghoul` | `enemy_ghoul` | 36×44 | registry 준비 |
-| `lich_boss` | `enemy_lich_boss` | 40×48 | registry 준비 |
-| `imp` | `enemy_imp` | 32×40 | registry 준비 |
-| `cyclops_boss` | `enemy_cyclops_boss` | 40×48 | registry 준비 |
-| `wraith` | `enemy_wraith` | 36×44 | registry 준비 |
-| `skeleton_king_boss` | `enemy_skeleton_king_boss` | 40×48 | registry 준비 |
+| `kobold_skirmisher` | `enemy_kobold_skirmisher` | 32×40 | 실제 조우 배선 |
+| `gnoll_brute` | `enemy_gnoll_brute` | 36×44 | 실제 조우 배선 |
+| `minotaur_boss` | `enemy_minotaur_boss` | 40×48 | 실제 조우 배선 |
+| `skeleton_soldier` | `enemy_skeleton_soldier` | 32×40 | 실제 조우 배선 |
+| `zombie` | `enemy_zombie` | 32×40 | 실제 조우 배선 |
+| `ghoul` | `enemy_ghoul` | 36×44 | 실제 조우 배선 |
+| `lich_boss` | `enemy_lich_boss` | 40×48 | 실제 조우 배선 |
+| `imp` | `enemy_imp` | 32×40 | 실제 조우 배선 |
+| `cyclops_boss` | `enemy_cyclops_boss` | 40×48 | 실제 조우 배선 |
+| `wraith` | `enemy_wraith` | 36×44 | 실제 조우 배선 |
+| `skeleton_king_boss` | `enemy_skeleton_king_boss` | 40×48 | 실제 조우 배선 |
 
 - 파일 경로는 모두 `src/assets/enemies/<contentId>.png`다.
 - `enemySpriteKeyFor(contentId)`가 승인 texture key를 반환하며, 향후 encounter가 해당 content ID의 Actor를 만들면 별도 Scene 수정 없이 사용된다.
